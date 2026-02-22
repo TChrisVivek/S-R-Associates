@@ -7,6 +7,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import BlueprintTab from '../components/BlueprintTab';
 import MaterialInventoryTab from '../components/MaterialInventoryTab';
+import DailyLogsTab from '../components/DailyLogsTab';
 
 const ProjectDetail = () => {
     const { id } = useParams();
@@ -385,8 +386,13 @@ const ProjectDetail = () => {
                         <MaterialInventoryTab projectId={project.id} />
                     )}
 
+                    {/* Daily Logs Tab Content */}
+                    {activeTab === 'logs' && (
+                        <DailyLogsTab projectId={project.id} />
+                    )}
+
                     {/* Placeholder for other tabs */}
-                    {(activeTab !== 'overview' && activeTab !== 'blueprint' && activeTab !== 'inventory') && (
+                    {(activeTab !== 'overview' && activeTab !== 'blueprint' && activeTab !== 'inventory' && activeTab !== 'logs') && (
                         <div className="bg-white p-16 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center">
                             <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
                                 <Box size={32} className="text-slate-300" />
