@@ -394,7 +394,7 @@ const ProjectDetail = () => {
                                             <p className="text-sm text-slate-500 font-medium">Items requiring immediate attention.</p>
                                         </div>
                                         <span className="bg-red-50 text-red-600 border border-red-100 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide flex items-center gap-1 shadow-sm">
-                                            <AlertTriangle size={14} /> 3 Urgent
+                                            <AlertTriangle size={14} /> {project.criticalTasks.filter(t => t.status === 'urgent').length} Urgent
                                         </span>
                                     </div>
 
