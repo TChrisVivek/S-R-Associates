@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, FolderOpen, Users, PieChart, FileText, Settings,
-    ArrowLeft, Bell, MapPin, Grid, Layers, Box, FileClock, MoreVertical, AlertTriangle, ClipboardList, FileSignature, X, Upload, Loader2, Plus
+    ArrowLeft, Bell, MapPin, Grid, Layers, Box, FileClock, MoreVertical, AlertTriangle, ClipboardList, FileSignature, X, Upload, Loader2, Plus, UserPlus
 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
@@ -42,6 +42,7 @@ const ProjectDetail = () => {
     const [isFeedModalOpen, setIsFeedModalOpen] = useState(false);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+    const [isPersonnelModalOpen, setIsPersonnelModalOpen] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
 
     const fetchProjectDetails = async () => {
@@ -140,6 +141,37 @@ const ProjectDetail = () => {
         } catch (error) {
             console.error("Failed to update project settings:", error);
             alert("Failed to update project settings. Please try again.");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleAddPersonnel = async (e) => {
+        e.preventDefault();
+        setActionLoading(true);
+        try {
+            await api.post(`/personnel`, {
+                project_id: id,
+                name: e.target.name.value,
+                role: e.target.role.value,
+                email: e.target.email.value,
+                phone: e.target.phone.value,
+                site: project.location, // Default to current project's location
+                status: e.target.status.value,
+                avatar: `https://ui-avatars.com/api/?name=${e.target.name.value.split(' ').join('+')}&background=random`
+            });
+            // HACK: because the personnel data is fetched inside ProjectPersonnelTab, 
+            // refreshing the project details here doesn't trick the child into re-fetching.
+            // A more robust way would be lifting state up or using context, but to get it
+            // working quickly for the user, we will just force a hard reload of this tab
+            // by toggling to another tab and back, or let the user click the tab again.
+            // Better yet, dispatch a custom event that ProjectPersonnelTab listens to.
+            window.dispatchEvent(new Event('personnelUpdated'));
+
+            setIsPersonnelModalOpen(false);
+        } catch (error) {
+            console.error("Failed to add personnel:", error);
+            alert("Failed to add personnel. Please try again.");
         } finally {
             setActionLoading(false);
         }
@@ -254,6 +286,9 @@ const ProjectDetail = () => {
                             <button className="relative p-2.5 text-slate-500 hover:text-slate-900 bg-white border border-slate-200 hover:border-slate-300 rounded-xl shadow-sm transition-all">
                                 <Bell size={18} />
                                 <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full"></span>
+                            </button>
+                            <button onClick={() => setIsPersonnelModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm shadow-blue-500/20 transition-all flex items-center gap-2">
+                                <UserPlus size={18} /> Add Personnel
                             </button>
                             <button onClick={() => setIsSettingsModalOpen(true)} className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all border border-slate-700">
                                 Project Settings
@@ -671,6 +706,64 @@ const ProjectDetail = () => {
                                 <button type="button" onClick={() => setIsTaskModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-all">Cancel</button>
                                 <button type="submit" disabled={actionLoading} className="px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition-all disabled:opacity-50 flex items-center gap-2">
                                     {actionLoading ? <Loader2 size={16} className="animate-spin" /> : "Add Task"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Personnel Modal */}
+            {isPersonnelModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-3xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="px-6 py-5 flex items-center justify-between border-b border-slate-100 bg-white sticky top-0">
+                            <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                                <UserPlus size={22} className="text-blue-600" /> Allocate Personnel
+                            </h3>
+                            <button onClick={() => setIsPersonnelModalOpen(false)} className="p-2 rounded-full hover:bg-slate-100 text-slate-400 transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <form onSubmit={handleAddPersonnel} className="p-6 space-y-5 bg-slate-50/30 overflow-y-auto max-h-[70vh]">
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-2">Full Name</label>
+                                <input type="text" name="name" required placeholder="John Doe" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-700 mb-2">Role Title</label>
+                                    <input type="text" name="role" required placeholder="Site Engineer" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-700 mb-2">Current Status</label>
+                                    <select name="status" defaultValue="On Site" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm">
+                                        <option value="On Site">On Site</option>
+                                        <option value="Remote">Remote</option>
+                                        <option value="Off Duty">Off Duty</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-700 mb-2">Email Address</label>
+                                    <input type="email" name="email" required placeholder="john@company.com" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-700 mb-2">Phone Number</label>
+                                    <input type="tel" name="phone" required placeholder="+1 234 567 890" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-6 mt-4 border-t border-slate-100">
+                                <button type="button" onClick={() => setIsPersonnelModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
+                                    Cancel
+                                </button>
+                                <button type="submit" disabled={actionLoading} className="px-6 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-500/20 transition-all flex items-center gap-2 disabled:opacity-70">
+                                    {actionLoading ? <Loader2 size={18} className="animate-spin" /> : "Allocate Resource"}
                                 </button>
                             </div>
                         </form>

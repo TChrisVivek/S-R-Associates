@@ -12,6 +12,13 @@ const ProjectPersonnelTab = ({ projectId }) => {
     // 1. Fetch Real Data
     useEffect(() => {
         fetchPersonnelData();
+
+        const handlePersonnelUpdate = () => {
+            fetchPersonnelData();
+        };
+
+        window.addEventListener('personnelUpdated', handlePersonnelUpdate);
+        return () => window.removeEventListener('personnelUpdated', handlePersonnelUpdate);
     }, [projectId]);
 
     const fetchPersonnelData = async () => {
