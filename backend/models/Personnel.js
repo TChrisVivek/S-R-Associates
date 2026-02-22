@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const personnelSchema = new mongoose.Schema({
+    project_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Project',
+        required: true
+    },
     name: {
         type: String,
         required: true
