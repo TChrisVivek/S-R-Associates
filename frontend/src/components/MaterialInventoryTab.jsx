@@ -17,6 +17,9 @@ const MaterialInventoryTab = ({ projectId }) => {
 
     // Form States
     const [selectedMaterialForUsage, setSelectedMaterialForUsage] = useState('');
+    const [deliveryChallanFile, setDeliveryChallanFile] = useState(null);
+    const [stackPhotoFile, setStackPhotoFile] = useState(null);
+    const [usagePhotoFile, setUsagePhotoFile] = useState(null);
 
     // 1. Fetch Real Data
     useEffect(() => {
@@ -63,6 +66,8 @@ const MaterialInventoryTab = ({ projectId }) => {
 
             await fetchInventory();
             setIsDeliveryModalOpen(false);
+            setDeliveryChallanFile(null);
+            setStackPhotoFile(null);
         } catch (error) {
             console.error("Failed to log delivery:", error);
             alert("Failed to log delivery. Please try again.");
@@ -87,6 +92,7 @@ const MaterialInventoryTab = ({ projectId }) => {
             await fetchInventory();
             setIsUsageModalOpen(false);
             setSelectedMaterialForUsage('');
+            setUsagePhotoFile(null);
         } catch (error) {
             console.error("Failed to log usage:", error);
             alert("Failed to log usage. Please try again.");
@@ -235,7 +241,7 @@ const MaterialInventoryTab = ({ projectId }) => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm overflow-y-auto">
                     <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-2xl my-8 overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
                         <div className="px-8 py-6 flex flex-col border-b border-slate-100 bg-white relative">
-                            <button onClick={() => setIsDeliveryModalOpen(false)} className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100 text-slate-400 transition-colors">
+                            <button type="button" onClick={() => { setIsDeliveryModalOpen(false); setDeliveryChallanFile(null); setStackPhotoFile(null); }} className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100 text-slate-400 transition-colors">
                                 <X size={20} />
                             </button>
                             <h3 className="text-xl font-bold text-slate-900">Log Material Delivery</h3>
@@ -305,27 +311,35 @@ const MaterialInventoryTab = ({ projectId }) => {
                                     <h4 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Undeniable Proof</h4>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5 px-9">
-                                    <div className="relative border-2 border-dashed border-slate-200 hover:border-blue-400 hover:bg-blue-50/50 rounded-2xl p-6 flex flex-col items-center justify-center text-center transition-all group overflow-hidden bg-white">
-                                        <input type="file" name="deliveryChallan" accept="image/*,.pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                                        <div className="w-10 h-10 bg-slate-50 group-hover:bg-blue-100 rounded-full flex items-center justify-center mb-3 transition-colors">
-                                            <ClipboardList className="text-slate-400 group-hover:text-blue-600 transition-colors" size={20} />
+                                    <div className={`relative border-2 border-dashed ${deliveryChallanFile ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 hover:border-blue-400 hover:bg-blue-50/50'} rounded-2xl p-6 flex flex-col items-center justify-center text-center transition-all group overflow-hidden bg-white`}>
+                                        <input type="file" name="deliveryChallan" accept="image/*,.pdf" onChange={(e) => setDeliveryChallanFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                                        <div className={`w-10 h-10 ${deliveryChallanFile ? 'bg-emerald-100' : 'bg-slate-50 group-hover:bg-blue-100'} rounded-full flex items-center justify-center mb-3 transition-colors`}>
+                                            <ClipboardList className={`${deliveryChallanFile ? 'text-emerald-600' : 'text-slate-400 group-hover:text-blue-600'} transition-colors`} size={20} />
                                         </div>
-                                        <p className="font-bold text-slate-700 text-sm group-hover:text-blue-700 transition-colors">Delivery Challan</p>
-                                        <p className="text-xs text-slate-400 mt-1">Click or drag delivery document</p>
+                                        <p className={`font-bold text-sm ${deliveryChallanFile ? 'text-emerald-700' : 'text-slate-700 group-hover:text-blue-700'} transition-colors`}>
+                                            {deliveryChallanFile ? 'Challan Selected' : 'Delivery Challan'}
+                                        </p>
+                                        <p className="text-xs text-slate-400 mt-1 truncate w-full px-4">
+                                            {deliveryChallanFile ? deliveryChallanFile.name : 'Click or drag delivery document'}
+                                        </p>
                                     </div>
-                                    <div className="relative border-2 border-dashed border-slate-200 hover:border-blue-400 hover:bg-blue-50/50 rounded-2xl p-6 flex flex-col items-center justify-center text-center transition-all group overflow-hidden bg-white">
-                                        <input type="file" name="stackPhoto" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                                        <div className="w-10 h-10 bg-slate-50 group-hover:bg-blue-100 rounded-full flex items-center justify-center mb-3 transition-colors">
-                                            <UploadCloud className="text-slate-400 group-hover:text-blue-600 transition-colors" size={20} />
+                                    <div className={`relative border-2 border-dashed ${stackPhotoFile ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 hover:border-blue-400 hover:bg-blue-50/50'} rounded-2xl p-6 flex flex-col items-center justify-center text-center transition-all group overflow-hidden bg-white`}>
+                                        <input type="file" name="stackPhoto" accept="image/*" onChange={(e) => setStackPhotoFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                                        <div className={`w-10 h-10 ${stackPhotoFile ? 'bg-emerald-100' : 'bg-slate-50 group-hover:bg-blue-100'} rounded-full flex items-center justify-center mb-3 transition-colors`}>
+                                            <UploadCloud className={`${stackPhotoFile ? 'text-emerald-600' : 'text-slate-400 group-hover:text-blue-600'} transition-colors`} size={20} />
                                         </div>
-                                        <p className="font-bold text-slate-700 text-sm group-hover:text-blue-700 transition-colors">Material Stack Photo</p>
-                                        <p className="text-xs text-slate-400 mt-1">Clear photo of delivered items</p>
+                                        <p className={`font-bold text-sm ${stackPhotoFile ? 'text-emerald-700' : 'text-slate-700 group-hover:text-blue-700'} transition-colors`}>
+                                            {stackPhotoFile ? 'Photo Selected' : 'Material Stack Photo'}
+                                        </p>
+                                        <p className="text-xs text-slate-400 mt-1 truncate w-full px-4">
+                                            {stackPhotoFile ? stackPhotoFile.name : 'Clear photo of delivered items'}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
 
                             <div className="flex justify-between items-center px-9 pt-4 gap-4">
-                                <button type="button" onClick={() => setIsDeliveryModalOpen(false)} className="flex-1 py-3.5 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
+                                <button type="button" onClick={() => { setIsDeliveryModalOpen(false); setDeliveryChallanFile(null); setStackPhotoFile(null); }} className="flex-1 py-3.5 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
                                     Cancel
                                 </button>
                                 <button type="submit" disabled={actionLoading} className="flex-[2] py-3.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70">
@@ -342,7 +356,7 @@ const MaterialInventoryTab = ({ projectId }) => {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm overflow-y-auto">
                     <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-lg my-8 overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
                         <div className="px-8 py-6 flex flex-col border-b border-slate-100 bg-white relative">
-                            <button onClick={() => setIsUsageModalOpen(false)} className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100 text-slate-400 transition-colors">
+                            <button type="button" onClick={() => { setIsUsageModalOpen(false); setUsagePhotoFile(null); setSelectedMaterialForUsage(''); }} className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100 text-slate-400 transition-colors">
                                 <X size={20} />
                             </button>
                             <h3 className="text-xl font-bold text-slate-900">Log Material Usage</h3>
@@ -408,18 +422,22 @@ const MaterialInventoryTab = ({ projectId }) => {
                                 <textarea name="locationPurpose" rows="3" required placeholder="e.g. 2nd Floor Slab Pouring - Sector B" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all shadow-sm resize-none"></textarea>
                             </div>
 
-                            <div className="relative border-2 border-dashed border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/50 rounded-2xl p-6 flex flex-col items-center justify-center text-center transition-all group overflow-hidden bg-white mt-2">
+                            <div className={`relative border-2 border-dashed ${usagePhotoFile ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/50'} rounded-2xl p-6 flex flex-col items-center justify-center text-center transition-all group overflow-hidden bg-white mt-2`}>
                                 <p className="absolute top-3 right-4 text-[10px] font-bold text-slate-300 uppercase">Optional</p>
-                                <input type="file" name="usagePhoto" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                                <div className="w-10 h-10 bg-slate-50 group-hover:bg-indigo-100 rounded-full flex items-center justify-center mb-3 transition-colors">
-                                    <UploadCloud className="text-slate-400 group-hover:text-indigo-600 transition-colors" size={20} />
+                                <input type="file" name="usagePhoto" accept="image/*" onChange={(e) => setUsagePhotoFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                                <div className={`w-10 h-10 ${usagePhotoFile ? 'bg-emerald-100' : 'bg-slate-50 group-hover:bg-indigo-100'} rounded-full flex items-center justify-center mb-3 transition-colors`}>
+                                    <UploadCloud className={`${usagePhotoFile ? 'text-emerald-600' : 'text-slate-400 group-hover:text-indigo-600'} transition-colors`} size={20} />
                                 </div>
-                                <p className="font-bold text-slate-700 text-sm group-hover:text-indigo-700 transition-colors">Click or drag to upload photo</p>
-                                <p className="text-xs text-slate-400 mt-1">PNG, JPG up to 10MB</p>
+                                <p className={`font-bold text-sm ${usagePhotoFile ? 'text-emerald-700' : 'text-slate-700 group-hover:text-indigo-700'} transition-colors`}>
+                                    {usagePhotoFile ? 'Photo Selected' : 'Click or drag to upload photo'}
+                                </p>
+                                <p className="text-xs text-slate-400 mt-1 truncate w-full px-4">
+                                    {usagePhotoFile ? usagePhotoFile.name : 'PNG, JPG up to 10MB'}
+                                </p>
                             </div>
 
                             <div className="flex justify-end pt-4 gap-3">
-                                <button type="button" onClick={() => setIsUsageModalOpen(false)} className="px-6 py-3 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+                                <button type="button" onClick={() => { setIsUsageModalOpen(false); setUsagePhotoFile(null); setSelectedMaterialForUsage(''); }} className="px-6 py-3 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
                                     Cancel
                                 </button>
                                 <button type="submit" disabled={actionLoading} className="px-8 py-3 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-500/20 transition-all flex items-center gap-2 disabled:opacity-70">
