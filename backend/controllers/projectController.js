@@ -205,6 +205,35 @@ exports.updateProjectStats = async (req, res) => {
     }
 };
 
+exports.updateProjectSettings = async (req, res) => {
+    try {
+        const { title, client, address, siteSize, floors, type, budget, budgetUnit, startDate, endDate, manager, contractor, status } = req.body;
+        const project = await Project.findById(req.params.id);
+
+        if (!project) return res.status(404).json({ message: "Project not found" });
+
+        if (title !== undefined) project.title = title;
+        if (client !== undefined) project.client = client;
+        if (address !== undefined) project.address = address;
+        if (siteSize !== undefined) project.siteSize = siteSize;
+        if (floors !== undefined) project.floors = floors;
+        if (type !== undefined) project.type = type;
+        if (budget !== undefined) project.budget = budget;
+        if (budgetUnit !== undefined) project.budgetUnit = budgetUnit;
+        if (startDate !== undefined) project.startDate = startDate;
+        if (endDate !== undefined) project.endDate = endDate;
+        if (manager !== undefined) project.manager = manager;
+        if (contractor !== undefined) project.contractor = contractor;
+        if (status !== undefined) project.status = status;
+
+        await project.save();
+        res.status(200).json({ message: "Project settings updated successfully", project });
+    } catch (error) {
+        console.error("Update Project Settings Error:", error);
+        res.status(500).json({ message: "Error updating project settings", error: error.message });
+    }
+};
+
 exports.addCriticalTask = async (req, res) => {
     try {
         const { title, desc, status, icon, assignee } = req.body;

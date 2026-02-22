@@ -40,6 +40,7 @@ const ProjectDetail = () => {
     const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
     const [isFeedModalOpen, setIsFeedModalOpen] = useState(false);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+    const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
 
     const fetchProjectDetails = async () => {
@@ -111,6 +112,33 @@ const ProjectDetail = () => {
             setIsTaskModalOpen(false);
         } catch (error) {
             console.error(error);
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleUpdateSettings = async (e) => {
+        e.preventDefault();
+        setActionLoading(true);
+        try {
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            // Convert numbers
+            if (data.siteSize) data.siteSize = Number(data.siteSize);
+            if (data.floors) data.floors = Number(data.floors);
+            if (data.budget) data.budget = Number(data.budget);
+
+            // Start and End date formatting for the backend
+            if (data.startDate) data.startDate = new Date(data.startDate).toISOString();
+            if (data.endDate) data.endDate = new Date(data.endDate).toISOString();
+
+            await api.put(`/projects/${id}/settings`, data);
+            await fetchProjectDetails();
+            setIsSettingsModalOpen(false);
+        } catch (error) {
+            console.error("Failed to update project settings:", error);
+            alert("Failed to update project settings. Please try again.");
         } finally {
             setActionLoading(false);
         }
@@ -226,7 +254,7 @@ const ProjectDetail = () => {
                                 <Bell size={18} />
                                 <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full"></span>
                             </button>
-                            <button className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all border border-slate-700">
+                            <button onClick={() => setIsSettingsModalOpen(true)} className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all border border-slate-700">
                                 Project Settings
                             </button>
                         </div>
@@ -407,6 +435,132 @@ const ProjectDetail = () => {
             </main>
 
             {/* --- MODALS --- */}
+
+            {/* Project Settings Modal */}
+            {isSettingsModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+                    <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-4xl my-8 overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="px-8 py-6 flex flex-col border-b border-slate-100 bg-white relative sticky top-0 z-10">
+                            <button onClick={() => setIsSettingsModalOpen(false)} className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100 text-slate-400 transition-colors">
+                                <X size={20} />
+                            </button>
+                            <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                                <Settings size={22} className="text-blue-600" /> Project Settings
+                            </h3>
+                            <p className="text-slate-500 text-sm mt-1">Modify metadata and core details for {project.title}.</p>
+                        </div>
+
+                        <form onSubmit={handleUpdateSettings} className="p-8 space-y-8 bg-slate-50/30 overflow-y-auto max-h-[70vh]">
+
+                            {/* Section: Core Info */}
+                            <div>
+                                <h4 className="text-sm font-black text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2">Core Identity</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-2">Project Title</label>
+                                        <input type="text" name="title" defaultValue={project.title} required className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-2">Shortcode / ID</label>
+                                        <input type="text" value={project.id} readOnly className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none shadow-sm text-sm text-slate-500 font-mono cursor-not-allowed" />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-bold text-slate-700 mb-2">Location Address</label>
+                                        <input type="text" name="address" defaultValue={project.location} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section: Scope & Specs */}
+                            <div>
+                                <h4 className="text-sm font-black text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2">Scope & Specifications</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-bold text-slate-700 mb-2">Project Type</label>
+                                        <select name="type" defaultValue={project.type} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm">
+                                            <option value="Residential">Residential</option>
+                                            <option value="Commercial">Commercial</option>
+                                            <option value="Renovation">Renovation</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-2">Site Size (sq ft)</label>
+                                        <input type="number" name="siteSize" defaultValue={project.siteSize} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-2">Floors</label>
+                                        <input type="number" name="floors" defaultValue={project.floors} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section: Scheduling & Financials */}
+                            <div>
+                                <h4 className="text-sm font-black text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2">Schedule & Budget</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+                                    <div className="md:col-span-2 flex gap-3">
+                                        <div className="flex-1">
+                                            <label className="block text-xs font-bold text-slate-700 mb-2">Budget Target</label>
+                                            <input type="number" name="budget" defaultValue={project.budget ? project.budget.split(' ')[0] : ''} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
+                                        </div>
+                                        <div className="w-32">
+                                            <label className="block text-xs font-bold text-slate-700 mb-2">Unit</label>
+                                            <select name="budgetUnit" defaultValue={project.budget ? project.budget.split(' ')[1] : 'Lakhs'} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm">
+                                                <option value="Lakhs">Lakhs</option>
+                                                <option value="Crores">Crores</option>
+                                                <option value="Thousands">Thousands</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-2">Project Phase</label>
+                                        <select name="status" defaultValue={project.phase.toLowerCase()} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm">
+                                            <option value="planning">Planning</option>
+                                            <option value="in progress">In Progress</option>
+                                            <option value="on track">On Track</option>
+                                            <option value="delayed">Delayed</option>
+                                            <option value="completed">Completed</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-2">Target End Date</label>
+                                        <input type="date" name="endDate" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section: Key Personnel */}
+                            <div>
+                                <h4 className="text-sm font-black text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2">Key Personnel</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-2">Client Name</label>
+                                        <input type="text" name="client" defaultValue={project.client} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-2">Project Manager</label>
+                                        <input type="text" name="manager" defaultValue={project.manager} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-2">General Contractor</label>
+                                        <input type="text" name="contractor" defaultValue={project.contractor} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
+                                    </div>
+                                </div>
+                            </div>
+
+                        </form>
+
+                        <div className="p-6 border-t border-slate-100 bg-white flex justify-end gap-3 sticky bottom-0 z-10">
+                            <button type="button" onClick={() => setIsSettingsModalOpen(false)} className="px-6 py-3.5 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
+                                Cancel
+                            </button>
+                            <button type="button" onClick={(e) => { e.preventDefault(); document.querySelector('form[onSubmit]').requestSubmit(); }} disabled={actionLoading} className="px-8 py-3.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-500/20 transition-all flex items-center gap-2 disabled:opacity-70">
+                                {actionLoading ? <Loader2 size={18} className="animate-spin" /> : "Save Changes"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Stats Modal */}
             {isStatsModalOpen && (

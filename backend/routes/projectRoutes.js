@@ -33,6 +33,7 @@ router.get('/:id', projectController.getProjectById);
 router.post('/:id/feed', upload.array('images', 10), projectController.addLiveFeedRecord);
 router.post('/:id/tasks', projectController.addCriticalTask);
 router.put('/:id/stats', projectController.updateProjectStats);
+router.put('/:id/settings', projectController.updateProjectSettings);
 router.get('/:id/blueprint-tasks', projectController.getBlueprintAndTasks);
 router.post('/:id/blueprint-tasks', projectController.addBlueprintTask);
 router.post('/:id/blueprints', upload.array('plans', 10), projectController.uploadProjectBlueprint);
