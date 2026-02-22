@@ -156,7 +156,7 @@ const ProjectDetail = () => {
     }
 
     const CustomDonut = ({ percentage, color, label }) => {
-        const circleRadius = 40;
+        const circleRadius = 48; // Increased from 40 for more inner space
         const circumference = 2 * Math.PI * circleRadius;
         const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
@@ -177,9 +177,9 @@ const ProjectDetail = () => {
                         />
                     </svg>
                     {/* Center Text */}
-                    <div className="text-center">
-                        <span className="text-2xl font-bold text-gray-900">{percentage}%</span>
-                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">{label}</p>
+                    <div className="relative z-10 text-center flex flex-col items-center">
+                        <span className="text-3xl font-extrabold text-gray-900 leading-none">{percentage}%</span>
+                        <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wide mt-1.5">{label}</p>
                     </div>
                 </div>
                 {/* Legend */}
