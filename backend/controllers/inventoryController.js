@@ -40,7 +40,8 @@ const getProjectInventory = async (req, res) => {
                 balance: mat.balance.toLocaleString(),
                 value: `₹ ${matValue.toLocaleString()}`,
                 status: mat.status,
-                iconType: mat.iconType
+                iconType: mat.iconType,
+                logs: mat.logs // Exposing the full chronological history to the frontend
             };
         });
 

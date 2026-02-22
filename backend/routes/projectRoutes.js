@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const projectController = require('../controllers/projectController');
 const inventoryController = require('../controllers/inventoryController');
+const dailyLogController = require('../controllers/dailyLogController');
 
 // Configure Multer Storage
 const storage = multer.diskStorage({
@@ -43,5 +44,9 @@ router.post('/:id/materials/delivery', upload.fields([
 router.post('/:id/materials/usage', upload.fields([
     { name: 'usagePhoto', maxCount: 1 }
 ]), inventoryController.logUsage);
+
+// Daily Logs Routes
+router.get('/:id/daily-logs', dailyLogController.getProjectDailyLogs);
+router.post('/:id/daily-logs', upload.array('gallery', 10), dailyLogController.createDailyLog);
 
 module.exports = router;
