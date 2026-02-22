@@ -40,7 +40,7 @@ const createDailyLog = async (req, res) => {
         const galleryPaths = [];
         if (req.files && req.files.length > 0) {
             req.files.forEach(file => {
-                galleryPaths.push(`http://localhost:6969/uploads/${file.filename}`);
+                galleryPaths.push(`${req.protocol}://${req.get('host')}/uploads/${file.filename}`);
             });
         }
 
