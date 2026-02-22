@@ -15,13 +15,8 @@ const dailyLogSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    week: {
-        type: String,
-        required: true
-    },
     weather: {
-        condition: { type: String, required: true },
-        temp: { type: String, required: true }
+        condition: { type: String, required: true }
     },
     laborers: {
         type: Number,

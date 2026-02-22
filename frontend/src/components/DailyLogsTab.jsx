@@ -12,6 +12,16 @@ const DailyLogsTab = ({ projectId }) => {
     const [actionLoading, setActionLoading] = useState(false);
     const [galleryFiles, setGalleryFiles] = useState([]);
 
+    // Auto-calculating date
+    const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+    const selectedDay = new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long' });
+
+    useEffect(() => {
+        if (isCreateModalOpen) {
+            setSelectedDate(new Date().toISOString().split('T')[0]);
+        }
+    }, [isCreateModalOpen]);
+
     // 1. Fetch Real Data
     useEffect(() => {
         fetchLogs();
@@ -133,14 +143,14 @@ const DailyLogsTab = ({ projectId }) => {
                                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-4">
                                         <div>
                                             <h3 className="text-lg font-bold text-slate-900">{formatDate(log.date)}</h3>
-                                            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-0.5">{log.day} • {log.week}</p>
+                                            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-0.5">{log.day}</p>
                                         </div>
 
                                         {/* Badges */}
                                         <div className="flex gap-3">
                                             <div className="flex items-center gap-2 bg-orange-50 text-orange-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-orange-100">
                                                 {getWeatherIcon(log.weather.condition)}
-                                                <span>{log.weather.condition}, {log.weather.temp}</span>
+                                                <span>{log.weather.condition}</span>
                                             </div>
                                             <div className="flex items-center gap-2 bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-indigo-100">
                                                 <Users size={14} />
@@ -197,30 +207,18 @@ const DailyLogsTab = ({ projectId }) => {
 
                         <form onSubmit={handleCreateLog} className="p-8 space-y-6 bg-slate-50/30">
 
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-700 mb-2">Date</label>
-                                    <input type="date" name="date" required className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
+                                    <input type="date" name="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} required className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-slate-700 mb-2">Day</label>
-                                    <select name="day" required className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm">
-                                        <option value="Monday">Monday</option>
-                                        <option value="Tuesday">Tuesday</option>
-                                        <option value="Wednesday">Wednesday</option>
-                                        <option value="Thursday">Thursday</option>
-                                        <option value="Friday">Friday</option>
-                                        <option value="Saturday">Saturday</option>
-                                        <option value="Sunday">Sunday</option>
-                                    </select>
-                                </div>
-                                <div className="md:col-span-2">
-                                    <label className="block text-xs font-bold text-slate-700 mb-2">Project Week</label>
-                                    <input type="text" name="week" required placeholder="e.g. Week 8" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
+                                    <input type="text" name="day" value={selectedDay} readOnly className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none shadow-sm text-sm text-slate-500 cursor-not-allowed font-medium" />
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-700 mb-2">Weather Condition</label>
                                     <select name="weatherCondition" required className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-100 outline-none transition-all shadow-sm text-sm">
@@ -228,10 +226,6 @@ const DailyLogsTab = ({ projectId }) => {
                                         <option value="Cloudy">Cloudy</option>
                                         <option value="Rainy">Rainy</option>
                                     </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-2">Temperature</label>
-                                    <input type="text" name="weatherTemp" required placeholder="e.g. 31°C" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-100 outline-none transition-all shadow-sm text-sm" />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-slate-700 mb-2">Total Laborers</label>
