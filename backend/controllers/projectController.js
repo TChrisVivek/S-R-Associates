@@ -2,6 +2,7 @@ const path = require('path');
 const pdf = require('pdf-poppler');
 const fs = require('fs-extra');
 const Project = require('../models/Project');
+const Material = require('../models/Material');
 
 // Helper: Convert PDF page 1 to Image
 const convertPdfToImage = async (pdfPath, outputDir) => {
@@ -159,6 +160,46 @@ exports.getProjectById = async (req, res) => {
             assignee: task.assignee || "Unassigned"
         }));
 
+        // --- DYNAMIC BUDGET CALCULATION ---
+        let dynamicBudgetSpent = project.stats?.budgetSpent || 0;
+
+        try {
+            // Only calculate if a budget actually exists
+            if (project.budget && project.budget > 0) {
+                // Determine Raw Budget Value
+                let multiplier = 1;
+                const unit = (project.budgetUnit || "Lakhs").toLowerCase();
+
+                if (unit === 'crores') multiplier = 10000000;
+                else if (unit === 'lakhs') multiplier = 100000;
+                else if (unit === 'thousands') multiplier = 1000;
+
+                const rawBudget = project.budget * multiplier;
+
+                // Aggregate Material Deliveries
+                const materials = await Material.find({ project_id: projectId });
+                let totalMaterialSpend = 0;
+
+                materials.forEach(mat => {
+                    mat.logs.forEach(log => {
+                        if (log.type === 'delivery' && log.totalCost) {
+                            totalMaterialSpend += log.totalCost;
+                        }
+                    });
+                });
+
+                // Calculate percentage, capped at 100 max visually, rounded to 1 decimal place
+                if (rawBudget > 0) {
+                    const percentage = (totalMaterialSpend / rawBudget) * 100;
+                    dynamicBudgetSpent = Math.min(Math.round(percentage * 10) / 10, 100);
+                }
+            }
+        } catch (calcError) {
+            console.error("Failed to calculate dynamic budget:", calcError);
+            // fallback to static DB value
+        }
+
+
         // Blend real database data with the required UI structure
         const projectDetails = {
             id: project._id,
@@ -174,7 +215,10 @@ exports.getProjectById = async (req, res) => {
             timeline: `${startStr} - ${endStr}`,
             budget: project.budget ? `${project.budget} ${project.budgetUnit || ''}` : "TBA",
             daysLeft: daysLeft,
-            stats: project.stats || { taskCompleted: 0, budgetSpent: 0 },
+            stats: {
+                taskCompleted: project.stats?.taskCompleted || 0,
+                budgetSpent: dynamicBudgetSpent
+            },
             liveFeed: formattedFeed.reverse(), // latest first
             criticalTasks: formattedTasks.reverse() // latest first
         };
@@ -202,6 +246,35 @@ exports.updateProjectStats = async (req, res) => {
     } catch (error) {
         console.error("Update Stats Error:", error);
         res.status(500).json({ message: "Error updating stats", error: error.message });
+    }
+};
+
+exports.updateProjectSettings = async (req, res) => {
+    try {
+        const { title, client, address, siteSize, floors, type, budget, budgetUnit, startDate, endDate, manager, contractor, status } = req.body;
+        const project = await Project.findById(req.params.id);
+
+        if (!project) return res.status(404).json({ message: "Project not found" });
+
+        if (title !== undefined) project.title = title;
+        if (client !== undefined) project.client = client;
+        if (address !== undefined) project.address = address;
+        if (siteSize !== undefined) project.siteSize = siteSize;
+        if (floors !== undefined) project.floors = floors;
+        if (type !== undefined) project.type = type;
+        if (budget !== undefined) project.budget = budget;
+        if (budgetUnit !== undefined) project.budgetUnit = budgetUnit;
+        if (startDate !== undefined) project.startDate = startDate;
+        if (endDate !== undefined) project.endDate = endDate;
+        if (manager !== undefined) project.manager = manager;
+        if (contractor !== undefined) project.contractor = contractor;
+        if (status !== undefined) project.status = status;
+
+        await project.save();
+        res.status(200).json({ message: "Project settings updated successfully", project });
+    } catch (error) {
+        console.error("Update Project Settings Error:", error);
+        res.status(500).json({ message: "Error updating project settings", error: error.message });
     }
 };
 

@@ -1,4 +1,5 @@
 const Personnel = require('../models/Personnel');
+const Vendor = require('../models/Vendor');
 
 // 1. GET: Fetch all personnel
 exports.getPersonnel = async (req, res) => {
@@ -29,5 +30,47 @@ exports.deletePersonnel = async (req, res) => {
         res.json({ message: "Member removed" });
     } catch (error) {
         res.status(500).json({ message: "Failed to delete", error: error.message });
+    }
+};
+
+// 4. GET: Fetch project-specific personnel and vendors
+exports.getProjectPersonnel = async (req, res) => {
+    const { id: projectId } = req.params;
+
+    try {
+        const internalTeam = await Personnel.find({ project_id: projectId });
+        const externalVendors = await Vendor.find({ project_id: projectId });
+
+        const currentlyOnSite = internalTeam.filter(member => member.status === 'On Site').length;
+
+        const personnelData = {
+            internalTeam: internalTeam.map(member => ({
+                id: member._id.toString(),
+                name: member.name,
+                role: member.role,
+                email: member.email,
+                phone: member.phone,
+                status: member.status ? member.status.toUpperCase() : "ON SITE",
+                avatar: member.avatar || `https://i.pravatar.cc/150?u=${member._id}`
+            })),
+            externalVendors: externalVendors.map(vendor => ({
+                id: vendor._id.toString(),
+                company: vendor.company,
+                trade: vendor.trade,
+                contactPerson: vendor.contactPerson,
+                icon: vendor.icon || "wrench"
+            })),
+            stats: {
+                totalAssigned: internalTeam.length,
+                currentlyOnSite: currentlyOnSite,
+                externalVendors: externalVendors.length,
+                safetyIncidents: 0 // Stubbed until Safety Module is built
+            }
+        };
+
+        res.json(personnelData);
+    } catch (error) {
+        console.error("Error fetching project personnel:", error);
+        res.status(500).json({ message: "Error fetching project personnel" });
     }
 };

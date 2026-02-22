@@ -5,6 +5,7 @@ const path = require('path');
 const projectController = require('../controllers/projectController');
 const inventoryController = require('../controllers/inventoryController');
 const dailyLogController = require('../controllers/dailyLogController');
+const personnelController = require('../controllers/personnelController');
 
 // Configure Multer Storage
 const storage = multer.diskStorage({
@@ -33,10 +34,12 @@ router.get('/:id', projectController.getProjectById);
 router.post('/:id/feed', upload.array('images', 10), projectController.addLiveFeedRecord);
 router.post('/:id/tasks', projectController.addCriticalTask);
 router.put('/:id/stats', projectController.updateProjectStats);
+router.put('/:id/settings', projectController.updateProjectSettings);
 router.get('/:id/blueprint-tasks', projectController.getBlueprintAndTasks);
 router.post('/:id/blueprint-tasks', projectController.addBlueprintTask);
 router.post('/:id/blueprints', upload.array('plans', 10), projectController.uploadProjectBlueprint);
 router.get('/:id/inventory', inventoryController.getProjectInventory);
+router.get('/:id/personnel', personnelController.getProjectPersonnel);
 router.post('/:id/materials/delivery', upload.fields([
     { name: 'deliveryChallan', maxCount: 1 },
     { name: 'stackPhoto', maxCount: 1 }
