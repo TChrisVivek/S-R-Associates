@@ -491,7 +491,7 @@ const ProjectDetail = () => {
                             <p className="text-slate-500 text-sm mt-1">Modify metadata and core details for {project.title}.</p>
                         </div>
 
-                        <form onSubmit={handleUpdateSettings} className="p-8 space-y-8 bg-slate-50/30 overflow-y-auto max-h-[70vh]">
+                        <form id="settings-form" onSubmit={handleUpdateSettings} className="p-8 space-y-8 bg-slate-50/30 overflow-y-auto max-h-[70vh]">
 
                             {/* Section: Core Info */}
                             <div>
@@ -595,7 +595,7 @@ const ProjectDetail = () => {
                             <button type="button" onClick={() => setIsSettingsModalOpen(false)} className="px-6 py-3.5 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
                                 Cancel
                             </button>
-                            <button type="button" onClick={(e) => { e.preventDefault(); document.querySelector('form[onSubmit]').requestSubmit(); }} disabled={actionLoading} className="px-8 py-3.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-500/20 transition-all flex items-center gap-2 disabled:opacity-70">
+                            <button type="submit" form="settings-form" disabled={actionLoading} className="px-8 py-3.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-500/20 transition-all flex items-center gap-2 disabled:opacity-70">
                                 {actionLoading ? <Loader2 size={18} className="animate-spin" /> : "Save Changes"}
                             </button>
                         </div>
