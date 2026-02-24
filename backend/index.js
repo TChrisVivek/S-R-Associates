@@ -15,6 +15,7 @@ connectDB();
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // Added for Form URL encoded logic
 
 const projectRoutes = require('./routes/projectRoutes');
 const userRoutes = require('./routes/userRoutes');

@@ -10,13 +10,16 @@ import {
     AlertCircle,
     Clock,
     ChevronRight,
-    Search,
-    Bell
+    Search
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
+import { useAuth } from '../context/AuthContext';
 import CreateProjectModal from '../components/CreateProjectModal';
 
 const Dashboard = () => {
+    const navigate = useNavigate();
+    const { user: currentUser } = useAuth();
     const [projects, setProjects] = useState([]);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -95,13 +98,22 @@ const Dashboard = () => {
                 </nav>
 
                 <div className="p-6 border-t border-slate-100/50">
-                    <div className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group">
-                        <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden ring-2 ring-white ring-offset-2 transition-all group-hover:ring-blue-100">
-                            <img src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="User" />
-                        </div>
+                    <div
+                        onClick={() => navigate('/profile')}
+                        className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group"
+                    >
+                        {currentUser?.profile_image ? (
+                            <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden ring-2 ring-white ring-offset-2 transition-all group-hover:ring-blue-100">
+                                <img src={currentUser.profile_image} alt={currentUser.username} />
+                            </div>
+                        ) : (
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-blue-700 font-bold border border-blue-200 ring-2 ring-white ring-offset-2 transition-all group-hover:ring-blue-200">
+                                {currentUser?.username?.[0] || 'U'}
+                            </div>
+                        )}
                         <div>
-                            <p className="text-sm font-bold text-slate-800">David Miller</p>
-                            <p className="text-xs text-slate-500 font-medium">Site Director</p>
+                            <p className="text-sm font-bold text-slate-800">{currentUser?.username || 'User'}</p>
+                            <p className="text-xs text-slate-500 font-medium">{currentUser?.role || 'Guest'}</p>
                         </div>
                         <ChevronRight size={16} className="ml-auto text-slate-400 group-hover:text-slate-600 transition-colors" />
                     </div>
@@ -129,10 +141,6 @@ const Dashboard = () => {
                                 className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 w-64 transition-all shadow-sm"
                             />
                         </div>
-                        <button className="relative p-2.5 text-slate-500 hover:text-slate-700 hover:bg-white rounded-xl transition-all shadow-sm hover:shadow-md border border-transparent hover:border-slate-100">
-                            <Bell size={22} />
-                            <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>
-                        </button>
                         <button
                             onClick={() => setIsCreateModalOpen(true)}
                             className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-2.5 rounded-xl flex items-center gap-2.5 font-semibold transition-all shadow-lg shadow-blue-500/30 hover:shadow-blue-500/40 hover:-translate-y-0.5 active:translate-y-0"

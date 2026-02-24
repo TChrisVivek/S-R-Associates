@@ -1,21 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, FolderOpen, Users, PieChart, FileText, Settings,
-    ArrowLeft, Bell, MapPin, Grid, Layers, Box, FileClock, MoreVertical, AlertTriangle, ClipboardList, FileSignature, X, Upload, Loader2, Plus, UserPlus
+    ArrowLeft, MapPin, Grid, Layers, Box, FileClock, MoreVertical, AlertTriangle, ClipboardList, FileSignature, X, Upload, Loader2, Plus, UserPlus, Trash2, ChevronRight, ChevronDown
 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../components/Toast';
 import BlueprintTab from '../components/BlueprintTab';
 import MaterialInventoryTab from '../components/MaterialInventoryTab';
 import DailyLogsTab from '../components/DailyLogsTab';
 import ProjectPersonnelTab from '../components/ProjectPersonnelTab';
 
 const ProjectDetail = () => {
-    const { id } = useParams();
     const navigate = useNavigate();
+    const { user: currentUser } = useAuth();
+    const { id } = useParams();
     const [project, setProject] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
+    const { showToast, ToastComponent } = useToast();
 
     // Company Name State for Sidebar
     const [companyName, setCompanyName] = useState('BuildCore');
@@ -43,6 +47,7 @@ const ProjectDetail = () => {
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isPersonnelModalOpen, setIsPersonnelModalOpen] = useState(false);
+    const [taskToDelete, setTaskToDelete] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
 
     const fetchProjectDetails = async () => {
@@ -119,6 +124,41 @@ const ProjectDetail = () => {
         }
     };
 
+    const handleDeleteTask = (taskId) => {
+        setTaskToDelete(taskId);
+    };
+
+    const confirmDeleteTask = async () => {
+        if (!taskToDelete) return;
+        setActionLoading(true);
+        try {
+            await api.delete(`/projects/${id}/tasks/${taskToDelete}`);
+            await fetchProjectDetails();
+            setTaskToDelete(null);
+            showToast("Task deleted successfully", "success");
+        } catch (error) {
+            console.error("Failed to delete task:", error);
+            showToast("Failed to delete task. Please try again.", "error");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleStatusChange = async (e) => {
+        const newStatus = e.target.value;
+        setActionLoading(true);
+        try {
+            await api.put(`/projects/${id}/settings`, { status: newStatus });
+            await fetchProjectDetails();
+            showToast(`Project status updated to ${newStatus}`, "success");
+        } catch (error) {
+            console.error("Failed to update project status:", error);
+            showToast("Failed to update project status. Please try again.", "error");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     const handleUpdateSettings = async (e) => {
         e.preventDefault();
         setActionLoading(true);
@@ -146,9 +186,10 @@ const ProjectDetail = () => {
             await api.put(`/projects/${id}/settings`, data);
             await fetchProjectDetails();
             setIsSettingsModalOpen(false);
+            showToast("Settings updated successfully", "success");
         } catch (error) {
             console.error("Failed to update project settings:", error);
-            alert("Failed to update project settings. Please try again.");
+            showToast("Failed to update project settings. Please try again.", "error");
         } finally {
             setActionLoading(false);
         }
@@ -177,9 +218,10 @@ const ProjectDetail = () => {
             window.dispatchEvent(new Event('personnelUpdated'));
 
             setIsPersonnelModalOpen(false);
+            showToast("Personnel added successfully", "success");
         } catch (error) {
             console.error("Failed to add personnel:", error);
-            alert("Failed to add personnel. Please try again.");
+            showToast("Failed to add personnel. Please try again.", "error");
         } finally {
             setActionLoading(false);
         }
@@ -239,6 +281,7 @@ const ProjectDetail = () => {
 
     return (
         <div className="flex h-screen bg-[#f8f9fc] font-sans text-gray-800">
+            {ToastComponent}
 
             {/* --- LEFT SIDEBAR (Standard Layout) --- */}
             <aside className="w-72 bg-white/80 backdrop-blur-xl border-r border-slate-200 flex flex-col z-20 hidden md:flex shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)]">
@@ -258,13 +301,30 @@ const ProjectDetail = () => {
                     <NavItem icon={<Settings size={20} />} text="Settings" href="/settings" />
                 </nav>
 
-                <div className="p-6 border-t border-slate-100/50">
+                <div className="p-6 border-t border-slate-100/50 flex flex-col gap-4">
                     <div className="flex flex-col gap-1 px-2">
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Active Project</p>
                         <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
                             <p className="font-bold text-sm text-blue-900 truncate" title={project.title}>{project.title}</p>
                             <p className="text-xs text-blue-600 font-medium mt-1 truncate">{project.phase}</p>
                         </div>
+                    </div>
+
+                    <div onClick={() => navigate('/profile')} className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group border-t border-slate-100/50 pt-4 mt-2">
+                        {currentUser?.profile_image ? (
+                            <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden ring-2 ring-white ring-offset-2 transition-all group-hover:ring-blue-100">
+                                <img src={currentUser.profile_image} alt={currentUser.username} />
+                            </div>
+                        ) : (
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-blue-700 font-bold border border-blue-200 ring-2 ring-white ring-offset-2 transition-all group-hover:ring-blue-200">
+                                {currentUser?.username?.[0] || 'U'}
+                            </div>
+                        )}
+                        <div>
+                            <p className="text-sm font-bold text-slate-800">{currentUser?.username || 'User'}</p>
+                            <p className="text-xs text-slate-500 font-medium">{currentUser?.role || 'Guest'}</p>
+                        </div>
+                        <ChevronRight size={16} className="ml-auto text-slate-400 group-hover:text-slate-600 transition-colors" />
                     </div>
                 </div>
             </aside>
@@ -291,10 +351,6 @@ const ProjectDetail = () => {
                             <span className="text-slate-900 font-bold">{project.title}</span>
                         </div>
                         <div className="flex gap-3 items-center">
-                            <button className="relative p-2.5 text-slate-500 hover:text-slate-900 bg-white border border-slate-200 hover:border-slate-300 rounded-xl shadow-sm transition-all">
-                                <Bell size={18} />
-                                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full"></span>
-                            </button>
                             <button onClick={() => setIsPersonnelModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm shadow-blue-500/20 transition-all flex items-center gap-2">
                                 <UserPlus size={18} /> Add Personnel
                             </button>
@@ -314,9 +370,20 @@ const ProjectDetail = () => {
                                     {project.location}
                                 </p>
                             </div>
-                            <span className="bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border border-blue-100 px-5 py-2 rounded-full text-xs font-bold tracking-wide uppercase shrink-0 shadow-sm">
-                                {project.phase}
-                            </span>
+                            <div className="relative shrink-0 flex items-center">
+                                <select
+                                    value={project.status || 'Planning'}
+                                    onChange={handleStatusChange}
+                                    className="bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border border-blue-200 px-4 py-2 rounded-full text-xs font-bold tracking-wide uppercase shadow-sm cursor-pointer hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none pr-8"
+                                >
+                                    <option value="Planning">Planning</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="On Track">On Track</option>
+                                    <option value="Delayed">Delayed</option>
+                                    <option value="Completed">Completed</option>
+                                </select>
+                                <ChevronDown size={14} className="absolute right-3 text-blue-600 pointer-events-none" />
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-12 border-t border-slate-50 pt-8">
@@ -432,14 +499,19 @@ const ProjectDetail = () => {
                                                             <div className="w-8 h-8 rounded-full bg-slate-300 border-2 border-white shadow-sm"></div>
                                                         </div>
                                                     )}
-                                                    <button className="text-slate-400 hover:text-blue-600 p-2 rounded-lg hover:bg-blue-50 transition-colors">
-                                                        <MoreVertical size={18} />
+                                                    <button
+                                                        onClick={() => handleDeleteTask(task.id)}
+                                                        disabled={actionLoading}
+                                                        className="text-slate-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                                                        title="Delete Task"
+                                                    >
+                                                        <Trash2 size={18} />
                                                     </button>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
-                                    <button onClick={() => setIsTaskModalOpen(true)} className="w-full mt-4 py-3 border-2 border-dashed border-slate-200 rounded-2xl text-slate-500 font-bold text-sm hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50/50 transition-all flex items-center justify-center gap-2">
+                                    <button onClick={() => setIsTaskModalOpen(true)} disabled={actionLoading} className="w-full mt-4 py-3 border-2 border-dashed border-slate-200 rounded-2xl text-slate-500 font-bold text-sm hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50/50 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
                                         <Plus size={18} /> Add Urgent Task
                                     </button>
                                 </div>
@@ -546,15 +618,15 @@ const ProjectDetail = () => {
                             {/* Section: Scheduling & Financials */}
                             <div>
                                 <h4 className="text-sm font-black text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2">Schedule & Budget</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+                                <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
                                     <div className="md:col-span-2 flex gap-3">
                                         <div className="flex-1">
                                             <label className="block text-xs font-bold text-slate-700 mb-2">Budget Target</label>
-                                            <input type="number" name="budget" defaultValue={project.budget ? project.budget.split(' ')[0] : ''} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
+                                            <input type="number" name="budget" defaultValue={project.budgetRaw} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
                                         </div>
                                         <div className="w-32">
                                             <label className="block text-xs font-bold text-slate-700 mb-2">Unit</label>
-                                            <select name="budgetUnit" defaultValue={project.budget ? project.budget.split(' ')[1] : 'Lakhs'} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm">
+                                            <select name="budgetUnit" defaultValue={project.budgetUnitRaw} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm">
                                                 <option value="Lakhs">Lakhs</option>
                                                 <option value="Crores">Crores</option>
                                                 <option value="Thousands">Thousands</option>
@@ -563,7 +635,7 @@ const ProjectDetail = () => {
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-700 mb-2">Project Phase</label>
-                                        <select name="status" defaultValue={project.phase} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm">
+                                        <select name="status" defaultValue={project.status} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm">
                                             <option value="Planning">Planning</option>
                                             <option value="In Progress">In Progress</option>
                                             <option value="On Track">On Track</option>
@@ -572,8 +644,12 @@ const ProjectDetail = () => {
                                         </select>
                                     </div>
                                     <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-2">Start Date</label>
+                                        <input type="date" name="startDate" defaultValue={project.startDate ? new Date(project.startDate).toISOString().split('T')[0] : ''} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
+                                    </div>
+                                    <div>
                                         <label className="block text-xs font-bold text-slate-700 mb-2">Target End Date</label>
-                                        <input type="date" name="endDate" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
+                                        <input type="date" name="endDate" defaultValue={project.endDate ? new Date(project.endDate).toISOString().split('T')[0] : ''} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm text-sm" />
                                     </div>
                                 </div>
                             </div>
@@ -717,6 +793,39 @@ const ProjectDetail = () => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {taskToDelete && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center">
+                            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Trash2 size={28} className="text-red-600" />
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">Delete Task?</h3>
+                            <p className="text-slate-500 text-sm mb-6">
+                                Are you sure you want to delete this critical task? This action cannot be undone.
+                            </p>
+                            <div className="flex gap-3 w-full">
+                                <button
+                                    onClick={() => setTaskToDelete(null)}
+                                    disabled={actionLoading}
+                                    className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold rounded-xl transition-colors disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmDeleteTask}
+                                    disabled={actionLoading}
+                                    className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl shadow-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {actionLoading ? <Loader2 size={16} className="animate-spin" /> : "Delete"}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

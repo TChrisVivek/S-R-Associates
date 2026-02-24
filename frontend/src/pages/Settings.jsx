@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, FolderOpen, Users, PieChart, FileText, Settings,
-    Save, Plus, Bell, Moon, CreditCard, Shield, Lock, BellRing, Smartphone,
-    Slack, FileJson, CloudLightning, Check, Edit2, UserPlus, Loader2
+    Save, Plus, Moon, CreditCard, Shield, Lock, BellRing, Smartphone,
+    Slack, FileJson, CloudLightning, Check, Edit2, UserPlus, Loader2, ChevronRight
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useToast } from '../components/Toast';
+import { useAuth } from '../context/AuthContext';
 
 const SettingsPage = () => {
+    const navigate = useNavigate();
     const { showToast, ToastComponent } = useToast();
+    const { user: currentUser } = useAuth();
     // --- STATE MANAGEMENT ---
     const [activeSection, setActiveSection] = useState('company');
     const [isSaving, setIsSaving] = useState(false);
@@ -73,11 +77,41 @@ const SettingsPage = () => {
         }
     };
 
-    // 3. Mock Data for Users
-    const [teamMembers, setTeamMembers] = useState([
-        { id: 1, name: "Alex Rivera", email: "alex@buildcore.com", role: "Owner", status: "Active" },
-        { id: 2, name: "Sarah Miller", email: "s.miller@buildcore.com", role: "Admin", status: "Active" }
-    ]);
+    // 3. User Management State
+    const [users, setUsers] = useState([]);
+    const [isUsersLoading, setIsUsersLoading] = useState(true);
+
+    const fetchUsers = async () => {
+        setIsUsersLoading(true);
+        try {
+            const res = await api.get('/users');
+            setUsers(res.data);
+        } catch (error) {
+            console.error("Failed to fetch users", error);
+            showToast("Failed to load users", "error");
+        } finally {
+            setIsUsersLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (currentUser?.role === 'Admin') {
+            fetchUsers();
+        } else {
+            setIsUsersLoading(false);
+        }
+    }, [currentUser]);
+
+    const handleRoleUpdate = async (userId, newRole) => {
+        try {
+            await api.put(`/users/${userId}/role`, { role: newRole });
+            showToast("User role updated successfully", "success");
+            fetchUsers(); // Refresh the list
+        } catch (error) {
+            console.error("Failed to update role", error);
+            showToast("Failed to update user role", "error");
+        }
+    };
 
     // Handle Input Changes
     const handleCompanyChange = (e) => {
@@ -110,13 +144,22 @@ const SettingsPage = () => {
                     <NavItem icon={<Settings size={20} />} text="Settings" active href="/settings" />
                 </nav>
                 {/* User Profile Mini-Card at Bottom */}
-                <div className="p-4 border-t border-gray-100 mt-auto">
-                    <div className="flex items-center gap-3">
-                        <img src="https://i.pravatar.cc/150?u=alex" alt="User" className="w-10 h-10 rounded-full border border-gray-200" />
+                <div className="p-6 border-t border-slate-100/50">
+                    <div onClick={() => navigate('/profile')} className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group">
+                        {currentUser?.profile_image ? (
+                            <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden ring-2 ring-white ring-offset-2 transition-all group-hover:ring-blue-100">
+                                <img src={currentUser.profile_image} alt={currentUser.username} />
+                            </div>
+                        ) : (
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-blue-700 font-bold border border-blue-200 ring-2 ring-white ring-offset-2 transition-all group-hover:ring-blue-200">
+                                {currentUser?.username?.[0] || 'U'}
+                            </div>
+                        )}
                         <div>
-                            <p className="text-sm font-bold text-gray-800">Alex Rivera</p>
-                            <p className="text-xs text-gray-500">Admin</p>
+                            <p className="text-sm font-bold text-slate-800">{currentUser?.username || 'User'}</p>
+                            <p className="text-xs text-slate-500 font-medium">{currentUser?.role || 'Guest'}</p>
                         </div>
+                        <ChevronRight size={16} className="ml-auto text-slate-400 group-hover:text-slate-600 transition-colors" />
                     </div>
                 </div>
             </aside>
@@ -206,46 +249,87 @@ const SettingsPage = () => {
                                     <p className="text-sm text-gray-500">Manage administrators and team access levels.</p>
                                 </div>
                                 <button className="text-blue-600 border border-blue-600 hover:bg-blue-50 font-bold py-1.5 px-4 rounded-lg text-sm flex items-center gap-2 transition">
-                                    <UserPlus size={16} /> Add Admin
+                                    <UserPlus size={16} /> Invite User
                                 </button>
                             </div>
 
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm">
-                                    <thead>
-                                        <tr className="text-xs text-gray-400 font-bold uppercase border-b border-gray-100">
-                                            <th className="pb-3 pl-2">User</th>
-                                            <th className="pb-3">Role</th>
-                                            <th className="pb-3">Status</th>
-                                            <th className="pb-3 text-right pr-2">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {teamMembers.map(member => (
-                                            <tr key={member.id}>
-                                                <td className="py-4 pl-2 flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
-                                                        {member.name.split(' ').map(n => n[0]).join('')}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-bold text-gray-800">{member.name}</p>
-                                                        <p className="text-xs text-gray-500">{member.email}</p>
-                                                    </div>
-                                                </td>
-                                                <td className="py-4 text-gray-600">{member.role}</td>
-                                                <td className="py-4">
-                                                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">
-                                                        {member.status}
-                                                    </span>
-                                                </td>
-                                                <td className="py-4 text-right pr-2">
-                                                    <button className="text-gray-400 hover:text-blue-600 text-xs font-bold">Edit</button>
-                                                </td>
+                            {currentUser?.role !== 'Admin' ? (
+                                <div className="text-center py-8 text-gray-500 font-medium">
+                                    You do not have permission to view User Management settings. Contact an Admin.
+                                </div>
+                            ) : isUsersLoading ? (
+                                <div className="flex justify-center items-center py-8">
+                                    <Loader2 className="animate-spin text-blue-500" size={32} />
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-sm">
+                                        <thead>
+                                            <tr className="text-xs text-gray-400 font-bold uppercase border-b border-gray-100">
+                                                <th className="pb-3 pl-2">User</th>
+                                                <th className="pb-3">Role</th>
+                                                <th className="pb-3">Status</th>
+                                                <th className="pb-3 text-right pr-2">Actions</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {users.map(member => (
+                                                <tr key={member._id}>
+                                                    <td className="py-4 pl-2 flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-xs font-bold text-blue-600">
+                                                            {member.username.split(' ').map(n => n[0]).join('')}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-gray-800">{member.username}</p>
+                                                            <p className="text-xs text-gray-500">{member.email}</p>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-4">
+                                                        {member.role === 'Pending' ? (
+                                                            <select
+                                                                className="text-sm border border-orange-200 rounded-md py-1 px-2 pr-8 bg-orange-50 text-orange-700 font-medium focus:ring-0 focus:border-orange-300 outline-none"
+                                                                onChange={(e) => handleRoleUpdate(member._id, e.target.value)}
+                                                                defaultValue=""
+                                                            >
+                                                                <option value="" disabled>Assign Role...</option>
+                                                                <option value="Admin">Admin</option>
+                                                                <option value="Site Manager">Site Manager</option>
+                                                                <option value="Contractor">Contractor</option>
+                                                                <option value="Client">Client</option>
+                                                            </select>
+                                                        ) : (
+                                                            <span className="text-gray-600 font-medium">{member.role}</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-4">
+                                                        {member.role === 'Pending' ? (
+                                                            <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-bold whitespace-nowrap">
+                                                                Needs Approval
+                                                            </span>
+                                                        ) : (
+                                                            <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold whitespace-nowrap">
+                                                                Active
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-4 text-right pr-2">
+                                                        <button
+                                                            className="text-gray-400 hover:text-blue-600 text-xs font-bold"
+                                                        >
+                                                            Edit
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {users.length === 0 && (
+                                                <tr>
+                                                    <td colSpan="4" className="text-center py-6 text-gray-500">No users found.</td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
 
                         {/* 3. NOTIFICATION PREFERENCES CARD */}

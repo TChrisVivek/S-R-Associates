@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     Plus, Minus, Maximize, Layers, Target, CheckCircle2,
-    Clock, AlertCircle, ChevronDown, Filter, FileUp, Loader2
+    Clock, AlertCircle, ChevronDown, Filter, FileUp, Loader2, X
 } from 'lucide-react';
 import api from '../api/axios';
+import { useToast } from './Toast';
 
 const BlueprintTab = ({ projectId }) => {
     // --- REAL-TIME STATE ---
@@ -12,6 +13,11 @@ const BlueprintTab = ({ projectId }) => {
     const [loading, setLoading] = useState(true);
     const [activeTaskHover, setActiveTaskHover] = useState(null); // To highlight pin when hovering over task list
     const [uploading, setUploading] = useState(false);
+    const { showToast, ToastComponent } = useToast();
+
+    // Custom Prompt State
+    const [isPromptOpen, setIsPromptOpen] = useState(false);
+    const [tempClickData, setTempClickData] = useState(null);
 
     // Zoom & Pan State
     const [scale, setScale] = useState(1);
@@ -53,14 +59,23 @@ const BlueprintTab = ({ projectId }) => {
         const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
         const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
 
-        const newTaskTitle = prompt("Enter new task title for this location:");
-        if (!newTaskTitle) return;
+        // Open Custom Prompt instead of browser prompt
+        setTempClickData({ xPercent, yPercent });
+        setIsPromptOpen(true);
+    };
+
+    const submitTaskPrompt = async (e) => {
+        e.preventDefault();
+        const newTaskTitle = e.target.title.value;
+        if (!newTaskTitle || !tempClickData) return;
+
+        setIsPromptOpen(false); // Close Modal immediately
 
         const newTaskReq = {
             title: newTaskTitle,
             status: "PENDING",
-            x: xPercent,
-            y: yPercent,
+            x: tempClickData.xPercent,
+            y: tempClickData.yPercent,
         };
 
         // Optimistic UI Update with temporary ID
@@ -85,7 +100,9 @@ const BlueprintTab = ({ projectId }) => {
             console.error("Failed to create task", err);
             // Rollback optimistic update
             setTasks(prev => prev.filter(t => t.id !== tempId));
-            alert("Failed to create task pin.");
+            showToast("Failed to create task pin.", "error");
+        } finally {
+            setTempClickData(null);
         }
     };
 
@@ -109,7 +126,7 @@ const BlueprintTab = ({ projectId }) => {
 
         // ONLY allow PDF as per request
         if (file.type !== 'application/pdf') {
-            alert('Please select a PDF file.');
+            showToast('Please select a PDF file.', 'warning');
             return;
         }
 
@@ -123,9 +140,10 @@ const BlueprintTab = ({ projectId }) => {
             });
             // Refresh data
             await fetchBlueprintData();
+            showToast("Blueprint uploaded successfully", "success");
         } catch (error) {
             console.error('Failed to upload blueprint:', error);
-            alert('Failed to upload project plan.');
+            showToast('Failed to upload project plan.', 'error');
         } finally {
             setUploading(false);
             if (fileInputRef.current) {
@@ -176,6 +194,7 @@ const BlueprintTab = ({ projectId }) => {
     // --- EMPTY STATE RENDERING ---
     if (!blueprintData) return (
         <div className="flex h-[calc(100vh-250px)]">
+            {ToastComponent}
             <div className="flex-1 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col items-center justify-center p-12 text-center">
                 <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mb-6 shadow-inner border border-blue-100">
                     <FileUp size={40} className="text-blue-500" />
@@ -214,6 +233,7 @@ const BlueprintTab = ({ projectId }) => {
 
     return (
         <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-250px)]">
+            {ToastComponent}
 
             {/* --- LEFT: BLUEPRINT VIEWER --- */}
             <div className="flex-1 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden relative">
@@ -365,6 +385,46 @@ const BlueprintTab = ({ projectId }) => {
                 </div>
 
             </div>
+
+            {/* --- CUSTOM PROMPT MODAL --- */}
+            {isPromptOpen && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                    <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-sm overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="px-6 py-5 flex items-center justify-between border-b border-slate-100">
+                            <h3 className="text-lg font-bold text-slate-900">New Task Pin</h3>
+                            <button onClick={() => { setIsPromptOpen(false); setTempClickData(null); }} className="p-2 hover:bg-slate-100 rounded-full text-slate-400">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <form onSubmit={submitTaskPrompt} className="p-6 bg-slate-50/50">
+                            <label className="block text-xs font-bold text-slate-700 mb-2">Task Title</label>
+                            <input
+                                type="text"
+                                name="title"
+                                autoFocus
+                                required
+                                placeholder="e.g. Check wiring on 2nd floor"
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm mb-6"
+                            />
+                            <div className="flex gap-3 w-full">
+                                <button
+                                    type="button"
+                                    onClick={() => { setIsPromptOpen(false); setTempClickData(null); }}
+                                    className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold rounded-xl transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl shadow-sm transition-colors"
+                                >
+                                    Create Task
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

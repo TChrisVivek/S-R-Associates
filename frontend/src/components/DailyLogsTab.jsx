@@ -4,6 +4,7 @@ import {
     Download, Plus, Image as ImageIcon, X, Loader2, UploadCloud
 } from 'lucide-react';
 import api from '../api/axios';
+import { useToast } from './Toast';
 
 const DailyLogsTab = ({ projectId }) => {
     const [logData, setLogData] = useState(null);
@@ -11,6 +12,7 @@ const DailyLogsTab = ({ projectId }) => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [galleryFiles, setGalleryFiles] = useState([]);
+    const { showToast, ToastComponent } = useToast();
 
     // Auto-calculating date
     const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -57,9 +59,10 @@ const DailyLogsTab = ({ projectId }) => {
             await fetchLogs();
             setIsCreateModalOpen(false);
             setGalleryFiles([]);
+            showToast("Daily log created successfully", "success");
         } catch (error) {
             console.error("Failed to create log:", error);
-            alert("Failed to create daily log. Please try again.");
+            showToast("Failed to create daily log. Please try again.", "error");
         } finally {
             setActionLoading(false);
         }
@@ -97,6 +100,7 @@ const DailyLogsTab = ({ projectId }) => {
 
     return (
         <div className="flex flex-col h-full space-y-6">
+            {ToastComponent}
 
             {/* --- HEADER CARD --- */}
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">

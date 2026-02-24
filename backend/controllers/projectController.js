@@ -1,27 +1,7 @@
 const path = require('path');
-const pdf = require('pdf-poppler');
 const fs = require('fs-extra');
 const Project = require('../models/Project');
 const Material = require('../models/Material');
-
-// Helper: Convert PDF page 1 to Image
-const convertPdfToImage = async (pdfPath, outputDir) => {
-    const opts = {
-        format: 'jpeg',
-        out_dir: outputDir,
-        out_prefix: path.basename(pdfPath, path.extname(pdfPath)),
-        page: 1 // Only convert the first page
-    };
-
-    try {
-        await pdf.convert(pdfPath, opts);
-        // pdf-poppler appends '-1' to the filename for page 1
-        return path.join(outputDir, `${opts.out_prefix}-1.jpg`);
-    } catch (err) {
-        console.error("PDF Conversion Failed:", err);
-        throw err;
-    }
-};
 
 exports.uploadBlueprint = async (req, res) => {
     if (!req.files || req.files.length === 0) {
@@ -32,28 +12,13 @@ exports.uploadBlueprint = async (req, res) => {
         const uploadedFiles = [];
 
         for (const file of req.files) {
-            const filePath = file.path;
-            const outputDir = path.dirname(filePath);
-            const isPdf = file.mimetype === 'application/pdf';
-
-            let finalImagePath = filePath;
-            const originalFileName = path.basename(filePath);
-            const originalUrl = `${req.protocol}://${req.get('host')}/uploads/${originalFileName}`;
-
-            if (isPdf) {
-                console.log("Converting PDF to Image:", filePath);
-                // Note: This simple conversion might overwrite if filenames are same. 
-                // Consider independent output dirs or unique naming if scaling.
-                finalImagePath = await convertPdfToImage(filePath, outputDir);
-            }
-
-            const fileName = path.basename(finalImagePath);
-            const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${fileName}`;
+            const fileName = path.basename(file.path);
+            const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${fileName}`;
 
             uploadedFiles.push({
                 name: file.originalname,
-                url: imageUrl,
-                originalUrl: isPdf ? originalUrl : imageUrl,
+                url: fileUrl,
+                originalUrl: fileUrl,
                 type: file.mimetype
             });
         }
@@ -211,8 +176,13 @@ exports.getProjectById = async (req, res) => {
             floors: project.floors || 0,
             manager: project.manager || "Unassigned",
             contractor: project.contractor || "Unassigned",
+            status: project.status || "Planning",
             phase: project.status.toUpperCase(),
+            startDate: project.startDate || null,
+            endDate: project.endDate || null,
             timeline: `${startStr} - ${endStr}`,
+            budgetRaw: project.budget || "",
+            budgetUnitRaw: project.budgetUnit || "Lakhs",
             budget: project.budget ? `${project.budget} ${project.budgetUnit || ''}` : "TBA",
             daysLeft: daysLeft,
             stats: {
@@ -292,6 +262,22 @@ exports.addCriticalTask = async (req, res) => {
     } catch (error) {
         console.error("Add Critical Task Error:", error);
         res.status(500).json({ message: "Error adding task", error: error.message });
+    }
+};
+
+exports.deleteCriticalTask = async (req, res) => {
+    try {
+        const { id, taskId } = req.params;
+        const project = await Project.findById(id);
+        if (!project) return res.status(404).json({ message: "Project not found" });
+
+        project.criticalTasks = project.criticalTasks.filter(task => task._id.toString() !== taskId);
+        await project.save();
+
+        res.status(200).json({ message: "Task deleted successfully" });
+    } catch (error) {
+        console.error("Delete Critical Task Error:", error);
+        res.status(500).json({ message: "Error deleting task", error: error.message });
     }
 };
 
@@ -429,26 +415,13 @@ exports.uploadProjectBlueprint = async (req, res) => {
         const uploadedFiles = [];
 
         for (const file of req.files) {
-            const filePath = file.path;
-            const outputDir = path.dirname(filePath);
-            const isPdf = file.mimetype === 'application/pdf';
-
-            let finalImagePath = filePath;
-            const originalFileName = path.basename(filePath);
-            const originalUrl = `${req.protocol}://${req.get('host')}/uploads/${originalFileName}`;
-
-            if (isPdf) {
-                console.log("Converting PDF to Image:", filePath);
-                finalImagePath = await convertPdfToImage(filePath, outputDir);
-            }
-
-            const fileName = path.basename(finalImagePath);
-            const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${fileName}`;
+            const fileName = path.basename(file.path);
+            const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${fileName}`;
 
             uploadedFiles.push({
                 name: file.originalname,
-                url: imageUrl,
-                originalUrl: isPdf ? originalUrl : imageUrl,
+                url: fileUrl,
+                originalUrl: fileUrl,
                 type: file.mimetype
             });
         }

@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import BlueprintCanvas from './BlueprintCanvas';
 import api from '../api/axios';
+import { useToast } from './Toast';
 
 const ProjectPlanManager = () => {
     const [selectedImage, setSelectedImage] = useState(null);
     const [mimeType, setMimeType] = useState(null);
     const [projectId] = useState('507f1f77bcf86cd799439011');
     const [blueprintId] = useState('507f1f77bcf86cd799439012');
+    const { showToast, ToastComponent } = useToast();
 
     // Lifted State
     const [selectedPin, setSelectedPin] = useState(null);
@@ -29,7 +31,7 @@ const ProjectPlanManager = () => {
             setMimeType('image/jpeg'); // Always treat as image now!
         } catch (error) {
             console.error("Upload failed", error);
-            alert("Failed to upload/convert plan.");
+            showToast("Failed to upload/convert plan.", "error");
         }
     };
 
@@ -60,6 +62,7 @@ const ProjectPlanManager = () => {
             color: '#e2e8f0', // Slate 200
             fontFamily: "'Inter', sans-serif"
         }}>
+            {ToastComponent}
             {/* Top Navigation Bar */}
             <div style={{
                 height: '64px',
