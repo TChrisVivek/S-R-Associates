@@ -108,8 +108,8 @@ const Dashboard = () => {
             <aside className="w-[240px] bg-[#0f1117] flex flex-col z-20 hidden md:flex border-r border-white/[0.06]">
                 {/* Logo */}
                 <div className="px-5 py-6 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-blue-600 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-violet-500/20">
-                        {companyInitial}
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                        <img src="/logo.png" alt="Logo" className="w-7 h-7 object-contain" />
                     </div>
                     <div>
                         <span className="font-semibold text-sm text-white block leading-tight">{companyName}</span>
@@ -239,9 +239,9 @@ const Dashboard = () => {
                                             >
                                                 {/* Project Icon */}
                                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${project.status === 'Delayed' ? 'bg-red-50 text-red-500' :
-                                                        project.status === 'Completed' ? 'bg-emerald-50 text-emerald-500' :
-                                                            project.status === 'In Progress' ? 'bg-violet-50 text-violet-500' :
-                                                                'bg-gray-50 text-gray-400'
+                                                    project.status === 'Completed' ? 'bg-emerald-50 text-emerald-500' :
+                                                        project.status === 'In Progress' ? 'bg-violet-50 text-violet-500' :
+                                                            'bg-gray-50 text-gray-400'
                                                     }`}>
                                                     {project.title?.slice(0, 2).toUpperCase()}
                                                 </div>
