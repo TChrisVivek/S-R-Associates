@@ -45,9 +45,9 @@ const ProjectPersonnelTab = ({ projectId }) => {
     // UI Helpers
     const getStatusBadge = (status) => {
         switch (status) {
-            case 'ON SITE': return <span className="bg-emerald-50 text-emerald-600 px-2 py-1 rounded text-[10px] font-bold tracking-wider uppercase">ON SITE</span>;
-            case 'REMOTE': return <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-[10px] font-bold tracking-wider uppercase">REMOTE</span>;
-            case 'ON LEAVE': return <span className="bg-amber-50 text-amber-600 px-2 py-1 rounded text-[10px] font-bold tracking-wider uppercase">ON LEAVE</span>;
+            case 'ON SITE': return <span className="bg-emerald-50 text-emerald-600 px-2 py-1 rounded text-[10px] font-medium tracking-wider uppercase">ON SITE</span>;
+            case 'REMOTE': return <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-[10px] font-medium tracking-wider uppercase">REMOTE</span>;
+            case 'ON LEAVE': return <span className="bg-amber-50 text-amber-600 px-2 py-1 rounded text-[10px] font-medium tracking-wider uppercase">ON LEAVE</span>;
             default: return null;
         }
     };
@@ -71,7 +71,7 @@ const ProjectPersonnelTab = ({ projectId }) => {
             <div>
                 <div className="flex justify-between items-end mb-6">
                     <div>
-                        <h2 className="text-lg font-bold text-gray-900">Project Internal Team</h2>
+                        <h2 className="text-lg font-medium text-gray-900">Project Internal Team</h2>
                         <p className="text-sm text-gray-500">Staff members specifically assigned to this project.</p>
                     </div>
 
@@ -82,7 +82,7 @@ const ProjectPersonnelTab = ({ projectId }) => {
                             placeholder="Search team..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm"
+                            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 text-sm shadow-sm"
                         />
                     </div>
                 </div>
@@ -96,8 +96,8 @@ const ProjectPersonnelTab = ({ projectId }) => {
                             </div>
 
                             <div className="mb-6">
-                                <h3 className="font-bold text-gray-900 text-lg">{member.name}</h3>
-                                <p className="text-sm text-blue-600 font-medium">{member.role}</p>
+                                <h3 className="font-medium text-gray-900 text-lg">{member.name}</h3>
+                                <p className="text-sm text-violet-500 font-medium">{member.role}</p>
                             </div>
 
                             <div className="space-y-3 mb-8 flex-1">
@@ -113,7 +113,7 @@ const ProjectPersonnelTab = ({ projectId }) => {
 
                             <button
                                 onClick={() => navigate('/personnel')}
-                                className="w-full py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl text-sm hover:bg-gray-50 transition shadow-sm"
+                                className="w-full py-2.5 bg-white border border-gray-200 text-gray-700 font-medium rounded-xl text-sm hover:bg-gray-50 transition shadow-sm"
                             >
                                 View Profile
                             </button>
@@ -129,12 +129,12 @@ const ProjectPersonnelTab = ({ projectId }) => {
             <div>
                 <div className="flex justify-between items-end mb-6">
                     <div>
-                        <h2 className="text-lg font-bold text-gray-900">External Vendors</h2>
+                        <h2 className="text-lg font-medium text-gray-900">External Vendors</h2>
                         <p className="text-sm text-gray-500">Third-party specialized agencies and contractors</p>
                     </div>
                     <button
                         onClick={() => navigate('/personnel')}
-                        className="text-sm font-bold text-blue-600 hover:underline flex items-center gap-1"
+                        className="text-sm font-medium text-violet-500 hover:underline flex items-center gap-1"
                     >
                         Manage Vendors <ArrowRight size={16} />
                     </button>
@@ -144,18 +144,18 @@ const ProjectPersonnelTab = ({ projectId }) => {
                     {personnelData.externalVendors.map(vendor => (
                         <div key={vendor.id} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition flex items-center justify-between group">
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                                <div className="w-12 h-12 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center group-hover:bg-violet-50 group-hover:text-violet-500 transition-colors">
                                     {getVendorIcon(vendor.icon)}
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-gray-900">{vendor.company}</h4>
+                                    <h4 className="font-medium text-gray-900">{vendor.company}</h4>
                                     <div className="flex flex-col text-xs text-gray-500 mt-1">
-                                        <span className="font-bold uppercase tracking-wider text-gray-400">TRADE: {vendor.trade}</span>
+                                        <span className="font-medium uppercase tracking-wider text-gray-400">TRADE: {vendor.trade}</span>
                                         <span className="flex items-center gap-1 mt-0.5 text-gray-600">👤 {vendor.contactPerson}</span>
                                     </div>
                                 </div>
                             </div>
-                            <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition">
+                            <button className="p-2 text-gray-400 hover:text-violet-500 hover:bg-violet-50 rounded-full transition">
                                 <Phone size={20} />
                             </button>
                         </div>
@@ -170,23 +170,23 @@ const ProjectPersonnelTab = ({ projectId }) => {
             <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm grid grid-cols-2 md:grid-cols-4 gap-8 divide-x divide-gray-100">
 
                 <div className="text-center px-4">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Total Assigned</p>
-                    <p className="text-4xl font-bold text-gray-900">{personnelData.stats.totalAssigned < 10 ? `0${personnelData.stats.totalAssigned}` : personnelData.stats.totalAssigned}</p>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Total Assigned</p>
+                    <p className="text-4xl font-medium text-gray-900">{personnelData.stats.totalAssigned < 10 ? `0${personnelData.stats.totalAssigned}` : personnelData.stats.totalAssigned}</p>
                 </div>
 
                 <div className="text-center px-4">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Currently On-Site</p>
-                    <p className="text-4xl font-bold text-emerald-600">{personnelData.stats.currentlyOnSite < 10 ? `0${personnelData.stats.currentlyOnSite}` : personnelData.stats.currentlyOnSite}</p>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Currently On-Site</p>
+                    <p className="text-4xl font-medium text-emerald-600">{personnelData.stats.currentlyOnSite < 10 ? `0${personnelData.stats.currentlyOnSite}` : personnelData.stats.currentlyOnSite}</p>
                 </div>
 
                 <div className="text-center px-4">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">External Vendors</p>
-                    <p className="text-4xl font-bold text-gray-900">{personnelData.stats.externalVendors < 10 ? `0${personnelData.stats.externalVendors}` : personnelData.stats.externalVendors}</p>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">External Vendors</p>
+                    <p className="text-4xl font-medium text-gray-900">{personnelData.stats.externalVendors < 10 ? `0${personnelData.stats.externalVendors}` : personnelData.stats.externalVendors}</p>
                 </div>
 
                 <div className="text-center px-4">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Safety Incidents</p>
-                    <p className="text-4xl font-bold text-gray-900">{personnelData.stats.safetyIncidents < 10 ? `0${personnelData.stats.safetyIncidents}` : personnelData.stats.safetyIncidents}</p>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Safety Incidents</p>
+                    <p className="text-4xl font-medium text-gray-900">{personnelData.stats.safetyIncidents < 10 ? `0${personnelData.stats.safetyIncidents}` : personnelData.stats.safetyIncidents}</p>
                 </div>
 
             </div>
@@ -194,8 +194,8 @@ const ProjectPersonnelTab = ({ projectId }) => {
             {/* --- MEMBER PROFILE MODAL --- */}
             {selectedMember && (
                 <div className="fixed inset-0 flex items-center justify-center z-50 p-4 transition-all duration-300">
-                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={() => setSelectedMember(null)}></div>
-                    <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-100 border border-slate-100">
+                    <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm transition-opacity" onClick={() => setSelectedMember(null)}></div>
+                    <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-100 border border-gray-100">
                         {/* Header Gradient */}
                         <div className="h-32 bg-gradient-to-r from-blue-600 to-indigo-600 relative">
                             <button
@@ -209,7 +209,7 @@ const ProjectPersonnelTab = ({ projectId }) => {
                         <div className="px-8 pb-8">
                             {/* Profile Image - Overlapping Header */}
                             <div className="relative -mt-16 mb-4 flex justify-between items-end">
-                                <div className="w-32 h-32 rounded-2xl bg-white p-1.5 shadow-lg border border-slate-100 relative">
+                                <div className="w-32 h-32 rounded-2xl bg-white p-1.5 shadow-lg border border-gray-100 relative">
                                     <img src={selectedMember.avatar} alt={selectedMember.name} className="w-full h-full rounded-xl object-cover" />
                                 </div>
                                 <div className="mb-2">
@@ -219,19 +219,19 @@ const ProjectPersonnelTab = ({ projectId }) => {
 
                             {/* Main Info */}
                             <div className="mb-6">
-                                <h2 className="text-2xl font-extrabold text-slate-900">{selectedMember.name}</h2>
-                                <p className="text-blue-600 font-bold tracking-wide mt-1">{selectedMember.role}</p>
+                                <h2 className="text-2xl font-semibold text-gray-900">{selectedMember.name}</h2>
+                                <p className="text-violet-500 font-medium tracking-wide mt-1">{selectedMember.role}</p>
                             </div>
 
                             {/* Details Grid */}
-                            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6 space-y-4 mb-8">
+                            <div className="bg-gray-50 border border-gray-100 rounded-2xl p-6 space-y-4 mb-8">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                                    <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center text-violet-500 shrink-0">
                                         <Mail size={18} />
                                     </div>
                                     <div>
-                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">Contact Email</p>
-                                        <p className="text-slate-900 font-medium">{selectedMember.email}</p>
+                                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-0.5">Contact Email</p>
+                                        <p className="text-gray-900 font-medium">{selectedMember.email}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-4">
@@ -239,8 +239,8 @@ const ProjectPersonnelTab = ({ projectId }) => {
                                         <Phone size={18} />
                                     </div>
                                     <div>
-                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">Mobile Number</p>
-                                        <p className="text-slate-900 font-medium">{selectedMember.phone}</p>
+                                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-0.5">Mobile Number</p>
+                                        <p className="text-gray-900 font-medium">{selectedMember.phone}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-4">
@@ -248,8 +248,8 @@ const ProjectPersonnelTab = ({ projectId }) => {
                                         <MapPin size={18} />
                                     </div>
                                     <div>
-                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">Assigned To</p>
-                                        <p className="text-slate-900 font-medium">This Project</p>
+                                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-0.5">Assigned To</p>
+                                        <p className="text-gray-900 font-medium">This Project</p>
                                     </div>
                                 </div>
                             </div>
@@ -258,13 +258,13 @@ const ProjectPersonnelTab = ({ projectId }) => {
                             <div className="flex gap-4">
                                 <button
                                     onClick={() => setSelectedMember(null)}
-                                    className="flex-1 px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors"
+                                    className="flex-1 px-6 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition-colors"
                                 >
                                     Close Profile
                                 </button>
                                 <button
                                     onClick={() => navigate('/personnel')}
-                                    className="flex-1 px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+                                    className="flex-1 px-6 py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
                                 >
                                     Full Directory
                                 </button>

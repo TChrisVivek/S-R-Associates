@@ -5,26 +5,7 @@
   --font-sans: "Outfit", sans-serif;
 }
 
-/* Hide number input spinners */
-input[type=number]::-webkit-outer-spin-button,
-input[type=number]::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-input[type=number] {
-  -moz-appearance: textfield;
-}
-
-:root {
-  font-family: "Outfit", sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-}
-
+/* ─── Base Reset ─── */
 *,
 *::before,
 *::after {
@@ -38,7 +19,6 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  /* Prevent body scroll, handle in components */
 }
 
 #root {
@@ -50,85 +30,64 @@ body {
   font-family: 'Outfit', sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #0f172a;
-  /* Match dashboard theme */
+  color: #374151;
+  background-color: #f6f7f9;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-  text-align: center;
+/* ─── Number Input Spinners ─── */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
-.app-container {
-  width: 100%;
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+input[type=number] {
+  -moz-appearance: textfield;
 }
 
-.register-container {
-  background: #333;
-  padding: 2rem;
-  border-radius: 8px;
-  width: 100%;
-  max-width: 400px;
-  margin: 0 auto;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+/* ─── Custom Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 5px;
 }
 
-.register-container .form-group {
-  margin-bottom: 1rem;
-  text-align: left;
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.register-container label {
-  display: block;
-  margin-bottom: 0.5rem;
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 10px;
 }
 
-.register-container input {
-  width: 100%;
-  padding: 0.5rem;
-  border-radius: 4px;
-  border: 1px solid #555;
-  background: #444;
-  color: white;
-  font-size: 1rem;
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 
-.register-container button {
-  width: 100%;
-  padding: 0.75rem;
-  border-radius: 4px;
-  border: 1px solid transparent;
-  background-color: #646cff;
-  color: white;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: border-color 0.25s;
+/* ─── Utility ─── */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
-.register-container button:hover {
-  border-color: #646cff;
-  background-color: #535bf2;
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-.register-container .success {
-  color: #4ade80;
-  background: rgba(74, 222, 128, 0.1);
-  padding: 0.5rem;
-  border-radius: 4px;
-  margin-bottom: 1rem;
+/* ─── Toast Animation ─── */
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
-.register-container .error {
-  color: #f87171;
-  background: rgba(248, 113, 113, 0.1);
-  padding: 0.5rem;
-  border-radius: 4px;
-  margin-bottom: 1rem;
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
 }

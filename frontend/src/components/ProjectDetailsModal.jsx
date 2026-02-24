@@ -25,7 +25,7 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }) => {
 
     const StatusBadge = ({ status }) => {
         const colors = {
-            'Planning': 'bg-blue-100 text-blue-700',
+            'Planning': 'bg-violet-100 text-violet-600',
             'In Progress': 'bg-yellow-100 text-yellow-700',
             'On Track': 'bg-green-100 text-green-700',
             'Delayed': 'bg-red-100 text-red-700',
@@ -60,7 +60,7 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }) => {
 
                     <div className="absolute bottom-6 left-6 text-white">
                         <StatusBadge status={project.status} />
-                        <h2 className="text-3xl font-bold mt-2 shadow-sm">{project.title}</h2>
+                        <h2 className="text-xl font-semibold mt-2">{project.title}</h2>
                         <div className="flex items-center gap-2 text-gray-200 mt-1">
                             <MapPin size={16} />
                             <p className="text-sm font-medium">{project.address}</p>
@@ -73,35 +73,35 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }) => {
                     {/* Key Metrics Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                            <div className="text-gray-500 text-xs font-bold uppercase mb-1 flex items-center gap-2">
+                            <div className="text-gray-500 text-[10px] font-medium uppercase mb-1 flex items-center gap-2">
                                 <Building2 size={14} /> Site Size
                             </div>
-                            <div className="text-lg font-bold text-gray-900">{project.siteSize} sqft</div>
+                            <div className="text-sm font-semibold text-gray-900">{project.siteSize} sqft</div>
                         </div>
                         <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                            <div className="text-gray-500 text-xs font-bold uppercase mb-1 flex items-center gap-2">
+                            <div className="text-gray-500 text-[10px] font-medium uppercase mb-1 flex items-center gap-2">
                                 <Building2 size={14} /> Floors
                             </div>
-                            <div className="text-lg font-bold text-gray-900">{project.floors}</div>
+                            <div className="text-sm font-semibold text-gray-900">{project.floors}</div>
                         </div>
                         <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                            <div className="text-gray-500 text-xs font-bold uppercase mb-1 flex items-center gap-2">
+                            <div className="text-gray-500 text-[10px] font-medium uppercase mb-1 flex items-center gap-2">
                                 <CreditCard size={14} /> Budget
                             </div>
-                            <div className="text-lg font-bold text-gray-900">{formatBudget(project.budget, project.budgetUnit)}</div>
+                            <div className="text-sm font-semibold text-gray-900">{formatBudget(project.budget, project.budgetUnit)}</div>
                         </div>
                         <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                            <div className="text-gray-500 text-xs font-bold uppercase mb-1 flex items-center gap-2">
+                            <div className="text-gray-500 text-[10px] font-medium uppercase mb-1 flex items-center gap-2">
                                 <Calendar size={14} /> Completion
                             </div>
-                            <div className="text-lg font-bold text-gray-900">{formatDate(project.endDate)}</div>
+                            <div className="text-sm font-semibold text-gray-900">{formatDate(project.endDate)}</div>
                         </div>
                     </div>
 
                     {/* Team & Details */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
                                 Project Details
                             </h3>
                             <div className="space-y-3 text-sm">
@@ -121,14 +121,14 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }) => {
                         </div>
 
                         <div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
                                 Team
                             </h3>
                             <div className="space-y-3 text-sm">
                                 <div className="flex justify-between border-b border-gray-100 pb-2">
                                     <span className="text-gray-500">Project Manager</span>
                                     <div className="flex items-center gap-2">
-                                        <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-600">
+                                        <div className="w-6 h-6 rounded-full bg-violet-100 flex items-center justify-center text-xs font-bold text-violet-500">
                                             {project.manager ? project.manager[0].toUpperCase() : 'U'}
                                         </div>
                                         <span className="font-medium text-gray-900 capitalize">{project.manager || 'Unassigned'}</span>
@@ -144,8 +144,8 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }) => {
 
                     {/* Blueprints / Plans */}
                     <div>
-                        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                            <FileText size={20} className="text-blue-600" />
+                        <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                            <FileText size={20} className="text-violet-500" />
                             Project Plans & Blueprints
                         </h3>
 
@@ -176,7 +176,7 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }) => {
                                         </div>
 
                                         <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-100 p-3">
-                                            <p className="text-xs font-bold text-gray-800 line-clamp-1">{file.name}</p>
+                                            <p className="text-xs font-medium text-gray-800 line-clamp-1">{file.name}</p>
                                         </div>
                                     </a>
                                 ))}
