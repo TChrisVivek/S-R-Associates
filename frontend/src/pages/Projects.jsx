@@ -76,8 +76,8 @@ const Projects = () => {
             {/* ─── SIDEBAR ─── */}
             <aside className="w-[240px] bg-[#0f1117] flex flex-col z-20 hidden md:flex border-r border-white/[0.06]">
                 <div className="px-5 py-6 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-blue-600 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-violet-500/20">
-                        {companyInitial}
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                        <img src="/logo.png" alt="Logo" className="w-7 h-7 object-contain" />
                     </div>
                     <div>
                         <span className="font-semibold text-sm text-white block leading-tight">{companyName}</span>
@@ -150,8 +150,8 @@ const Projects = () => {
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
                                 className={`px-4 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-2 ${activeTab === tab
-                                        ? 'bg-[#1a1d2e] text-white shadow-sm'
-                                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                                    ? 'bg-[#1a1d2e] text-white shadow-sm'
+                                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
                                     }`}
                             >
                                 {tab}

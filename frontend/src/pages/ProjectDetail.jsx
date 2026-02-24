@@ -286,7 +286,7 @@ const ProjectDetail = () => {
             {/* ─── SIDEBAR ─── */}
             <aside className="w-[240px] bg-[#0f1117] flex flex-col z-20 hidden md:flex border-r border-white/[0.06]">
                 <div className="px-5 py-6 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-blue-600 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-violet-500/20">{companyInitial}</div>
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20 shrink-0"><img src="/logo.png" alt="Logo" className="w-7 h-7 object-contain" /></div>
                     <div>
                         <span className="font-semibold text-sm text-white block leading-tight">{companyName}</span>
                         <span className="text-[10px] text-white/30 font-medium">Construction Suite</span>
