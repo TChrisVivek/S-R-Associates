@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
     Search, Filter, Truck, BarChart2, AlertCircle,
     ClipboardList, Wallet, Box, Grid, Layers, Triangle, X, Loader2, UploadCloud, Calendar, ExternalLink, Image as ImageIcon
@@ -459,9 +460,9 @@ const MaterialInventoryTab = ({ projectId }) => {
             )}
 
             {/* 3. Material Details Modal */}
-            {selectedMaterialDetails && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-md overflow-y-auto">
-                    <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-4xl my-8 overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+            {selectedMaterialDetails && createPortal(
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-md">
+                    <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-3xl border border-gray-100 flex flex-col max-h-[85vh] overflow-hidden">
                         {/* Header */}
                         <div className="px-8 py-6 flex flex-col border-b border-gray-100 bg-white relative shrink-0">
                             <button onClick={() => setSelectedMaterialDetails(null)} className="absolute top-6 right-6 p-2 rounded-full hover:bg-gray-100 text-gray-400 transition-colors">
@@ -481,7 +482,7 @@ const MaterialInventoryTab = ({ projectId }) => {
                         </div>
 
                         {/* Body - Logs Table */}
-                        <div className="p-0 overflow-y-auto bg-gray-50/50 flex-1">
+                        <div className="p-0 overflow-auto bg-gray-50/50 flex-1">
                             {(!selectedMaterialDetails.logs || selectedMaterialDetails.logs.length === 0) ? (
                                 <div className="p-16 flex flex-col items-center justify-center text-center">
                                     <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
@@ -494,31 +495,31 @@ const MaterialInventoryTab = ({ projectId }) => {
                                 <table className="w-full text-left text-sm border-collapse">
                                     <thead className="bg-white sticky top-0 shadow-sm z-10">
                                         <tr className="border-b border-gray-200">
-                                            <th className="py-4 px-8 text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
-                                            <th className="py-4 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Type</th>
-                                            <th className="py-4 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider text-right">Quantity</th>
-                                            <th className="py-4 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider border-l border-gray-100">Details / Logistics</th>
-                                            <th className="py-4 px-8 text-xs font-medium text-gray-400 uppercase tracking-wider text-right">Attachments</th>
+                                            <th className="py-4 px-5 text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
+                                            <th className="py-4 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Type</th>
+                                            <th className="py-4 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider text-right">Quantity</th>
+                                            <th className="py-4 px-5 text-xs font-medium text-gray-400 uppercase tracking-wider border-l border-gray-100">Details / Logistics</th>
+                                            <th className="py-4 px-5 text-xs font-medium text-gray-400 uppercase tracking-wider text-right">Attachments</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-100 bg-white">
+                                    <tbody className="divide-y divide-gray-100 bg-white">
                                         {selectedMaterialDetails.logs.slice().reverse().map((log, index) => {
                                             const isDelivery = log.type === 'delivery';
                                             return (
                                                 <tr key={log._id || index} className="hover:bg-gray-50 transition-colors">
-                                                    <td className="py-5 px-8 font-medium text-gray-600 whitespace-nowrap">
-                                                        {new Date(log.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                    <td className="py-4 px-5 font-medium text-gray-600 whitespace-nowrap text-sm">
+                                                        {new Date(log.date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
                                                     </td>
-                                                    <td className="py-5 px-6">
+                                                    <td className="py-4 px-4">
                                                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-semibold tracking-wider uppercase ${isDelivery ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}`}>
                                                             {isDelivery ? <Truck size={12} /> : <BarChart2 size={12} />}
                                                             {log.type}
                                                         </span>
                                                     </td>
-                                                    <td className={`py-5 px-6 text-right font-semibold text-base ${isDelivery ? 'text-emerald-600' : 'text-indigo-600'}`}>
+                                                    <td className={`py-4 px-4 text-right font-semibold text-sm ${isDelivery ? 'text-emerald-600' : 'text-indigo-600'}`}>
                                                         {isDelivery ? '+' : '-'}{log.quantity}
                                                     </td>
-                                                    <td className="py-5 px-6 border-l border-gray-100">
+                                                    <td className="py-4 px-5 border-l border-gray-100">
                                                         {isDelivery ? (
                                                             <div>
                                                                 <p className="font-medium text-gray-900">{log.supplier || 'Unknown Supplier'}</p>
@@ -530,7 +531,7 @@ const MaterialInventoryTab = ({ projectId }) => {
                                                             </div>
                                                         )}
                                                     </td>
-                                                    <td className="py-5 px-8 text-right">
+                                                    <td className="py-4 px-5 text-right">
                                                         <div className="flex items-center justify-end gap-2">
                                                             {log.deliveryChallanUrl && (
                                                                 <a href={log.deliveryChallanUrl} target="_blank" rel="noreferrer" className="p-2 text-gray-400 hover:text-violet-500 hover:bg-violet-50 rounded-lg transition-colors group relative" title="View Challan">
@@ -561,7 +562,7 @@ const MaterialInventoryTab = ({ projectId }) => {
                         </div>
                     </div>
                 </div>
-            )}
+                , document.body)}
 
         </div>
     );
