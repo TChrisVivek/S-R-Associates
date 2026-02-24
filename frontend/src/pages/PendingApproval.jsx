@@ -1,37 +1,37 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Clock, LogOut, Compass } from 'lucide-react';
+import { Clock, LogOut, Building2 } from 'lucide-react';
 
 const PendingApproval = () => {
     const { logout } = useAuth();
 
     return (
-        <div className="flex h-screen items-center justify-center bg-slate-50 p-4 font-sans">
-            <div className="max-w-md w-full bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-10 text-center relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-orange-400 to-red-400"></div>
-
-                <div className="w-20 h-20 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                    <Clock size={40} className="text-orange-500" />
+        <div className="flex h-screen items-center justify-center bg-[#f6f7f9] p-4 font-sans">
+            <div className="max-w-sm w-full bg-white rounded-2xl border border-gray-100 p-8 text-center">
+                <div className="w-14 h-14 bg-amber-50 rounded-xl flex items-center justify-center mx-auto mb-5">
+                    <Clock size={24} className="text-amber-500" />
                 </div>
 
-                <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-3">Approval Pending</h1>
-                <p className="text-slate-500 font-medium mb-8 leading-relaxed">
-                    Your account has been successfully created and is currently under review by the Site Administrator. You will be granted access once your role is assigned.
+                <h1 className="text-lg font-semibold text-gray-900 mb-2">Approval Pending</h1>
+                <p className="text-sm text-gray-400 mb-6 leading-relaxed">
+                    Your account is under review. You'll be granted access once the administrator assigns your role.
                 </p>
 
-                <div className="bg-slate-50 rounded-2xl p-6 mb-8 border border-slate-100">
-                    <div className="flex items-center gap-3 justify-center mb-2">
-                        <Compass className="text-blue-500" size={20} />
-                        <span className="font-bold text-slate-800 tracking-tight">BuildCore Portal</span>
+                <div className="bg-gray-50 rounded-xl p-4 mb-6 border border-gray-100">
+                    <div className="flex items-center gap-2 justify-center mb-1">
+                        <div className="w-6 h-6 rounded-md bg-gradient-to-br from-violet-500 to-blue-600 flex items-center justify-center">
+                            <Building2 size={12} className="text-white" />
+                        </div>
+                        <span className="text-sm font-medium text-gray-700">BuildCore Portal</span>
                     </div>
-                    <p className="text-xs text-slate-400 font-medium">Please contact your site director if you require immediate access.</p>
+                    <p className="text-[11px] text-gray-400">Contact your site director for immediate access.</p>
                 </div>
 
                 <button
                     onClick={logout}
-                    className="flex items-center justify-center gap-2 w-full py-3.5 px-6 rounded-xl font-bold bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 border border-slate-200 hover:border-slate-300 transition-all shadow-sm hover:shadow-md"
+                    className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg text-sm font-medium bg-gray-50 text-gray-500 hover:bg-red-50 hover:text-red-600 border border-gray-100 hover:border-red-200 transition-colors"
                 >
-                    <LogOut size={18} />
+                    <LogOut size={14} />
                     Sign Out
                 </button>
             </div>

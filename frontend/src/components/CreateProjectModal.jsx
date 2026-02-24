@@ -187,13 +187,13 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto no-scrollbar">
 
                 {/* Header */}
-                <div className="flex justify-between items-center p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
+                <div className="flex justify-between items-center p-6 border-b border-gray-100 sticky top-0 bg-white z-10 rounded-t-2xl">
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-800">Create New Project</h2>
-                        <p className="text-sm text-gray-500 mt-1">Enter the details below to initialize a new construction project.</p>
+                        <h2 className="text-lg font-semibold text-gray-900">Create New Project</h2>
+                        <p className="text-xs text-gray-400 mt-0.5">Enter details to initialize a new construction project.</p>
                     </div>
-                    <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
-                        <X size={24} />
+                    <button onClick={onClose} className="p-1.5 text-gray-300 hover:text-gray-500 hover:bg-gray-50 rounded-lg transition-colors">
+                        <X size={18} />
                     </button>
                 </div>
 
@@ -201,52 +201,52 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
 
                     {/* Project Identity */}
                     <section>
-                        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-4">
-                            <span className="p-1.5 bg-blue-100 text-blue-600 rounded-lg"><Building2 size={16} /></span>
+                        <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                            <span className="p-1.5 bg-violet-50 text-violet-500 rounded-lg"><Building2 size={16} /></span>
                             Project Identity
                         </h3>
 
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Project Name</label>
+                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Project Name</label>
                                 <input
                                     type="text"
                                     name="title"
                                     value={formData.title}
                                     onChange={handleChange}
                                     placeholder="e.g. Skyline Towers Phase 1"
-                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all"
                                 />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Client Name</label>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Client Name</label>
                                     <input
                                         type="text"
                                         name="client"
                                         value={formData.client}
                                         onChange={handleChange}
                                         placeholder="e.g. Acme Development Corp"
-                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Site Address</label>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Site Address</label>
                                     <input
                                         type="text"
                                         name="address"
                                         value={formData.address}
                                         onChange={handleChange}
                                         placeholder="123 Construction Blvd"
-                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all"
                                     />
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Site Size (sq ft)</label>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Site Size (sq ft)</label>
                                     <input
                                         type="number"
                                         name="siteSize"
@@ -254,11 +254,11 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                         onChange={handleChange}
                                         min="0"
                                         placeholder="e.g. 5000"
-                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Number of Floors</label>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Number of Floors</label>
                                     <input
                                         type="number"
                                         name="floors"
@@ -266,7 +266,7 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                         onChange={handleChange}
                                         min="0"
                                         placeholder="e.g. 3"
-                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all"
                                     />
                                 </div>
                             </div>
@@ -275,8 +275,8 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
 
                     {/* Project Type */}
                     <section>
-                        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-4">
-                            <span className="p-1.5 bg-blue-100 text-blue-600 rounded-lg"><Hammer size={16} /></span>
+                        <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                            <span className="p-1.5 bg-violet-50 text-violet-500 rounded-lg"><Hammer size={16} /></span>
                             Project Type
                         </h3>
 
@@ -307,14 +307,14 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
 
                     {/* Budget & Timeline */}
                     <section>
-                        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-4">
-                            <span className="p-1.5 bg-blue-100 text-blue-600 rounded-lg"><Calendar size={16} /></span>
+                        <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                            <span className="p-1.5 bg-violet-50 text-violet-500 rounded-lg"><Calendar size={16} /></span>
                             Budget & Timeline
                         </h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Estimated Budget</label>
+                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Estimated Budget</label>
                                 <div className="relative flex rounded-lg shadow-sm">
                                     <div className="relative flex-grow focus-within:z-10">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -327,7 +327,7 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                             onChange={handleChange}
                                             min="0"
                                             placeholder="0.00"
-                                            className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-l-md py-2.5 border"
+                                            className="focus:ring-violet-400 focus:border-gray-300 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-l-md py-2.5 border"
                                         />
                                     </div>
                                     <div className="-ml-px relative">
@@ -335,7 +335,7 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                             name="budgetUnit"
                                             value={formData.budgetUnit}
                                             onChange={handleChange}
-                                            className="focus:ring-blue-500 focus:border-blue-500 border-gray-300 rounded-r-md sm:text-sm py-2.5 pl-3 pr-7 border bg-gray-50 text-gray-700"
+                                            className="focus:ring-violet-400 focus:border-gray-300 border-gray-300 rounded-r-md sm:text-sm py-2.5 pl-3 pr-7 border bg-gray-50 text-gray-700"
                                         >
                                             <option>Lakhs</option>
                                             <option>Crores</option>
@@ -343,13 +343,13 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                     </div>
                                 </div>
                                 {formData.budget && (
-                                    <p className="mt-1 text-xs text-blue-600 font-medium">
+                                    <p className="mt-1 text-xs text-violet-500 font-medium">
                                         {getBudgetPreview()}
                                     </p>
                                 )}
                             </div>
                             <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Target Start Date</label>
+                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Target Start Date</label>
                                 <DatePicker
                                     selected={formData.startDate}
                                     onChange={(date) => handleDateChange(date, 'startDate')}
@@ -358,11 +358,11 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                     showYearDropdown
                                     showMonthDropdown
                                     dropdownMode="select"
-                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-500"
+                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all text-gray-500"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Target Completion</label>
+                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Target Completion</label>
                                 <DatePicker
                                     selected={formData.endDate}
                                     onChange={(date) => handleDateChange(date, 'endDate')}
@@ -371,7 +371,7 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                     showYearDropdown
                                     showMonthDropdown
                                     dropdownMode="select"
-                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-500"
+                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all text-gray-500"
                                 />
                             </div>
                         </div>
@@ -379,18 +379,18 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
 
                     {/* Team Assignment - Visual Only */}
                     <section>
-                        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-4">
-                            <span className="p-1.5 bg-blue-100 text-blue-600 rounded-lg"><UsersIcon size={16} /></span>
+                        <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                            <span className="p-1.5 bg-violet-50 text-violet-500 rounded-lg"><UsersIcon size={16} /></span>
                             Team Assignment
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Site Manager</label>
+                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Site Manager</label>
                                 <select
                                     name="manager"
                                     value={formData.manager}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none"
+                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all appearance-none"
                                 >
                                     <option value="">Select a manager...</option>
                                     <option value="david">David Miller</option>
@@ -398,12 +398,12 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Primary Contractor</label>
+                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Primary Contractor</label>
                                 <select
                                     name="contractor"
                                     value={formData.contractor}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none"
+                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all appearance-none"
                                 >
                                     <option value="">Select contractor...</option>
                                     <option value="buildco">BuildCo Inc.</option>
@@ -415,8 +415,8 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
 
                     {/* Documents */}
                     <section>
-                        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-4">
-                            <span className="p-1.5 bg-blue-100 text-blue-600 rounded-lg"><Upload size={16} /></span>
+                        <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                            <span className="p-1.5 bg-violet-50 text-violet-500 rounded-lg"><Upload size={16} /></span>
                             Documents
                         </h3>
 
@@ -434,11 +434,11 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                 onChange={handleFileChange}
                             />
 
-                            <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                <Upload size={20} className="text-blue-500" />
+                            <div className="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                                <Upload size={16} className="text-violet-500" />
                             </div>
-                            <p className="text-sm font-bold text-gray-700"><span className="text-blue-600 hover:underline">Click to upload</span> or drag and drop</p>
-                            <p className="text-xs text-gray-400 mt-1">Blueprints, Permits, Site Plans (PDF, DWG up to 50MB)</p>
+                            <p className="text-sm font-medium text-gray-600"><span className="text-violet-500">Click to upload</span> or drag and drop</p>
+                            <p className="text-[11px] text-gray-400 mt-1">Blueprints, Permits, Site Plans (PDF, DWG up to 50MB)</p>
                         </div>
 
                         {/* File List */}
@@ -447,12 +447,12 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                 {uploadedFiles.map((file, index) => (
                                     <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
                                         <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                                                <FileText size={16} />
+                                            <div className="p-2 bg-violet-50 text-violet-500 rounded-lg">
+                                                <FileText size={14} />
                                             </div>
                                             <div>
-                                                <p className="text-sm font-medium text-gray-700 line-clamp-1">{file.name}</p>
-                                                <p className="text-xs text-gray-400">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                                                <p className="text-xs font-medium text-gray-700 line-clamp-1">{file.name}</p>
+                                                <p className="text-[11px] text-gray-400">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                                             </div>
                                         </div>
                                         <button
@@ -470,16 +470,16 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 rounded-b-2xl">
-                    <button onClick={onClose} className="px-6 py-2.5 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-200 transition-colors">
+                <div className="p-5 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50 rounded-b-2xl">
+                    <button onClick={onClose} className="px-4 py-2 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-100 transition-colors">
                         Cancel
                     </button>
                     <button
                         onClick={handleSubmit}
                         disabled={isLoading}
-                        className="px-6 py-2.5 rounded-lg text-sm font-bold text-white bg-blue-500 hover:bg-blue-600 shadow-lg shadow-blue-500/30 transition-all hover:translate-y-[-1px] flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-5 py-2 rounded-lg text-xs font-medium text-white bg-[#1a1d2e] hover:bg-[#252840] transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+                        {isLoading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                         {isLoading ? 'Creating...' : 'Create Project'}
                     </button>
                 </div>
@@ -493,15 +493,12 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
 const ProjectTypeCard = ({ icon, title, subtitle, selected, onClick }) => (
     <div
         onClick={onClick}
-        className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all ${selected ? 'border-blue-500 bg-blue-50/50' : 'border-gray-100 hover:border-blue-200 hover:shadow-md'}`}
+        className={`relative p-4 rounded-xl border cursor-pointer transition-all ${selected ? 'border-violet-400 bg-violet-50/30' : 'border-gray-100 hover:border-gray-200'}`}
     >
-        {selected && <div className="absolute top-3 right-3 text-blue-500"><CheckCircle2 size={18} fill="currentColor" className="text-white" /></div>}
-
-        <div className={`mb-3 ${selected ? 'text-blue-500' : 'text-gray-400'}`}>
-            {icon}
-        </div>
-        <div className="font-bold text-gray-800 text-sm">{title}</div>
-        <div className="text-xs text-gray-400 mt-1">{subtitle}</div>
+        {selected && <div className="absolute top-3 right-3 text-violet-500"><CheckCircle2 size={16} /></div>}
+        <div className={`mb-2 ${selected ? 'text-violet-500' : 'text-gray-400'}`}>{icon}</div>
+        <div className="font-medium text-gray-800 text-xs">{title}</div>
+        <div className="text-[11px] text-gray-400 mt-0.5">{subtitle}</div>
     </div>
 );
 

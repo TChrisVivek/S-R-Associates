@@ -109,9 +109,9 @@ const BlueprintTab = ({ projectId }) => {
     // Helper for Status Badges
     const getStatusBadge = (status) => {
         switch (status) {
-            case 'IN PROGRESS': return <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold tracking-wider">IN PROGRESS</span>;
-            case 'DONE': return <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold tracking-wider">DONE</span>;
-            case 'PENDING': return <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-[10px] font-bold tracking-wider">PENDING</span>;
+            case 'IN PROGRESS': return <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-medium tracking-wider">IN PROGRESS</span>;
+            case 'DONE': return <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[10px] font-medium tracking-wider">DONE</span>;
+            case 'PENDING': return <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-[10px] font-medium tracking-wider">PENDING</span>;
             default: return null;
         }
     };
@@ -186,21 +186,21 @@ const BlueprintTab = ({ projectId }) => {
         setPosition({ x: 0, y: 0 });
     };
 
-    if (loading) return <div className="p-8 text-center flex flex-col items-center justify-center gap-4 text-slate-500 h-[400px]">
-        <Loader2 className="animate-spin text-blue-500" size={32} />
-        <p className="font-bold">Loading Blueprint Engine...</p>
+    if (loading) return <div className="p-8 text-center flex flex-col items-center justify-center gap-4 text-gray-500 h-[400px]">
+        <Loader2 className="animate-spin text-violet-500" size={32} />
+        <p className="font-medium">Loading Blueprint Engine...</p>
     </div>;
 
     // --- EMPTY STATE RENDERING ---
     if (!blueprintData) return (
         <div className="flex h-[calc(100vh-250px)]">
             {ToastComponent}
-            <div className="flex-1 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col items-center justify-center p-12 text-center">
-                <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mb-6 shadow-inner border border-blue-100">
-                    <FileUp size={40} className="text-blue-500" />
+            <div className="flex-1 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col items-center justify-center p-12 text-center">
+                <div className="w-24 h-24 bg-violet-50 rounded-full flex items-center justify-center mb-6 shadow-sm border border-violet-100">
+                    <FileUp size={40} className="text-violet-500" />
                 </div>
-                <h2 className="text-2xl font-extrabold text-slate-900 mb-3">No Plans Uploaded Yet</h2>
-                <p className="text-slate-500 max-w-md mb-8">
+                <h2 className="text-2xl font-semibold text-gray-900 mb-3">No Plans Uploaded Yet</h2>
+                <p className="text-gray-500 max-w-md mb-8">
                     This project doesn't have an active blueprint. Upload a PDF plan to activate the interactive task pinning engine.
                 </p>
 
@@ -215,7 +215,7 @@ const BlueprintTab = ({ projectId }) => {
                 <button
                     onClick={handleUploadClick}
                     disabled={uploading}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-xl font-bold shadow-sm shadow-blue-500/30 transition-all flex items-center gap-2 disabled:opacity-50"
+                    className="bg-[#1a1d2e] hover:bg-[#252840] text-white px-8 py-3.5 rounded-xl font-medium shadow-sm transition-all flex items-center gap-2 disabled:opacity-50"
                 >
                     {uploading ? (
                         <>
@@ -236,12 +236,12 @@ const BlueprintTab = ({ projectId }) => {
             {ToastComponent}
 
             {/* --- LEFT: BLUEPRINT VIEWER --- */}
-            <div className="flex-1 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden relative">
+            <div className="flex-1 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col overflow-hidden relative">
 
                 {/* The Canvas Area (With CSS dot pattern for the background) */}
                 <div
                     ref={containerRef}
-                    className={`flex-1 relative overflow-hidden bg-slate-50 flex items-center justify-center p-8 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+                    className={`flex-1 relative overflow-hidden bg-gray-50 flex items-center justify-center p-8 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
                     style={{ backgroundImage: 'radial-gradient(#e5e7eb 1px, transparent 1px)', backgroundSize: '20px 20px' }}
                     onWheel={handleWheel}
                     onMouseDown={handleMouseDown}
@@ -251,18 +251,18 @@ const BlueprintTab = ({ projectId }) => {
                 >
                     {/* Controls (Floating Top Left) */}
                     <div className="absolute top-4 left-4 flex flex-col gap-2 z-20">
-                        <div className="bg-white rounded-lg shadow-sm border border-slate-200 flex flex-col overflow-hidden">
-                            <button onClick={zoomIn} className="p-2 hover:bg-slate-50 text-slate-600 border-b border-slate-100"><Plus size={18} /></button>
-                            <button onClick={zoomOut} className="p-2 hover:bg-slate-50 text-slate-600"><Minus size={18} /></button>
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden">
+                            <button onClick={zoomIn} className="p-2 hover:bg-gray-50 text-gray-600 border-b border-gray-100"><Plus size={18} /></button>
+                            <button onClick={zoomOut} className="p-2 hover:bg-gray-50 text-gray-600"><Minus size={18} /></button>
                         </div>
-                        <button onClick={resetZoom} className="bg-white rounded-lg shadow-sm border border-slate-200 p-2 hover:bg-slate-50 text-slate-600 mt-1" title="Reset View">
+                        <button onClick={resetZoom} className="bg-white rounded-lg shadow-sm border border-gray-200 p-2 hover:bg-gray-50 text-gray-600 mt-1" title="Reset View">
                             <Maximize size={18} />
                         </button>
                     </div>
 
                     {/* The Actual Blueprint Image inside Transform Container */}
                     <div
-                        className="relative w-full max-w-4xl shadow-xl border border-slate-300 transition-transform duration-75 ease-out"
+                        className="relative w-full max-w-4xl shadow-xl border border-gray-300 transition-transform duration-75 ease-out"
                         style={{
                             transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
                             transformOrigin: 'center center'
@@ -298,10 +298,10 @@ const BlueprintTab = ({ projectId }) => {
                 </div>
 
                 {/* Bottom Toolbar */}
-                <div className="bg-white border-t border-slate-200 p-4 flex justify-between items-center z-10">
+                <div className="bg-white border-t border-gray-200 p-4 flex justify-between items-center z-10">
                     <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-400 uppercase">Sheet:</span>
-                        <button className="flex items-center gap-2 text-sm font-bold text-slate-800 hover:bg-slate-50 px-3 py-1.5 rounded-lg border border-transparent hover:border-slate-200 transition">
+                        <span className="text-xs font-medium text-gray-400 uppercase">Sheet:</span>
+                        <button className="flex items-center gap-2 text-sm font-medium text-gray-800 hover:bg-gray-50 px-3 py-1.5 rounded-lg border border-transparent hover:border-gray-200 transition">
                             {blueprintData.name} <ChevronDown size={16} />
                         </button>
                     </div>
@@ -316,12 +316,12 @@ const BlueprintTab = ({ projectId }) => {
                         <button
                             onClick={handleUploadClick}
                             disabled={uploading}
-                            className="flex items-center gap-2 text-sm font-bold text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition border border-transparent hover:border-blue-100"
+                            className="flex items-center gap-2 text-sm font-medium text-violet-500 hover:bg-violet-50 px-3 py-1.5 rounded-lg transition border border-transparent hover:border-violet-100"
                         >
                             {uploading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
                             Upload Plan
                         </button>
-                        <button className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:bg-slate-50 px-3 py-1.5 rounded-lg transition border border-slate-200 shadow-sm">
+                        <button className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition border border-gray-200 shadow-sm">
                             <Layers size={16} /> Layers
                         </button>
                     </div>
@@ -329,57 +329,57 @@ const BlueprintTab = ({ projectId }) => {
             </div>
 
             {/* --- RIGHT: ACTIVE TASKS LIST --- */}
-            <div className="w-full lg:w-96 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col h-full overflow-hidden">
+            <div className="w-full lg:w-96 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col h-full overflow-hidden">
 
                 {/* Task List Header */}
-                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white z-10">
-                    <h3 className="font-bold text-slate-900">Active Tasks</h3>
-                    <span className="text-xs font-bold text-slate-500 uppercase">{tasks.length} PINS</span>
+                <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-white z-10">
+                    <h3 className="font-medium text-gray-900">Active Tasks</h3>
+                    <span className="text-xs font-medium text-gray-500 uppercase">{tasks.length} PINS</span>
                 </div>
 
                 {/* Scrollable Task List */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
                     {tasks.map(task => (
                         <div
                             key={task.id}
-                            className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition cursor-pointer"
+                            className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition cursor-pointer"
                             onMouseEnter={() => setActiveTaskHover(task.id)}
                             onMouseLeave={() => setActiveTaskHover(null)}
                         >
                             <div className="flex justify-between items-start mb-2">
                                 {getStatusBadge(task.status)}
-                                <span className="text-xs font-bold text-slate-400">#{task.id && task.id.substring ? task.id.substring(task.id.length - 4).toUpperCase() : 'NEW'}</span>
+                                <span className="text-xs font-medium text-gray-400">#{task.id && task.id.substring ? task.id.substring(task.id.length - 4).toUpperCase() : 'NEW'}</span>
                             </div>
 
-                            <h4 className="font-bold text-slate-900 text-sm mb-3">{task.title}</h4>
+                            <h4 className="font-medium text-gray-900 text-sm mb-3">{task.title}</h4>
 
                             <div className="flex justify-between items-center">
                                 <div className="flex items-center gap-2">
                                     {task.assignee === 'Unassigned' ? (
-                                        <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-500">UN</div>
+                                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-medium text-gray-500">UN</div>
                                     ) : (
                                         <img src={`https://ui-avatars.com/api/?name=${task.assignee}&background=random`} alt={task.assignee} className="w-6 h-6 rounded-full" />
                                     )}
-                                    <span className="text-xs text-slate-600 font-medium">{task.assignee}</span>
+                                    <span className="text-xs text-gray-600 font-medium">{task.assignee}</span>
                                 </div>
 
                                 {/* Target Icon - Grey if no pin, Colored if pinned */}
-                                <button className={`p-1 rounded-full transition ${task.x ? 'text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50' : 'text-slate-300'}`}>
+                                <button className={`p-1 rounded-full transition ${task.x ? 'text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50' : 'text-gray-300'}`}>
                                     {task.status === 'DONE' ? <CheckCircle2 size={18} className="text-emerald-500" /> : <Target size={18} />}
                                 </button>
                             </div>
                         </div>
                     ))}
                     {tasks.length === 0 && (
-                        <div className="text-center p-8 text-slate-500 text-sm">
+                        <div className="text-center p-8 text-gray-500 text-sm">
                             No tasks assigned to this blueprint yet. Click anywhere on the blueprint to drop a pin.
                         </div>
                     )}
                 </div>
 
                 {/* Bottom Filter Button */}
-                <div className="p-4 border-t border-slate-100 bg-white">
-                    <button className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-sm font-bold rounded-lg transition border border-slate-200">
+                <div className="p-4 border-t border-gray-100 bg-white">
+                    <button className="w-full flex items-center justify-center gap-2 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm font-medium rounded-lg transition border border-gray-200">
                         <Filter size={16} /> Filter View
                     </button>
                 </div>
@@ -388,35 +388,35 @@ const BlueprintTab = ({ projectId }) => {
 
             {/* --- CUSTOM PROMPT MODAL --- */}
             {isPromptOpen && (
-                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-                    <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-sm overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
-                        <div className="px-6 py-5 flex items-center justify-between border-b border-slate-100">
-                            <h3 className="text-lg font-bold text-slate-900">New Task Pin</h3>
-                            <button onClick={() => { setIsPromptOpen(false); setTempClickData(null); }} className="p-2 hover:bg-slate-100 rounded-full text-slate-400">
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+                    <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-sm overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="px-6 py-5 flex items-center justify-between border-b border-gray-100">
+                            <h3 className="text-lg font-medium text-gray-900">New Task Pin</h3>
+                            <button onClick={() => { setIsPromptOpen(false); setTempClickData(null); }} className="p-2 hover:bg-gray-100 rounded-full text-gray-400">
                                 <X size={20} />
                             </button>
                         </div>
-                        <form onSubmit={submitTaskPrompt} className="p-6 bg-slate-50/50">
-                            <label className="block text-xs font-bold text-slate-700 mb-2">Task Title</label>
+                        <form onSubmit={submitTaskPrompt} className="p-6 bg-gray-50/50">
+                            <label className="block text-xs font-medium text-gray-700 mb-2">Task Title</label>
                             <input
                                 type="text"
                                 name="title"
                                 autoFocus
                                 required
                                 placeholder="e.g. Check wiring on 2nd floor"
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-sm mb-6"
+                                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-gray-300 focus:ring-2 focus:ring-violet-100 outline-none transition-all shadow-sm mb-6"
                             />
                             <div className="flex gap-3 w-full">
                                 <button
                                     type="button"
                                     onClick={() => { setIsPromptOpen(false); setTempClickData(null); }}
-                                    className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold rounded-xl transition-colors"
+                                    className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-xl transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl shadow-sm transition-colors"
+                                    className="flex-1 px-4 py-3 bg-[#1a1d2e] hover:bg-[#252840] text-white text-sm font-medium rounded-xl shadow-sm transition-colors"
                                 >
                                     Create Task
                                 </button>
