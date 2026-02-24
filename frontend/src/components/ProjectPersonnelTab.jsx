@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Search, Mail, Phone, ArrowRight, Wrench, Zap, Ruler
+    Search, Mail, Phone, ArrowRight, Wrench, Zap, Ruler, X, MapPin
 } from 'lucide-react';
-import api from '../api/axios'; // Using the established Axios instance
+import { useNavigate } from 'react-router-dom';
+import api from '../api/axios';
 
 const ProjectPersonnelTab = ({ projectId }) => {
+    const navigate = useNavigate();
     const [personnelData, setPersonnelData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedMember, setSelectedMember] = useState(null);
 
     // 1. Fetch Real Data
     useEffect(() => {
@@ -108,7 +111,10 @@ const ProjectPersonnelTab = ({ projectId }) => {
                                 </div>
                             </div>
 
-                            <button className="w-full py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl text-sm hover:bg-gray-50 transition shadow-sm">
+                            <button
+                                onClick={() => navigate('/personnel')}
+                                className="w-full py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl text-sm hover:bg-gray-50 transition shadow-sm"
+                            >
                                 View Profile
                             </button>
                         </div>
@@ -126,7 +132,10 @@ const ProjectPersonnelTab = ({ projectId }) => {
                         <h2 className="text-lg font-bold text-gray-900">External Vendors</h2>
                         <p className="text-sm text-gray-500">Third-party specialized agencies and contractors</p>
                     </div>
-                    <button className="text-sm font-bold text-blue-600 hover:underline flex items-center gap-1">
+                    <button
+                        onClick={() => navigate('/personnel')}
+                        className="text-sm font-bold text-blue-600 hover:underline flex items-center gap-1"
+                    >
                         Manage Vendors <ArrowRight size={16} />
                     </button>
                 </div>
@@ -181,6 +190,89 @@ const ProjectPersonnelTab = ({ projectId }) => {
                 </div>
 
             </div>
+
+            {/* --- MEMBER PROFILE MODAL --- */}
+            {selectedMember && (
+                <div className="fixed inset-0 flex items-center justify-center z-50 p-4 transition-all duration-300">
+                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={() => setSelectedMember(null)}></div>
+                    <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-100 border border-slate-100">
+                        {/* Header Gradient */}
+                        <div className="h-32 bg-gradient-to-r from-blue-600 to-indigo-600 relative">
+                            <button
+                                onClick={() => setSelectedMember(null)}
+                                className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors backdrop-blur-md"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="px-8 pb-8">
+                            {/* Profile Image - Overlapping Header */}
+                            <div className="relative -mt-16 mb-4 flex justify-between items-end">
+                                <div className="w-32 h-32 rounded-2xl bg-white p-1.5 shadow-lg border border-slate-100 relative">
+                                    <img src={selectedMember.avatar} alt={selectedMember.name} className="w-full h-full rounded-xl object-cover" />
+                                </div>
+                                <div className="mb-2">
+                                    {getStatusBadge(selectedMember.status)}
+                                </div>
+                            </div>
+
+                            {/* Main Info */}
+                            <div className="mb-6">
+                                <h2 className="text-2xl font-extrabold text-slate-900">{selectedMember.name}</h2>
+                                <p className="text-blue-600 font-bold tracking-wide mt-1">{selectedMember.role}</p>
+                            </div>
+
+                            {/* Details Grid */}
+                            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6 space-y-4 mb-8">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                                        <Mail size={18} />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">Contact Email</p>
+                                        <p className="text-slate-900 font-medium">{selectedMember.email}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                                        <Phone size={18} />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">Mobile Number</p>
+                                        <p className="text-slate-900 font-medium">{selectedMember.phone}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 shrink-0">
+                                        <MapPin size={18} />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">Assigned To</p>
+                                        <p className="text-slate-900 font-medium">This Project</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setSelectedMember(null)}
+                                    className="flex-1 px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors"
+                                >
+                                    Close Profile
+                                </button>
+                                <button
+                                    onClick={() => navigate('/personnel')}
+                                    className="flex-1 px-6 py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+                                >
+                                    Full Directory
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div>
     );

@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, FolderOpen, Users, PieChart, FileText, Settings,
-    Download, FileIcon, Calendar, Box, Wallet, UploadCloud, File as FilePdf, Trash2, Eye, Bell, Moon, Loader2
+    Download, FileIcon, Calendar, Box, Wallet, UploadCloud, File as FilePdf, Trash2, Eye, Bell, Moon, Loader2, ChevronRight
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 
 const Reports = () => {
+    const navigate = useNavigate();
+    const { user: currentUser } = useAuth();
     const [activeTab, setActiveTab] = useState('generated');
     const [uploadedDocs, setUploadedDocs] = useState([]);
     const [systemReports, setSystemReports] = useState([]);
@@ -90,10 +94,22 @@ const Reports = () => {
                     <NavItem icon={<FileText size={20} />} text="Reports" active href="/reports" />
                     <NavItem icon={<Settings size={20} />} text="Settings" href="/settings" />
                 </nav>
-                <div className="p-4 border-t border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition">
-                    <div className="flex items-center gap-2 text-gray-600">
-                        <Moon size={18} />
-                        <span className="text-sm font-medium">Toggle Theme</span>
+                <div className="p-6 border-t border-slate-100/50">
+                    <div onClick={() => navigate('/profile')} className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group">
+                        {currentUser?.profile_image ? (
+                            <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden ring-2 ring-white ring-offset-2 transition-all group-hover:ring-blue-100">
+                                <img src={currentUser.profile_image} alt={currentUser.username} />
+                            </div>
+                        ) : (
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-blue-700 font-bold border border-blue-200 ring-2 ring-white ring-offset-2 transition-all group-hover:ring-blue-200">
+                                {currentUser?.username?.[0] || 'U'}
+                            </div>
+                        )}
+                        <div>
+                            <p className="text-sm font-bold text-slate-800">{currentUser?.username || 'User'}</p>
+                            <p className="text-xs text-slate-500 font-medium">{currentUser?.role || 'Guest'}</p>
+                        </div>
+                        <ChevronRight size={16} className="ml-auto text-slate-400 group-hover:text-slate-600 transition-colors" />
                     </div>
                 </div>
             </aside>
@@ -109,14 +125,18 @@ const Reports = () => {
                     </div>
                     <div className="flex items-center gap-6">
                         <button className="text-gray-400 hover:text-gray-600"><Bell size={20} /></button>
-                        <div className="flex items-center gap-3 border-l pl-6 border-gray-200">
+                        <div className="flex items-center gap-3 border-l pl-6 border-gray-200 cursor-pointer hover:bg-slate-50 p-2 rounded-xl transition" onClick={() => navigate('/profile')}>
                             <div className="text-right hidden md:block">
-                                <p className="text-sm font-bold text-gray-800">Alex Sterling</p>
-                                <p className="text-xs text-gray-500">Project Manager</p>
+                                <p className="text-sm font-bold text-gray-800">{currentUser?.username || 'User'}</p>
+                                <p className="text-xs text-gray-500">{currentUser?.role || 'Guest'}</p>
                             </div>
-                            <div className="w-10 h-10 rounded-full bg-orange-100 border border-orange-200 flex items-center justify-center text-orange-700 font-bold">
-                                AS
-                            </div>
+                            {currentUser?.profile_image ? (
+                                <img src={currentUser.profile_image} alt="User" className="w-10 h-10 rounded-full border border-gray-200" />
+                            ) : (
+                                <div className="w-10 h-10 rounded-full bg-orange-100 border border-orange-200 flex items-center justify-center text-orange-700 font-bold">
+                                    {currentUser?.username?.[0] || 'U'}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </header>

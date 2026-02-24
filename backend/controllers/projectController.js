@@ -211,8 +211,13 @@ exports.getProjectById = async (req, res) => {
             floors: project.floors || 0,
             manager: project.manager || "Unassigned",
             contractor: project.contractor || "Unassigned",
+            status: project.status || "Planning",
             phase: project.status.toUpperCase(),
+            startDate: project.startDate || null,
+            endDate: project.endDate || null,
             timeline: `${startStr} - ${endStr}`,
+            budgetRaw: project.budget || "",
+            budgetUnitRaw: project.budgetUnit || "Lakhs",
             budget: project.budget ? `${project.budget} ${project.budgetUnit || ''}` : "TBA",
             daysLeft: daysLeft,
             stats: {
@@ -292,6 +297,22 @@ exports.addCriticalTask = async (req, res) => {
     } catch (error) {
         console.error("Add Critical Task Error:", error);
         res.status(500).json({ message: "Error adding task", error: error.message });
+    }
+};
+
+exports.deleteCriticalTask = async (req, res) => {
+    try {
+        const { id, taskId } = req.params;
+        const project = await Project.findById(id);
+        if (!project) return res.status(404).json({ message: "Project not found" });
+
+        project.criticalTasks = project.criticalTasks.filter(task => task._id.toString() !== taskId);
+        await project.save();
+
+        res.status(200).json({ message: "Task deleted successfully" });
+    } catch (error) {
+        console.error("Delete Critical Task Error:", error);
+        res.status(500).json({ message: "Error deleting task", error: error.message });
     }
 };
 

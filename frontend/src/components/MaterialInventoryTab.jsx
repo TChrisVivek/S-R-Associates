@@ -4,6 +4,7 @@ import {
     ClipboardList, Wallet, Box, Grid, Layers, Triangle, X, Loader2, UploadCloud, Calendar, ExternalLink, Image as ImageIcon
 } from 'lucide-react';
 import api from '../api/axios';
+import { useToast } from './Toast';
 
 const MaterialInventoryTab = ({ projectId }) => {
     const [inventoryData, setInventoryData] = useState(null);
@@ -21,6 +22,7 @@ const MaterialInventoryTab = ({ projectId }) => {
     const [deliveryChallanFile, setDeliveryChallanFile] = useState(null);
     const [stackPhotoFile, setStackPhotoFile] = useState(null);
     const [usagePhotoFile, setUsagePhotoFile] = useState(null);
+    const { showToast, ToastComponent } = useToast();
 
     // 1. Fetch Real Data
     useEffect(() => {
@@ -69,9 +71,10 @@ const MaterialInventoryTab = ({ projectId }) => {
             setIsDeliveryModalOpen(false);
             setDeliveryChallanFile(null);
             setStackPhotoFile(null);
+            showToast("Delivery logged successfully", "success");
         } catch (error) {
             console.error("Failed to log delivery:", error);
-            alert("Failed to log delivery. Please try again.");
+            showToast("Failed to log delivery. Please try again.", "error");
         } finally {
             setActionLoading(false);
         }
@@ -79,7 +82,7 @@ const MaterialInventoryTab = ({ projectId }) => {
 
     const handleLogUsage = async (e) => {
         e.preventDefault();
-        if (!selectedMaterialForUsage) return alert("Please select a material");
+        if (!selectedMaterialForUsage) return showToast("Please select a material", "warning");
 
         setActionLoading(true);
         try {
@@ -94,9 +97,10 @@ const MaterialInventoryTab = ({ projectId }) => {
             setIsUsageModalOpen(false);
             setSelectedMaterialForUsage('');
             setUsagePhotoFile(null);
+            showToast("Material usage logged successfully", "success");
         } catch (error) {
             console.error("Failed to log usage:", error);
-            alert("Failed to log usage. Please try again.");
+            showToast("Failed to log usage. Please try again.", "error");
         } finally {
             setActionLoading(false);
         }
@@ -118,6 +122,7 @@ const MaterialInventoryTab = ({ projectId }) => {
 
     return (
         <div className="flex flex-col h-full space-y-6">
+            {ToastComponent}
 
             {/* --- TOP TOOLBAR --- */}
             <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">

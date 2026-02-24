@@ -17,9 +17,12 @@ import {
     Filter
 } from 'lucide-react';
 import api from '../api/axios';
+import { useAuth } from '../context/AuthContext';
 import CreateProjectModal from '../components/CreateProjectModal';
 
 const Projects = () => {
+    const navigate = useNavigate();
+    const { user: currentUser } = useAuth();
     const [activeTab, setActiveTab] = useState('In Progress');
     const [searchQuery, setSearchQuery] = useState('');
     const [projects, setProjects] = useState([]);
@@ -155,13 +158,19 @@ const Projects = () => {
                 </nav>
 
                 <div className="p-6 border-t border-slate-100/50">
-                    <div className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group">
-                        <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden ring-2 ring-white ring-offset-2 transition-all group-hover:ring-blue-100">
-                            <img src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="User" />
-                        </div>
+                    <div onClick={() => navigate('/profile')} className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group">
+                        {currentUser?.profile_image ? (
+                            <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden ring-2 ring-white ring-offset-2 transition-all group-hover:ring-blue-100">
+                                <img src={currentUser.profile_image} alt={currentUser.username} />
+                            </div>
+                        ) : (
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-blue-700 font-bold border border-blue-200 ring-2 ring-white ring-offset-2 transition-all group-hover:ring-blue-200">
+                                {currentUser?.username?.[0] || 'U'}
+                            </div>
+                        )}
                         <div>
-                            <p className="text-sm font-bold text-slate-800">David Miller</p>
-                            <p className="text-xs text-slate-500 font-medium">Site Director</p>
+                            <p className="text-sm font-bold text-slate-800">{currentUser?.username || 'User'}</p>
+                            <p className="text-xs text-slate-500 font-medium">{currentUser?.role || 'Guest'}</p>
                         </div>
                         <ChevronRight size={16} className="ml-auto text-slate-400 group-hover:text-slate-600 transition-colors" />
                     </div>

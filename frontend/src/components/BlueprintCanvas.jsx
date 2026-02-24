@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import api from '../api/axios';
+import { useToast } from './Toast';
 
 const styles = {
     viewport: {
@@ -90,6 +91,7 @@ const BlueprintCanvas = ({ projectId, blueprintId, imageUrl, onPinSelect, active
     const [hoveredPinId, setHoveredPinId] = useState(null);
     const stageRef = useRef(null);
     const [scale, setScale] = useState(1);
+    const { showToast, ToastComponent } = useToast();
 
     useEffect(() => {
         const fetchPins = async () => {
@@ -124,7 +126,7 @@ const BlueprintCanvas = ({ projectId, blueprintId, imageUrl, onPinSelect, active
     };
 
     const savePin = async () => {
-        if (!newPin.title) return alert("Please add a title/note!");
+        if (!newPin.title) return showToast("Please add a title/note!", "warning");
 
         try {
             const payload = {
@@ -144,12 +146,13 @@ const BlueprintCanvas = ({ projectId, blueprintId, imageUrl, onPinSelect, active
 
         } catch (error) {
             console.error("Error saving pin:", error);
-            alert("Failed to save pin");
+            showToast("Failed to save pin", "error");
         }
     };
 
     return (
         <div style={styles.viewport}>
+            {ToastComponent}
 
             {/* The Zoomable Stage */}
             <div

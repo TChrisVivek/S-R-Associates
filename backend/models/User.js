@@ -17,12 +17,12 @@ const userSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required: true
+        required: false // Optional for Google OAuth users
     },
     role: {
         type: String,
-        enum: ['Admin', 'Site Manager', 'Contractor', 'Client'],
-        default: 'Site Manager'
+        enum: ['Admin', 'Site Manager', 'Contractor', 'Client', 'Pending'],
+        default: 'Pending'
     },
     phone: {
         type: String
