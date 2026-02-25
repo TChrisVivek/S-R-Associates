@@ -215,7 +215,7 @@ const StatusPill = ({ status }) => {
 
 const ProjectCard = ({ project, index }) => {
     const navigate = useNavigate();
-    const progress = project.progress || 0;
+    const progress = project.stats?.taskCompleted || 0;
     const image = project.image || `https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&q=80&w=800`;
 
     return (
