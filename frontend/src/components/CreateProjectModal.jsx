@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Upload, Home, Building2, Hammer, CheckCircle2, Calendar, Loader2, Plus, FileText, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Upload, Home, Building2, Hammer, CheckCircle2, Calendar, Loader2, Plus, FileText, Trash2, ImagePlus } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import api from '../api/axios';
@@ -22,7 +22,18 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
         contractor: ''
     });
     const [uploadedFiles, setUploadedFiles] = useState([]);
+    const [coverImage, setCoverImage] = useState(null);
+    const [coverPreview, setCoverPreview] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [personnel, setPersonnel] = useState([]);
+
+    useEffect(() => {
+        if (isOpen) {
+            api.get('/personnel').then(res => {
+                setPersonnel(res.data || []);
+            }).catch(err => console.error('Failed to fetch personnel', err));
+        }
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
@@ -79,7 +90,23 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
             let imageUrl = "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&q=80&w=1000"; // Default
             let uploadedBlueprints = [];
 
-            // 1. Upload Files if exist
+            // 1. Upload Cover Image if exists
+            if (coverImage) {
+                const coverData = new FormData();
+                coverData.append('plans', coverImage);
+                try {
+                    const coverRes = await api.post('/projects/upload', coverData, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    if (coverRes.data.files && coverRes.data.files.length > 0) {
+                        imageUrl = coverRes.data.files[0].url;
+                    }
+                } catch (err) {
+                    console.error("Cover image upload failed", err);
+                }
+            }
+
+            // 2. Upload Blueprint Files if exist
             if (uploadedFiles.length > 0) {
                 const uploadData = new FormData();
                 uploadedFiles.forEach(file => {
@@ -92,11 +119,6 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                     });
 
                     if (uploadRes.data.files && uploadRes.data.files.length > 0) {
-                        // Use the first image as the main project image if available, else default
-                        const firstImage = uploadRes.data.files.find(f => f.type.startsWith('image/'));
-                        if (firstImage) {
-                            imageUrl = firstImage.url;
-                        }
                         uploadedBlueprints = uploadRes.data.files;
                     }
 
@@ -134,6 +156,8 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                     startDate: null, endDate: null, manager: '', contractor: ''
                 });
                 setUploadedFiles([]);
+                setCoverImage(null);
+                setCoverPreview(null);
             }
 
         } catch (error) {
@@ -228,7 +252,7 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                         value={formData.client}
                                         onChange={handleChange}
                                         placeholder="e.g. Acme Development Corp"
-                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all"
+                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all placeholder:text-gray-300"
                                     />
                                 </div>
                                 <div>
@@ -239,7 +263,7 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                         value={formData.address}
                                         onChange={handleChange}
                                         placeholder="123 Construction Blvd"
-                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all"
+                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all placeholder:text-gray-300"
                                     />
                                 </div>
                             </div>
@@ -254,7 +278,7 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                         onChange={handleChange}
                                         min="0"
                                         placeholder="e.g. 5000"
-                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all"
+                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all placeholder:text-gray-300"
                                     />
                                 </div>
                                 <div>
@@ -266,11 +290,67 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                         onChange={handleChange}
                                         min="0"
                                         placeholder="e.g. 3"
-                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all"
+                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all placeholder:text-gray-300"
                                     />
                                 </div>
                             </div>
                         </div>
+                    </section>
+
+                    {/* Cover Image */}
+                    <section>
+                        <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                            <span className="p-1.5 bg-violet-50 text-violet-500 rounded-lg"><ImagePlus size={16} /></span>
+                            Cover Image
+                        </h3>
+
+                        {coverPreview ? (
+                            <div className="relative rounded-xl overflow-hidden border border-gray-200 group">
+                                <img src={coverPreview} alt="Cover preview" className="w-full h-40 object-cover" />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setCoverImage(null); setCoverPreview(null); }}
+                                        className="px-3 py-1.5 bg-white rounded-lg text-sm font-medium text-gray-700 flex items-center gap-1.5 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                    >
+                                        <Trash2 size={14} /> Remove
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div
+                                onClick={() => document.getElementById('coverImageUpload').click()}
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    const file = e.dataTransfer.files[0];
+                                    if (file && file.type.startsWith('image/')) {
+                                        setCoverImage(file);
+                                        setCoverPreview(URL.createObjectURL(file));
+                                    }
+                                }}
+                                className="border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center transition-colors cursor-pointer group border-gray-200 hover:border-violet-300 hover:bg-violet-50/30"
+                            >
+                                <input
+                                    id="coverImageUpload"
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                        const file = e.target.files[0];
+                                        if (file) {
+                                            setCoverImage(file);
+                                            setCoverPreview(URL.createObjectURL(file));
+                                        }
+                                    }}
+                                />
+                                <div className="w-10 h-10 rounded-full bg-gray-100 group-hover:bg-violet-100 flex items-center justify-center mb-2 transition-colors">
+                                    <ImagePlus size={20} className="text-gray-400 group-hover:text-violet-500 transition-colors" />
+                                </div>
+                                <p className="text-sm font-medium text-gray-500 group-hover:text-violet-600 transition-colors">Upload a cover image</p>
+                                <p className="text-xs text-gray-300 mt-1">PNG, JPG up to 10MB</p>
+                            </div>
+                        )}
                     </section>
 
                     {/* Project Type */}
@@ -383,31 +463,19 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                             <span className="p-1.5 bg-violet-50 text-violet-500 rounded-lg"><UsersIcon size={16} /></span>
                             Team Assignment
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Site Manager</label>
                                 <select
                                     name="manager"
                                     value={formData.manager}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all appearance-none"
+                                    className={`w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all appearance-none ${!formData.manager ? 'text-gray-300' : 'text-gray-900'}`}
                                 >
-                                    <option value="">Select a manager...</option>
-                                    <option value="david">David Miller</option>
-                                    <option value="sarah">Sarah Jenkins</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Primary Contractor</label>
-                                <select
-                                    name="contractor"
-                                    value={formData.contractor}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all appearance-none"
-                                >
-                                    <option value="">Select contractor...</option>
-                                    <option value="buildco">BuildCo Inc.</option>
-                                    <option value="apex">Apex Construction</option>
+                                    <option value="" className="text-gray-300">Select a manager...</option>
+                                    {personnel.map(p => (
+                                        <option key={p._id} value={p.name} className="text-gray-900">{p.name} — {p.role || 'Team Member'}</option>
+                                    ))}
                                 </select>
                             </div>
                         </div>

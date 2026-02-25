@@ -21,6 +21,7 @@ const Personnel = () => {
     const [deleteId, setDeleteId] = useState(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [newMember, setNewMember] = useState({ name: '', role: '', email: '', phone: '+91 ', site: '', status: 'On Site' });
+    const [fieldErrors, setFieldErrors] = useState({});
 
     useEffect(() => {
         const updateCompanyDisplay = () => {
@@ -53,6 +54,22 @@ const Personnel = () => {
 
     const handleAddSubmit = async (e) => {
         e.preventDefault();
+        // Custom validation — highlight empty fields
+        const errors = {};
+        if (!newMember.name.trim()) errors.name = true;
+        if (!newMember.email.trim()) errors.email = true;
+        if (!newMember.phone || newMember.phone.trim() === '+91' || newMember.phone.trim() === '+91 ') errors.phone = true;
+        if (!newMember.site.trim()) errors.site = true;
+        if (!newMember.role) errors.role = true;
+
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors);
+            // Clear errors after 2 seconds
+            setTimeout(() => setFieldErrors({}), 2000);
+            return;
+        }
+        setFieldErrors({});
+
         try {
             const payload = { ...newMember, avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(newMember.name)}&background=random` };
             const response = await api.post('/personnel', payload);
@@ -99,13 +116,7 @@ const Personnel = () => {
 
             {/* ─── SIDEBAR ─── */}
             <aside className="w-[240px] bg-[#0f1117] flex flex-col z-20 hidden md:flex border-r border-white/[0.06]">
-                <div className="px-5 py-6 flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20 shrink-0"><img src="/logo.png" alt="Logo" className="w-7 h-7 object-contain" /></div>
-                    <div>
-                        <span className="font-semibold text-sm text-white block leading-tight">{companyName}</span>
-                        <span className="text-[10px] text-white/30 font-medium">Construction Suite</span>
-                    </div>
-                </div>
+                <div className="px-5 py-5 flex items-center justify-center"><img src="/logo.png" alt="S R Associates" className="w-28 h-auto object-contain opacity-90" /></div>
                 <nav className="flex-1 px-3 space-y-0.5 mt-2">
                     <div className="px-3 mb-3"><p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">Menu</p></div>
                     <NavItem icon={<LayoutDashboard size={17} />} text="Dashboard" href="/" />
@@ -222,20 +233,21 @@ const Personnel = () => {
                             <h3 className="font-semibold text-base text-gray-900">Add Team Member</h3>
                             <button onClick={() => setIsAddModalOpen(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
                         </div>
-                        <form onSubmit={handleAddSubmit} className="p-6 space-y-4">
-                            <FormField label="Full Name" required type="text" value={newMember.name} onChange={e => setNewMember({ ...newMember, name: e.target.value })} placeholder="e.g. John Doe" />
+                        <form onSubmit={handleAddSubmit} noValidate className="p-6 space-y-4">
+                            <FormField label="Full Name" type="text" value={newMember.name} onChange={e => { setNewMember({ ...newMember, name: e.target.value }); setFieldErrors(prev => ({ ...prev, name: false })); }} placeholder="e.g. John Doe" error={fieldErrors.name} />
                             <div className="grid grid-cols-2 gap-3">
-                                <FormField label="Email" required type="email" value={newMember.email} onChange={e => setNewMember({ ...newMember, email: e.target.value })} placeholder="john@example.com" />
-                                <FormField label="Phone" required type="tel" value={newMember.phone} onChange={handlePhoneChange} placeholder="+91 99999 99999" />
+                                <FormField label="Email" type="email" value={newMember.email} onChange={e => { setNewMember({ ...newMember, email: e.target.value }); setFieldErrors(prev => ({ ...prev, email: false })); }} placeholder="john@example.com" error={fieldErrors.email} />
+                                <FormField label="Phone" type="tel" value={newMember.phone} onChange={e => { handlePhoneChange(e); setFieldErrors(prev => ({ ...prev, phone: false })); }} placeholder="+91 99999 99999" error={fieldErrors.phone} />
                             </div>
-                            <FormField label="Site Assignment" required type="text" value={newMember.site} onChange={e => setNewMember({ ...newMember, site: e.target.value })} placeholder="e.g. Skyline Plaza" />
+                            <FormField label="Site Assignment" type="text" value={newMember.site} onChange={e => { setNewMember({ ...newMember, site: e.target.value }); setFieldErrors(prev => ({ ...prev, site: false })); }} placeholder="e.g. Skyline Plaza" error={fieldErrors.site} />
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Role</label>
-                                <select required value={newMember.role} onChange={e => setNewMember({ ...newMember, role: e.target.value })}
-                                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none text-sm text-gray-700 appearance-none">
+                                <select value={newMember.role} onChange={e => { setNewMember({ ...newMember, role: e.target.value }); setFieldErrors(prev => ({ ...prev, role: false })); }}
+                                    className={`w-full bg-gray-50 border px-3 py-2.5 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none text-sm text-gray-700 appearance-none transition-all ${fieldErrors.role ? 'border-red-400 ring-2 ring-red-100 animate-[shake_0.3s_ease-in-out]' : 'border-gray-200'}`}>
                                     <option value="" disabled>Select a role</option>
                                     {['Architect', 'Civil Engineer', 'Structural Engineer', 'Site Supervisor', 'Electrician', 'Plumber', 'Carpenter', 'Mason', 'Laborer', 'Safety Officer'].map(r => <option key={r} value={r}>{r}</option>)}
                                 </select>
+                                {fieldErrors.role && <p className="text-xs text-red-400 mt-1">Please select a role</p>}
                             </div>
                             <div className="pt-3 flex justify-end gap-2 border-t border-gray-50 mt-2">
                                 <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg transition-colors">Cancel</button>
@@ -308,10 +320,11 @@ const StatusPill = ({ status }) => {
     );
 };
 
-const FormField = ({ label, ...props }) => (
+const FormField = ({ label, error, ...props }) => (
     <div>
         <label className="block text-xs font-medium text-gray-500 mb-1.5">{label}</label>
-        <input {...props} className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none text-sm text-gray-700 placeholder-gray-300 transition-all" />
+        <input {...props} className={`w-full bg-gray-50 border px-3 py-2.5 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none text-sm text-gray-700 placeholder-gray-300 transition-all ${error ? 'border-red-400 ring-2 ring-red-100' : 'border-gray-200'}`} />
+        {error && <p className="text-xs text-red-400 mt-1">This field is required</p>}
     </div>
 );
 

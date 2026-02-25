@@ -268,12 +268,22 @@ const BlueprintTab = ({ projectId }) => {
                             transformOrigin: 'center center'
                         }}
                     >
-                        <img
-                            ref={imageRef}
-                            src={blueprintData.imageUrl}
-                            alt="Project Blueprint"
-                            className="w-full h-auto block pointer-events-none" // prevent native drag
-                        />
+                        {blueprintData.imageUrl && blueprintData.imageUrl.toLowerCase().endsWith('.pdf') ? (
+                            <embed
+                                ref={imageRef}
+                                src={blueprintData.imageUrl}
+                                type="application/pdf"
+                                className="w-full pointer-events-none"
+                                style={{ height: '600px' }}
+                            />
+                        ) : (
+                            <img
+                                ref={imageRef}
+                                src={blueprintData.imageUrl}
+                                alt="Project Blueprint"
+                                className="w-full h-auto block pointer-events-none"
+                            />
+                        )}
 
                         {/* Event Capture Layer for Pin Dropping */}
                         <div

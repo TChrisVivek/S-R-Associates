@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     LayoutDashboard, FolderOpen, Users, FileText, Settings,
@@ -14,7 +14,30 @@ const UserProfile = () => {
     const companyInitial = localStorage.getItem('companyShortName')?.[0]?.toUpperCase() || 'B';
     const companyName = localStorage.getItem('companyShortName') || 'BuildCore';
 
+    const [profileName, setProfileName] = useState(currentUser?.username || '');
+    const [profilePhone, setProfilePhone] = useState(currentUser?.phone || '');
+    const [saving, setSaving] = useState(false);
+
     const handleLogout = () => { logout(); };
+
+    const handleSave = async () => {
+        if (!currentUser?._id) return;
+        setSaving(true);
+        try {
+            const res = await (await import('../api/axios')).default.put(`/users/${currentUser._id}/profile`, {
+                username: profileName,
+                phone: profilePhone
+            });
+            if (res.status === 200) {
+                showToast('Profile updated successfully!', 'success');
+            }
+        } catch (err) {
+            console.error('Failed to update profile:', err);
+            showToast('Failed to update profile', 'error');
+        } finally {
+            setSaving(false);
+        }
+    };
 
     return (
         <div className="flex h-screen bg-[#0f1117] font-sans text-white overflow-hidden">
@@ -22,13 +45,7 @@ const UserProfile = () => {
 
             {/* ─── SIDEBAR ─── */}
             <aside className="w-[240px] bg-[#0f1117] flex flex-col z-20 hidden md:flex border-r border-white/[0.06]">
-                <div className="px-5 py-6 flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20 shrink-0"><img src="/logo.png" alt="Logo" className="w-7 h-7 object-contain" /></div>
-                    <div>
-                        <span className="font-semibold text-sm text-white block leading-tight">{companyName}</span>
-                        <span className="text-[10px] text-white/30 font-medium">Construction Suite</span>
-                    </div>
-                </div>
+                <div className="px-5 py-5 flex items-center justify-center"><img src="/logo.png" alt="S R Associates" className="w-28 h-auto object-contain opacity-90" /></div>
                 <nav className="flex-1 px-3 space-y-0.5 mt-2">
                     <div className="px-3 mb-3"><p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">Menu</p></div>
                     <NavItem icon={<LayoutDashboard size={17} />} text="Dashboard" href="/" />
@@ -99,13 +116,15 @@ const UserProfile = () => {
                         <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-6">
                             <h2 className="text-sm font-semibold text-gray-900 mb-5">Personal Information</h2>
                             <div className="grid grid-cols-2 gap-4">
-                                <FormField label="Full Name" defaultValue={currentUser?.username} />
+                                <FormField label="Full Name" value={profileName} onChange={e => setProfileName(e.target.value)} />
                                 <FormField label="Email Address" defaultValue={currentUser?.email} disabled />
-                                <FormField label="Phone Number" placeholder="+91 99999 99999" />
+                                <FormField label="Phone Number" value={profilePhone} onChange={e => setProfilePhone(e.target.value)} placeholder="+91 99999 99999" />
                                 <FormField label="Role" defaultValue={currentUser?.role} disabled />
                             </div>
                             <div className="mt-5 flex justify-end">
-                                <button className="bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium py-2 px-4 rounded-lg transition-colors">Save Changes</button>
+                                <button onClick={handleSave} disabled={saving} className="bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50">
+                                    {saving ? 'Saving...' : 'Save Changes'}
+                                </button>
                             </div>
                         </div>
 
