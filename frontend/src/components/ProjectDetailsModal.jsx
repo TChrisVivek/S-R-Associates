@@ -136,7 +136,7 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }) => {
                                 </div>
                                 <div className="flex justify-between border-b border-gray-100 pb-2">
                                     <span className="text-gray-500">Contractor</span>
-                                    <span className="font-medium text-gray-900 capitalize">{project.contractor || 'Unassigned'}</span>
+                                    <span className="font-medium text-gray-900">{localStorage.getItem('companyShortName') || 'S R Associates'}</span>
                                 </div>
                             </div>
                         </div>

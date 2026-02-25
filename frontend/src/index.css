@@ -12,6 +12,21 @@
   box-sizing: border-box;
 }
 
+/* Light placeholder text globally */
+input::placeholder,
+textarea::placeholder,
+.react-datepicker__input-container input::placeholder {
+  color: #d1d5db !important;
+  opacity: 1;
+}
+
+/* Ensure typed text in inputs is always dark and visible */
+input,
+textarea,
+select {
+  color: #111827;
+}
+
 html,
 body {
   margin: 0;

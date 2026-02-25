@@ -60,13 +60,7 @@ const Budget = () => {
         <div className="flex h-screen bg-[#0f1117] font-sans text-white overflow-hidden">
             {/* ─── SIDEBAR ─── */}
             <aside className="w-[240px] bg-[#0f1117] flex flex-col z-20 hidden md:flex border-r border-white/[0.06]">
-                <div className="px-5 py-6 flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20 shrink-0"><img src="/logo.png" alt="Logo" className="w-7 h-7 object-contain" /></div>
-                    <div>
-                        <span className="font-semibold text-sm text-white block leading-tight">{companyName}</span>
-                        <span className="text-[10px] text-white/30 font-medium">Construction Suite</span>
-                    </div>
-                </div>
+                <div className="px-5 py-5 flex items-center justify-center"><img src="/logo.png" alt="S R Associates" className="w-28 h-auto object-contain opacity-90" /></div>
                 <nav className="flex-1 px-3 space-y-0.5 mt-2">
                     <div className="px-3 mb-3"><p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">Menu</p></div>
                     <NavItem icon={<LayoutDashboard size={17} />} text="Dashboard" href="/" />
@@ -197,8 +191,8 @@ const Budget = () => {
                                         <div key={req.id} className="flex items-center justify-between p-3.5 border border-gray-100 rounded-xl hover:bg-gray-50/50 transition-all group">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${req.type === 'vendor' ? 'bg-amber-50 text-amber-500' :
-                                                        req.type === 'extension' ? 'bg-violet-50 text-violet-500' :
-                                                            'bg-violet-50 text-violet-500'
+                                                    req.type === 'extension' ? 'bg-violet-50 text-violet-500' :
+                                                        'bg-violet-50 text-violet-500'
                                                     }`}>
                                                     {req.type === 'vendor' ? <FileSpreadsheet size={15} /> : req.type === 'extension' ? <TrendingUp size={15} /> : <FileText size={15} />}
                                                 </div>

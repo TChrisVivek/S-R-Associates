@@ -83,15 +83,7 @@ const SettingsPage = () => {
 
             {/* ─── SIDEBAR ─── */}
             <aside className="w-[240px] bg-[#0f1117] flex flex-col z-20 hidden md:flex border-r border-white/[0.06]">
-                <div className="px-5 py-6 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-blue-600 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-violet-500/20">
-                        {localStorage.getItem('companyShortName')?.[0]?.toUpperCase() || 'B'}
-                    </div>
-                    <div>
-                        <span className="font-semibold text-sm text-white block leading-tight">{localStorage.getItem('companyShortName') || 'BuildCore'}</span>
-                        <span className="text-[10px] text-white/30 font-medium">Construction Suite</span>
-                    </div>
-                </div>
+                <div className="px-5 py-5 flex items-center justify-center"><img src="/logo.png" alt="S R Associates" className="w-28 h-auto object-contain opacity-90" /></div>
                 <nav className="flex-1 px-3 space-y-0.5 mt-2">
                     <div className="px-3 mb-3"><p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">Menu</p></div>
                     <NavItem icon={<LayoutDashboard size={17} />} text="Dashboard" href="/" />
