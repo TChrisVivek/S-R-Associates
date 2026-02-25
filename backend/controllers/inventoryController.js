@@ -19,7 +19,7 @@ const getProjectInventory = async (req, res) => {
             const matValue = mat.balance * mat.unitPrice;
             totalValue += matValue;
 
-            if (mat.status === 'OUT OF STOCK') outOfStock++;
+            if (mat.status === 'OUT OF STOCK') { outOfStock++; pendingOrders++; }
             if (mat.status === 'LOW STOCK') pendingOrders++;
 
             mat.logs.forEach(log => {
@@ -56,8 +56,8 @@ const getProjectInventory = async (req, res) => {
             lastUpdated: new Date().toLocaleString(),
             totalValue: `₹ ${totalValue.toLocaleString()}`,
             summary: {
-                pendingOrders: pendingOrders < 10 ? `0${pendingOrders}` : pendingOrders.toString(),
-                outOfStock: `${outOfStock < 10 ? '0' : ''}${outOfStock} Items`,
+                pendingOrders: pendingOrders.toString(),
+                outOfStock: `${outOfStock} Item${outOfStock !== 1 ? 's' : ''}`,
                 monthlyInflow: formattedInflow
             },
             materials: materialData
