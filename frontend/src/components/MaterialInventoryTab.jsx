@@ -23,6 +23,7 @@ const MaterialInventoryTab = ({ projectId }) => {
     const [deliveryChallanFile, setDeliveryChallanFile] = useState(null);
     const [stackPhotoFile, setStackPhotoFile] = useState(null);
     const [usagePhotoFile, setUsagePhotoFile] = useState(null);
+    const [usageQty, setUsageQty] = useState('');
     const { showToast, ToastComponent } = useToast();
 
     // 1. Fetch Real Data
@@ -97,6 +98,7 @@ const MaterialInventoryTab = ({ projectId }) => {
             await fetchInventory();
             setIsUsageModalOpen(false);
             setSelectedMaterialForUsage('');
+            setUsageQty('');
             setUsagePhotoFile(null);
             showToast("Material usage logged successfully", "success");
         } catch (error) {
@@ -184,12 +186,12 @@ const MaterialInventoryTab = ({ projectId }) => {
                                     </td>
                                     <td className="py-4 px-6 text-center font-medium text-gray-700">{mat.inflow}</td>
                                     <td className="py-4 px-6 text-center font-medium text-gray-700">{mat.outflow}</td>
-                                    <td className={`py-4 px-6 text-center font-semibold text-lg ${mat.status === 'LOW STOCK' ? 'text-red-500' : 'text-emerald-600'}`}>
+                                    <td className={`py-4 px-6 text-center font-semibold text-lg ${mat.status === 'OUT OF STOCK' ? 'text-red-500' : mat.status === 'LOW STOCK' ? 'text-amber-500' : 'text-emerald-600'}`}>
                                         {mat.balance}
                                     </td>
                                     <td className="py-4 px-6 font-medium text-gray-700">{mat.value}</td>
                                     <td className="py-4 px-6 text-right">
-                                        <span className={`inline-block px-3 py-1 rounded-md text-[10px] font-semibold tracking-wider uppercase ${mat.status === 'LOW STOCK' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'
+                                        <span className={`inline-block px-3 py-1 rounded-md text-[10px] font-semibold tracking-wider uppercase ${mat.status === 'OUT OF STOCK' ? 'bg-red-50 text-red-600' : mat.status === 'LOW STOCK' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'
                                             }`}>
                                             {mat.status}
                                         </span>
@@ -249,7 +251,7 @@ const MaterialInventoryTab = ({ projectId }) => {
             {/* 1. Log Delivery Modal */}
             {isDeliveryModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm overflow-y-auto">
-                    <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-2xl my-8 overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-2xl my-8 overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
                         <div className="px-8 py-6 flex flex-col border-b border-gray-100 bg-white relative">
                             <button type="button" onClick={() => { setIsDeliveryModalOpen(false); setDeliveryChallanFile(null); setStackPhotoFile(null); }} className="absolute top-6 right-6 p-2 rounded-full hover:bg-gray-100 text-gray-400 transition-colors">
                                 <X size={20} />
@@ -258,7 +260,7 @@ const MaterialInventoryTab = ({ projectId }) => {
                             <p className="text-gray-500 text-sm mt-1">Record inflow details and upload visual proof</p>
                         </div>
 
-                        <form onSubmit={handleLogDelivery} className="p-8 space-y-8 bg-gray-50/30">
+                        <form onSubmit={handleLogDelivery} className="p-8 space-y-8 bg-gray-50/30 overflow-y-auto flex-1">
 
                             {/* Section 1 */}
                             <div>
@@ -364,16 +366,16 @@ const MaterialInventoryTab = ({ projectId }) => {
             {/* 2. Log Usage Modal */}
             {isUsageModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm overflow-y-auto">
-                    <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-lg my-8 overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-lg my-8 overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
                         <div className="px-8 py-6 flex flex-col border-b border-gray-100 bg-white relative">
-                            <button type="button" onClick={() => { setIsUsageModalOpen(false); setUsagePhotoFile(null); setSelectedMaterialForUsage(''); }} className="absolute top-6 right-6 p-2 rounded-full hover:bg-gray-100 text-gray-400 transition-colors">
+                            <button type="button" onClick={() => { setIsUsageModalOpen(false); setUsagePhotoFile(null); setSelectedMaterialForUsage(''); setUsageQty(''); }} className="absolute top-6 right-6 p-2 rounded-full hover:bg-gray-100 text-gray-400 transition-colors">
                                 <X size={20} />
                             </button>
                             <h3 className="text-xl font-medium text-gray-900">Log Material Usage</h3>
                             <p className="text-gray-500 text-sm mt-1">Record material outflow for site operations</p>
                         </div>
 
-                        <form onSubmit={handleLogUsage} className="p-8 space-y-6 bg-gray-50/30">
+                        <form onSubmit={handleLogUsage} className="p-8 space-y-6 bg-gray-50/30 overflow-y-auto flex-1">
 
                             {/* Dynamic Stock Indicator */}
                             {selectedMaterialForUsage && (
@@ -392,7 +394,12 @@ const MaterialInventoryTab = ({ projectId }) => {
                                             </p>
                                         </div>
                                     </div>
-                                    <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-semibold tracking-wider uppercase rounded">In Stock</span>
+                                    {(() => {
+                                        const bal = Number(String(inventoryData?.materials?.find(m => m.id === selectedMaterialForUsage)?.balance || '0').replace(/,/g, ''));
+                                        if (bal <= 0) return <span className="px-2.5 py-1 bg-red-100 text-red-700 text-[10px] font-semibold tracking-wider uppercase rounded">Out of Stock</span>;
+                                        if (bal < 10) return <span className="px-2.5 py-1 bg-amber-100 text-amber-700 text-[10px] font-semibold tracking-wider uppercase rounded">Low Stock</span>;
+                                        return <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-semibold tracking-wider uppercase rounded">In Stock</span>;
+                                    })()}
                                 </div>
                             )}
 
@@ -401,7 +408,7 @@ const MaterialInventoryTab = ({ projectId }) => {
                                 <select
                                     className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all shadow-sm appearance-none font-medium text-gray-700"
                                     value={selectedMaterialForUsage}
-                                    onChange={(e) => setSelectedMaterialForUsage(e.target.value)}
+                                    onChange={(e) => { setSelectedMaterialForUsage(e.target.value); setUsageQty(''); }}
                                 >
                                     <option value="" disabled>Select a material...</option>
                                     {inventoryData?.materials?.map(m => (
@@ -411,10 +418,26 @@ const MaterialInventoryTab = ({ projectId }) => {
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-2">Usage Amount</label>
-                                    <input type="number" name="quantity" step="0.01" required placeholder="0.00" className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all shadow-sm" />
-                                </div>
+                                {(() => {
+                                    const stockBal = Number(String(inventoryData?.materials?.find(m => m.id === selectedMaterialForUsage)?.balance || '0').replace(/,/g, ''));
+                                    const isOverLimit = usageQty !== '' && Number(usageQty) > stockBal;
+                                    const isOutOfStock = selectedMaterialForUsage && stockBal <= 0;
+                                    return (
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-2">Usage Amount {isOverLimit && <span className="text-red-500 text-[10px] ml-1">Exceeds stock ({stockBal})</span>}</label>
+                                            <input
+                                                type="number" name="quantity" step="0.01" min="0"
+                                                value={usageQty} onChange={(e) => setUsageQty(e.target.value)}
+                                                required placeholder={isOutOfStock ? 'No stock' : '0.00'}
+                                                disabled={isOutOfStock}
+                                                className={`w-full px-4 py-3 bg-white border rounded-xl outline-none transition-all shadow-sm ${isOutOfStock ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed' :
+                                                    isOverLimit ? 'border-red-400 ring-2 ring-red-100 text-red-600' :
+                                                        'border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100'
+                                                    }`}
+                                            />
+                                        </div>
+                                    );
+                                })()}
                                 <div>
                                     <label className="block text-xs font-medium text-gray-700 mb-2">Unit</label>
                                     <input
@@ -447,10 +470,10 @@ const MaterialInventoryTab = ({ projectId }) => {
                             </div>
 
                             <div className="flex justify-end pt-4 gap-3">
-                                <button type="button" onClick={() => { setIsUsageModalOpen(false); setUsagePhotoFile(null); setSelectedMaterialForUsage(''); }} className="px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
+                                <button type="button" onClick={() => { setIsUsageModalOpen(false); setUsagePhotoFile(null); setSelectedMaterialForUsage(''); setUsageQty(''); }} className="px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
                                     Cancel
                                 </button>
-                                <button type="submit" disabled={actionLoading} className="px-8 py-3 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-500/20 transition-all flex items-center gap-2 disabled:opacity-70">
+                                <button type="submit" disabled={actionLoading || (usageQty !== '' && Number(usageQty) > Number(String(inventoryData?.materials?.find(m => m.id === selectedMaterialForUsage)?.balance || '0').replace(/,/g, ''))) || (selectedMaterialForUsage && Number(String(inventoryData?.materials?.find(m => m.id === selectedMaterialForUsage)?.balance || '0').replace(/,/g, '')) <= 0)} className="px-8 py-3 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-500/20 transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed">
                                     {actionLoading ? <Loader2 size={18} className="animate-spin" /> : "Log Usage"}
                                 </button>
                             </div>

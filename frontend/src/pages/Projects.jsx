@@ -261,11 +261,6 @@ const ProjectCard = ({ project, index }) => {
                 {/* Footer */}
                 <div className="flex justify-between items-center pt-4 mt-4 border-t border-gray-50">
                     <div className="flex items-center gap-2">
-                        <img
-                            className="w-6 h-6 rounded-full border border-white shadow-sm"
-                            src={`https://i.pravatar.cc/150?u=${project.manager || project.title}`}
-                            alt="Manager"
-                        />
                         <span className="text-[11px] text-gray-500 font-medium">{project.manager || 'Unassigned'}</span>
                     </div>
                     <ArrowUpRight size={13} className="text-gray-300 group-hover:text-violet-500 transition-colors" />

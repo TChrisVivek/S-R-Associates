@@ -70,8 +70,7 @@ const ProjectDetail = () => {
         setActionLoading(true);
         try {
             await api.put(`/projects/${id}/stats`, {
-                taskCompleted: Number(e.target.taskCompleted.value),
-                budgetSpent: Number(e.target.budgetSpent.value)
+                taskCompleted: Number(e.target.taskCompleted.value)
             });
             await fetchProjectDetails();
             setIsStatsModalOpen(false);
@@ -297,10 +296,10 @@ const ProjectDetail = () => {
                     <NavItem icon={<Settings size={17} />} text="Settings" href="/settings" />
                 </nav>
                 <div className="px-3 pb-2">
-                    <div className="px-3 py-2.5 rounded-xl bg-violet-500/[0.08] border border-violet-500/10 mb-3">
+                    <div className={`px-3 py-2.5 rounded-xl mb-3 border ${project.status === 'Delayed' ? 'bg-red-500/[0.08] border-red-500/10' : project.status === 'Completed' ? 'bg-green-500/[0.08] border-green-500/10' : 'bg-violet-500/[0.08] border-violet-500/10'}`}>
                         <p className="text-[10px] text-white/30 font-semibold uppercase tracking-widest mb-1">Active Project</p>
                         <p className="text-xs font-medium text-white/80 truncate" title={project.title}>{project.title}</p>
-                        <p className="text-[10px] text-violet-400/60 mt-0.5 truncate">{project.phase}</p>
+                        <p className={`text-[10px] mt-0.5 truncate font-semibold ${project.status === 'Delayed' ? 'text-red-400' : project.status === 'Completed' ? 'text-green-400' : 'text-violet-400/60'}`}>{project.phase}</p>
                     </div>
                     <div onClick={() => navigate('/profile')} className="flex items-center gap-3 px-3 py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.04] transition-all cursor-pointer group">
                         {currentUser?.profile_image ? (
@@ -358,15 +357,19 @@ const ProjectDetail = () => {
                                 <select
                                     value={project.status || 'Planning'}
                                     onChange={handleStatusChange}
-                                    className="bg-gradient-to-r from-violet-50 to-violet-50/80 text-violet-600 border border-violet-200 px-4 py-2 rounded-full text-xs font-medium tracking-wide uppercase shadow-sm cursor-pointer hover:bg-violet-100 focus:outline-none focus:ring-2 focus:ring-violet-400 appearance-none pr-8"
+                                    className={`px-4 py-2 rounded-full text-xs font-medium tracking-wide uppercase shadow-sm cursor-pointer focus:outline-none focus:ring-2 appearance-none pr-8 border bg-gradient-to-r ${project.status === 'Delayed'
+                                        ? 'from-red-50 to-red-50/80 text-red-600 border-red-200 hover:bg-red-100 focus:ring-red-400'
+                                        : project.status === 'Completed'
+                                            ? 'from-green-50 to-green-50/80 text-green-600 border-green-200 hover:bg-green-100 focus:ring-green-400'
+                                            : 'from-violet-50 to-violet-50/80 text-violet-600 border-violet-200 hover:bg-violet-100 focus:ring-violet-400'
+                                        }`}
                                 >
                                     <option value="Planning">Planning</option>
                                     <option value="In Progress">In Progress</option>
-                                    <option value="On Track">On Track</option>
                                     <option value="Delayed">Delayed</option>
                                     <option value="Completed">Completed</option>
                                 </select>
-                                <ChevronDown size={14} className="absolute right-3 text-violet-500 pointer-events-none" />
+                                <ChevronDown size={14} className={`absolute right-3 pointer-events-none ${project.status === 'Delayed' ? 'text-red-500' : project.status === 'Completed' ? 'text-green-500' : 'text-violet-500'}`} />
                             </div>
                         </div>
 
@@ -374,7 +377,7 @@ const ProjectDetail = () => {
                             <MetaBlock title="Timeline" value={project.timeline} />
                             <MetaBlock title="Total Budget" value={project.budget} />
                             <MetaBlock title="Time Remaining" value={`${project.daysLeft} Days`} highlight />
-                            <MetaBlock title="Current Phase" value={project.phase} />
+                            <MetaBlock title="Current Phase" value={project.phase} status={project.status} />
                         </div>
 
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-6 border-t border-gray-50 pt-8 mt-8">
@@ -408,7 +411,7 @@ const ProjectDetail = () => {
                                 </div>
                                 <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
                                     <h3 className="font-semibold text-lg text-gray-900 mb-1">Budget Burn Rate</h3>
-                                    <p className="text-xs text-gray-500 mb-4 font-medium">Allocated funds spent</p>
+                                    <p className="text-xs text-gray-500 mb-4 font-medium">Auto-calculated from material deliveries</p>
                                     <CustomDonut percentage={project.stats.budgetSpent} color="#6366f1" label="SPENT" />
                                 </div>
                                 <button onClick={() => setIsStatsModalOpen(true)} className="w-full py-3.5 bg-violet-50 text-violet-500 hover:bg-[#1a1d2e] hover:text-white rounded-2xl font-medium tracking-wide transition-all shadow-sm">
@@ -622,7 +625,6 @@ const ProjectDetail = () => {
                                         <select name="status" defaultValue={project.status} className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-gray-300 focus:ring-2 focus:ring-violet-100 outline-none transition-all shadow-sm text-sm">
                                             <option value="Planning">Planning</option>
                                             <option value="In Progress">In Progress</option>
-                                            <option value="On Track">On Track</option>
                                             <option value="Delayed">Delayed</option>
                                             <option value="Completed">Completed</option>
                                         </select>
@@ -684,9 +686,12 @@ const ProjectDetail = () => {
                                 <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Task Completion %</label>
                                 <input type="number" name="taskCompleted" min="0" max="100" defaultValue={project.stats.taskCompleted} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:border-gray-300 focus:ring-1 focus:ring-violet-400 outline-none transition-all" />
                             </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Budget Spent %</label>
-                                <input type="number" name="budgetSpent" min="0" max="100" defaultValue={project.stats.budgetSpent} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:border-gray-300 focus:ring-1 focus:ring-violet-400 outline-none transition-all" />
+                            <div className="bg-violet-50/50 border border-violet-100 rounded-xl p-4">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xs font-medium text-violet-600 uppercase tracking-wider">Budget Burn Rate</span>
+                                    <span className="text-xs font-bold text-violet-700">{project.stats.budgetSpent}%</span>
+                                </div>
+                                <p className="text-[11px] text-gray-500">This is auto-calculated from your material delivery costs vs. project budget. Add material deliveries in the Inventory tab to update this metric.</p>
                             </div>
                             <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                                 <button type="button" onClick={() => setIsStatsModalOpen(false)} className="px-5 py-2.5 text-sm font-medium text-gray-400 hover:bg-gray-50 rounded-xl transition-all">Cancel</button>
@@ -902,10 +907,10 @@ const Tab = ({ active, icon, label, onClick }) => (
     </button>
 );
 
-const MetaBlock = ({ title, value, highlight }) => (
+const MetaBlock = ({ title, value, highlight, status }) => (
     <div>
         <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mb-1">{title}</p>
-        <p className={`text-base font-semibold ${highlight ? 'text-emerald-500' : 'text-gray-900'}`}>{value}</p>
+        <p className={`text-base font-semibold ${status === 'Delayed' ? 'text-red-500' : status === 'Completed' ? 'text-green-500' : highlight ? 'text-emerald-500' : 'text-gray-900'}`}>{value}</p>
     </div>
 );
 
