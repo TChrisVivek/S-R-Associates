@@ -1,18 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     Plus, Minus, Maximize, Layers, Target, CheckCircle2,
-    Clock, AlertCircle, ChevronDown, Filter, FileUp, Loader2, X
+    Clock, AlertCircle, ChevronDown, Filter, FileUp, Loader2, X,
+    ChevronLeft, ChevronRight, FileText, Trash2
 } from 'lucide-react';
+import { Document, Page, pdfjs } from 'react-pdf';
 import api from '../api/axios';
 import { useToast } from './Toast';
 
+// Set up PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
 const BlueprintTab = ({ projectId }) => {
     // --- REAL-TIME STATE ---
-    const [blueprintData, setBlueprintData] = useState(null);
+    const [allBlueprints, setAllBlueprints] = useState([]);
+    const [activeBlueprintIndex, setActiveBlueprintIndex] = useState(0);
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeTaskHover, setActiveTaskHover] = useState(null); // To highlight pin when hovering over task list
+    const [activeTaskHover, setActiveTaskHover] = useState(null);
     const [uploading, setUploading] = useState(false);
+    const [isSheetSelectorOpen, setIsSheetSelectorOpen] = useState(false);
     const { showToast, ToastComponent } = useToast();
 
     // Custom Prompt State
@@ -28,6 +35,38 @@ const BlueprintTab = ({ projectId }) => {
     const imageRef = useRef(null);
     const containerRef = useRef(null);
     const fileInputRef = useRef(null);
+    const sheetSelectorRef = useRef(null);
+    const canvasContainerRef = useRef(null);
+
+    // PDF rendering state
+    const [pdfPageLoading, setPdfPageLoading] = useState(false);
+    const [containerWidth, setContainerWidth] = useState(800);
+
+    // Current active blueprint
+    const blueprintData = allBlueprints.length > 0 ? allBlueprints[activeBlueprintIndex] : null;
+
+    // Close sheet selector on outside click
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (sheetSelectorRef.current && !sheetSelectorRef.current.contains(e.target)) {
+                setIsSheetSelectorOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Track container width for PDF rendering
+    useEffect(() => {
+        const updateWidth = () => {
+            if (canvasContainerRef.current) {
+                setContainerWidth(canvasContainerRef.current.offsetWidth - 64);
+            }
+        };
+        updateWidth();
+        window.addEventListener('resize', updateWidth);
+        return () => window.removeEventListener('resize', updateWidth);
+    }, [loading]);
 
     // 1. Fetch Real Data
     useEffect(() => {
@@ -39,7 +78,12 @@ const BlueprintTab = ({ projectId }) => {
         try {
             const response = await api.get(`/projects/${projectId}/blueprint-tasks`);
             if (response.status === 200) {
-                setBlueprintData(response.data.blueprint);
+                const blueprints = response.data.blueprints || [];
+                setAllBlueprints(blueprints);
+                // Default to the latest uploaded sheet
+                if (blueprints.length > 0) {
+                    setActiveBlueprintIndex(blueprints.length - 1);
+                }
                 setTasks(response.data.tasks);
             }
         } catch (error) {
@@ -49,17 +93,29 @@ const BlueprintTab = ({ projectId }) => {
         }
     };
 
+    // Switch sheet
+    const switchSheet = (index) => {
+        setActiveBlueprintIndex(index);
+        setIsSheetSelectorOpen(false);
+        // Reset zoom/pan when switching
+        setScale(1);
+        setPosition({ x: 0, y: 0 });
+    };
+
+    // Navigate sheets with arrows
+    const prevSheet = () => {
+        if (activeBlueprintIndex > 0) switchSheet(activeBlueprintIndex - 1);
+    };
+    const nextSheet = () => {
+        if (activeBlueprintIndex < allBlueprints.length - 1) switchSheet(activeBlueprintIndex + 1);
+    };
+
     // 2. Handle Adding a New Pin (Real-time update)
     const handleImageClick = async (e) => {
-        // Prevent pin drop if user was dragging
         if (isDragging || !imageRef.current) return;
-
         const rect = imageRef.current.getBoundingClientRect();
-        // Calculate percentages based on the exact click relative to the scaled image
         const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
         const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
-
-        // Open Custom Prompt instead of browser prompt
         setTempClickData({ xPercent, yPercent });
         setIsPromptOpen(true);
     };
@@ -69,7 +125,7 @@ const BlueprintTab = ({ projectId }) => {
         const newTaskTitle = e.target.title.value;
         if (!newTaskTitle || !tempClickData) return;
 
-        setIsPromptOpen(false); // Close Modal immediately
+        setIsPromptOpen(false);
 
         const newTaskReq = {
             title: newTaskTitle,
@@ -78,27 +134,23 @@ const BlueprintTab = ({ projectId }) => {
             y: tempClickData.yPercent,
         };
 
-        // Optimistic UI Update with temporary ID
         const tempId = `temp-${Date.now()}`;
         const optimisticTask = {
             ...newTaskReq,
             id: tempId,
             assignee: "Unassigned",
-            color: "#f59e0b" // Yellow for pending
+            color: "#f59e0b"
         };
 
         setTasks([optimisticTask, ...tasks]);
 
-        // Send to backend
         try {
             const response = await api.post(`/projects/${projectId}/blueprint-tasks`, newTaskReq);
             if (response.status === 201) {
-                // Replace optimistic temp task with the real one from DB
                 setTasks(prev => prev.map(t => t.id === tempId ? response.data : t));
             }
         } catch (err) {
             console.error("Failed to create task", err);
-            // Rollback optimistic update
             setTasks(prev => prev.filter(t => t.id !== tempId));
             showToast("Failed to create task pin.", "error");
         } finally {
@@ -106,7 +158,6 @@ const BlueprintTab = ({ projectId }) => {
         }
     };
 
-    // Helper for Status Badges
     const getStatusBadge = (status) => {
         switch (status) {
             case 'IN PROGRESS': return <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-medium tracking-wider">IN PROGRESS</span>;
@@ -124,7 +175,6 @@ const BlueprintTab = ({ projectId }) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // ONLY allow PDF as per request
         if (file.type !== 'application/pdf') {
             showToast('Please select a PDF file.', 'warning');
             return;
@@ -138,7 +188,6 @@ const BlueprintTab = ({ projectId }) => {
             await api.post(`/projects/${projectId}/blueprints`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            // Refresh data
             await fetchBlueprintData();
             showToast("Blueprint uploaded successfully", "success");
         } catch (error) {
@@ -156,13 +205,12 @@ const BlueprintTab = ({ projectId }) => {
     const handleWheel = (e) => {
         if (!blueprintData) return;
         e.preventDefault();
-
         const scaleAmount = -e.deltaY * 0.002;
         setScale(prev => Math.min(Math.max(0.5, prev + scaleAmount), 4));
     };
 
     const handleMouseDown = (e) => {
-        if (e.button !== 0) return; // Only left click pans
+        if (e.button !== 0) return;
         setIsDragging(true);
         setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
     };
@@ -192,7 +240,7 @@ const BlueprintTab = ({ projectId }) => {
     </div>;
 
     // --- EMPTY STATE RENDERING ---
-    if (!blueprintData) return (
+    if (allBlueprints.length === 0) return (
         <div className="flex h-[calc(100vh-250px)]">
             {ToastComponent}
             <div className="flex-1 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col items-center justify-center p-12 text-center">
@@ -232,168 +280,250 @@ const BlueprintTab = ({ projectId }) => {
     );
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-250px)]">
+        <div className="flex flex-col gap-4 h-[calc(100vh-250px)]">
             {ToastComponent}
 
-            {/* --- LEFT: BLUEPRINT VIEWER --- */}
-            <div className="flex-1 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col overflow-hidden relative">
-
-                {/* The Canvas Area (With CSS dot pattern for the background) */}
-                <div
-                    ref={containerRef}
-                    className={`flex-1 relative overflow-hidden bg-gray-50 flex items-center justify-center p-8 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
-                    style={{ backgroundImage: 'radial-gradient(#e5e7eb 1px, transparent 1px)', backgroundSize: '20px 20px' }}
-                    onWheel={handleWheel}
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseUp}
-                >
-                    {/* Controls (Floating Top Left) */}
-                    <div className="absolute top-4 left-4 flex flex-col gap-2 z-20">
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden">
-                            <button onClick={zoomIn} className="p-2 hover:bg-gray-50 text-gray-600 border-b border-gray-100"><Plus size={18} /></button>
-                            <button onClick={zoomOut} className="p-2 hover:bg-gray-50 text-gray-600"><Minus size={18} /></button>
-                        </div>
-                        <button onClick={resetZoom} className="bg-white rounded-lg shadow-sm border border-gray-200 p-2 hover:bg-gray-50 text-gray-600 mt-1" title="Reset View">
-                            <Maximize size={18} />
+            {/* --- TOP: SHEET NAVIGATION BAR --- */}
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={prevSheet}
+                            disabled={activeBlueprintIndex === 0}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 disabled:text-gray-200 disabled:hover:bg-transparent transition"
+                        >
+                            <ChevronLeft size={16} />
+                        </button>
+                        <button
+                            onClick={nextSheet}
+                            disabled={activeBlueprintIndex === allBlueprints.length - 1}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 disabled:text-gray-200 disabled:hover:bg-transparent transition"
+                        >
+                            <ChevronRight size={16} />
                         </button>
                     </div>
 
-                    {/* The Actual Blueprint Image inside Transform Container */}
-                    <div
-                        className="relative w-full max-w-4xl shadow-xl border border-gray-300 transition-transform duration-75 ease-out"
-                        style={{
-                            transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-                            transformOrigin: 'center center'
-                        }}
-                    >
-                        {blueprintData.imageUrl && blueprintData.imageUrl.toLowerCase().endsWith('.pdf') ? (
-                            <embed
-                                ref={imageRef}
-                                src={blueprintData.imageUrl}
-                                type="application/pdf"
-                                className="w-full pointer-events-none"
-                                style={{ height: '600px' }}
-                            />
-                        ) : (
-                            <img
-                                ref={imageRef}
-                                src={blueprintData.imageUrl}
-                                alt="Project Blueprint"
-                                className="w-full h-auto block pointer-events-none"
-                            />
+                    {/* Sheet Selector Dropdown */}
+                    <div className="relative" ref={sheetSelectorRef}>
+                        <button
+                            onClick={() => setIsSheetSelectorOpen(!isSheetSelectorOpen)}
+                            className="flex items-center gap-2 text-sm font-medium text-gray-800 hover:bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 transition min-w-0"
+                        >
+                            <FileText size={14} className="text-violet-500 shrink-0" />
+                            <span className="truncate max-w-[300px]">{blueprintData?.name}</span>
+                            <span className="text-[10px] text-gray-400 shrink-0">
+                                {activeBlueprintIndex + 1}/{allBlueprints.length}
+                            </span>
+                            <ChevronDown size={14} className={`text-gray-400 shrink-0 transition-transform ${isSheetSelectorOpen ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {/* Dropdown */}
+                        {isSheetSelectorOpen && (
+                            <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-30 min-w-[320px] max-h-[300px] overflow-y-auto py-1">
+                                {allBlueprints.map((bp, index) => (
+                                    <button
+                                        key={bp.id}
+                                        onClick={() => switchSheet(index)}
+                                        className={`w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-gray-50 transition ${index === activeBlueprintIndex ? 'bg-violet-50' : ''}`}
+                                    >
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${index === activeBlueprintIndex ? 'bg-violet-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                            {index + 1}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className={`text-sm font-medium truncate ${index === activeBlueprintIndex ? 'text-violet-700' : 'text-gray-800'}`}>
+                                                {bp.name}
+                                            </p>
+                                            {bp.uploadedAt && (
+                                                <p className="text-[10px] text-gray-400 mt-0.5">
+                                                    Uploaded {new Date(bp.uploadedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                </p>
+                                            )}
+                                        </div>
+                                        {index === activeBlueprintIndex && (
+                                            <span className="text-[10px] text-violet-500 font-semibold uppercase shrink-0">Active</span>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
                         )}
-
-                        {/* Event Capture Layer for Pin Dropping */}
-                        <div
-                            className="absolute inset-0 z-10"
-                            onClick={handleImageClick}
-                        />
-
-                        {/* Render Pins from Real Data */}
-                        {tasks.filter(t => t.x != null && t.y != null).map(task => (
-                            <div
-                                key={task.id}
-                                className={`absolute w-4 h-4 rounded-full border-2 border-white shadow-md transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ${activeTaskHover === task.id ? 'scale-150 ring-4 ring-white ring-opacity-50 z-30' : 'z-20'}`}
-                                style={{
-                                    left: `${task.x}%`,
-                                    top: `${task.y}%`,
-                                    backgroundColor: task.color
-                                }}
-                                title={task.title}
-                            />
-                        ))}
                     </div>
                 </div>
 
-                {/* Bottom Toolbar */}
-                <div className="bg-white border-t border-gray-200 p-4 flex justify-between items-center z-10">
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-gray-400 uppercase">Sheet:</span>
-                        <button className="flex items-center gap-2 text-sm font-medium text-gray-800 hover:bg-gray-50 px-3 py-1.5 rounded-lg border border-transparent hover:border-gray-200 transition">
-                            {blueprintData.name} <ChevronDown size={16} />
-                        </button>
-                    </div>
-                    <div className="flex gap-2">
-                        <input
-                            type="file"
-                            accept="application/pdf"
-                            ref={fileInputRef}
-                            onChange={handleFileChange}
-                            className="hidden"
-                        />
-                        <button
-                            onClick={handleUploadClick}
-                            disabled={uploading}
-                            className="flex items-center gap-2 text-sm font-medium text-violet-500 hover:bg-violet-50 px-3 py-1.5 rounded-lg transition border border-transparent hover:border-violet-100"
-                        >
-                            {uploading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                            Upload Plan
-                        </button>
-                        <button className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition border border-gray-200 shadow-sm">
-                            <Layers size={16} /> Layers
-                        </button>
-                    </div>
+                <div className="flex items-center gap-2">
+                    <input
+                        type="file"
+                        accept="application/pdf"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        className="hidden"
+                    />
+                    <button
+                        onClick={handleUploadClick}
+                        disabled={uploading}
+                        className="flex items-center gap-2 text-sm font-medium text-white bg-[#1a1d2e] hover:bg-[#252840] px-4 py-2 rounded-lg transition shadow-sm disabled:opacity-50"
+                    >
+                        {uploading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                        {uploading ? 'Processing...' : 'Upload Sheet'}
+                    </button>
                 </div>
             </div>
 
-            {/* --- RIGHT: ACTIVE TASKS LIST --- */}
-            <div className="w-full lg:w-96 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col h-full overflow-hidden">
+            {/* --- MAIN CONTENT: BLUEPRINT + TASKS --- */}
+            <div className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0">
 
-                {/* Task List Header */}
-                <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-white z-10">
-                    <h3 className="font-medium text-gray-900">Active Tasks</h3>
-                    <span className="text-xs font-medium text-gray-500 uppercase">{tasks.length} PINS</span>
+                {/* --- LEFT: BLUEPRINT VIEWER --- */}
+                <div className="flex-1 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col overflow-hidden relative">
+
+                    {/* The Canvas Area */}
+                    <div
+                        ref={containerRef}
+                        className={`flex-1 relative overflow-hidden bg-gray-50 flex items-center justify-center p-8 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+                        style={{ backgroundImage: 'radial-gradient(#e5e7eb 1px, transparent 1px)', backgroundSize: '20px 20px' }}
+                        onWheel={handleWheel}
+                        onMouseDown={handleMouseDown}
+                        onMouseMove={handleMouseMove}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseUp}
+                    >
+                        {/* Controls (Floating Top Left) */}
+                        <div className="absolute top-4 left-4 flex flex-col gap-2 z-20">
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col overflow-hidden">
+                                <button onClick={zoomIn} className="p-2 hover:bg-gray-50 text-gray-600 border-b border-gray-100"><Plus size={18} /></button>
+                                <button onClick={zoomOut} className="p-2 hover:bg-gray-50 text-gray-600"><Minus size={18} /></button>
+                            </div>
+                            <button onClick={resetZoom} className="bg-white rounded-lg shadow-sm border border-gray-200 p-2 hover:bg-gray-50 text-gray-600 mt-1" title="Reset View">
+                                <Maximize size={18} />
+                            </button>
+                        </div>
+
+                        {/* Scale indicator */}
+                        <div className="absolute top-4 right-4 z-20 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-1.5 text-[11px] font-medium text-gray-500">
+                            {Math.round(scale * 100)}%
+                        </div>
+
+                        {/* The Actual Blueprint Rendered as Clean Image */}
+                        <div
+                            ref={canvasContainerRef}
+                            className="relative w-full max-w-4xl shadow-xl border border-gray-300 transition-transform duration-75 ease-out bg-white"
+                            style={{
+                                transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                                transformOrigin: 'center center'
+                            }}
+                        >
+                            {blueprintData.imageUrl && blueprintData.imageUrl.toLowerCase().endsWith('.pdf') ? (
+                                <div className="relative">
+                                    {pdfPageLoading && (
+                                        <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+                                            <Loader2 className="animate-spin text-violet-500" size={28} />
+                                        </div>
+                                    )}
+                                    <Document
+                                        file={blueprintData.imageUrl}
+                                        loading={null}
+                                        onLoadError={(err) => console.error('PDF load error:', err)}
+                                    >
+                                        <Page
+                                            pageNumber={1}
+                                            width={Math.min(containerWidth, 900)}
+                                            renderTextLayer={false}
+                                            renderAnnotationLayer={false}
+                                            onRenderSuccess={() => setPdfPageLoading(false)}
+                                            onLoadStart={() => setPdfPageLoading(true)}
+                                            loading={null}
+                                            className="pointer-events-none"
+                                        />
+                                    </Document>
+                                </div>
+                            ) : (
+                                <img
+                                    ref={imageRef}
+                                    src={blueprintData.imageUrl}
+                                    alt="Project Blueprint"
+                                    className="w-full h-auto block pointer-events-none"
+                                />
+                            )}
+
+                            {/* Event Capture Layer for Pin Dropping */}
+                            <div
+                                className="absolute inset-0 z-10"
+                                onClick={handleImageClick}
+                            />
+
+                            {/* Render Pins */}
+                            {tasks.filter(t => t.x != null && t.y != null).map(task => (
+                                <div
+                                    key={task.id}
+                                    className={`absolute w-4 h-4 rounded-full border-2 border-white shadow-md transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ${activeTaskHover === task.id ? 'scale-150 ring-4 ring-white ring-opacity-50 z-30' : 'z-20'}`}
+                                    style={{
+                                        left: `${task.x}%`,
+                                        top: `${task.y}%`,
+                                        backgroundColor: task.color
+                                    }}
+                                    title={task.title}
+                                />
+                            ))}
+                        </div>
+                    </div>
                 </div>
 
-                {/* Scrollable Task List */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
-                    {tasks.map(task => (
-                        <div
-                            key={task.id}
-                            className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition cursor-pointer"
-                            onMouseEnter={() => setActiveTaskHover(task.id)}
-                            onMouseLeave={() => setActiveTaskHover(null)}
-                        >
-                            <div className="flex justify-between items-start mb-2">
-                                {getStatusBadge(task.status)}
-                                <span className="text-xs font-medium text-gray-400">#{task.id && task.id.substring ? task.id.substring(task.id.length - 4).toUpperCase() : 'NEW'}</span>
-                            </div>
+                {/* --- RIGHT: ACTIVE TASKS LIST --- */}
+                <div className="w-full lg:w-80 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col h-full overflow-hidden">
 
-                            <h4 className="font-medium text-gray-900 text-sm mb-3">{task.title}</h4>
+                    {/* Task List Header */}
+                    <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-white z-10">
+                        <h3 className="font-medium text-gray-900 text-sm">Active Tasks</h3>
+                        <span className="text-[10px] font-semibold text-violet-500 bg-violet-50 px-2 py-1 rounded-md">{tasks.length} PINS</span>
+                    </div>
 
-                            <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-2">
-                                    {task.assignee === 'Unassigned' ? (
-                                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-medium text-gray-500">UN</div>
-                                    ) : (
-                                        <img src={`https://ui-avatars.com/api/?name=${task.assignee}&background=random`} alt={task.assignee} className="w-6 h-6 rounded-full" />
-                                    )}
-                                    <span className="text-xs text-gray-600 font-medium">{task.assignee}</span>
+                    {/* Scrollable Task List */}
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50/50">
+                        {tasks.map(task => (
+                            <div
+                                key={task.id}
+                                className={`bg-white border rounded-xl p-3.5 transition cursor-pointer ${activeTaskHover === task.id ? 'border-violet-300 shadow-md shadow-violet-100/50' : 'border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200'}`}
+                                onMouseEnter={() => setActiveTaskHover(task.id)}
+                                onMouseLeave={() => setActiveTaskHover(null)}
+                            >
+                                <div className="flex justify-between items-start mb-2">
+                                    {getStatusBadge(task.status)}
+                                    <span className="text-[10px] font-mono text-gray-300">#{task.id && task.id.substring ? task.id.substring(task.id.length - 4).toUpperCase() : 'NEW'}</span>
                                 </div>
 
-                                {/* Target Icon - Grey if no pin, Colored if pinned */}
-                                <button className={`p-1 rounded-full transition ${task.x ? 'text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50' : 'text-gray-300'}`}>
-                                    {task.status === 'DONE' ? <CheckCircle2 size={18} className="text-emerald-500" /> : <Target size={18} />}
-                                </button>
+                                <h4 className="font-medium text-gray-900 text-sm mb-2.5 leading-snug">{task.title}</h4>
+
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-2">
+                                        {task.assignee === 'Unassigned' ? (
+                                            <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[8px] font-medium text-gray-500">UN</div>
+                                        ) : (
+                                            <img src={`https://ui-avatars.com/api/?name=${task.assignee}&background=random`} alt={task.assignee} className="w-5 h-5 rounded-full" />
+                                        )}
+                                        <span className="text-[11px] text-gray-500">{task.assignee}</span>
+                                    </div>
+
+                                    <button className={`p-1 rounded-full transition ${task.x ? 'text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50' : 'text-gray-300'}`}>
+                                        {task.status === 'DONE' ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Target size={16} />}
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                    ))}
-                    {tasks.length === 0 && (
-                        <div className="text-center p-8 text-gray-500 text-sm">
-                            No tasks assigned to this blueprint yet. Click anywhere on the blueprint to drop a pin.
-                        </div>
-                    )}
-                </div>
+                        ))}
+                        {tasks.length === 0 && (
+                            <div className="text-center p-8 text-gray-400 text-sm">
+                                <Target size={24} className="mx-auto mb-3 text-gray-300" />
+                                <p className="font-medium text-gray-500 mb-1">No tasks yet</p>
+                                <p className="text-xs">Click anywhere on the blueprint to drop a pin.</p>
+                            </div>
+                        )}
+                    </div>
 
-                {/* Bottom Filter Button */}
-                <div className="p-4 border-t border-gray-100 bg-white">
-                    <button className="w-full flex items-center justify-center gap-2 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm font-medium rounded-lg transition border border-gray-200">
-                        <Filter size={16} /> Filter View
-                    </button>
-                </div>
+                    {/* Bottom Filter Button */}
+                    <div className="p-3 border-t border-gray-100 bg-white">
+                        <button className="w-full flex items-center justify-center gap-2 py-2 bg-gray-50 hover:bg-gray-100 text-gray-600 text-xs font-medium rounded-lg transition border border-gray-200">
+                            <Filter size={14} /> Filter View
+                        </button>
+                    </div>
 
+                </div>
             </div>
 
             {/* --- CUSTOM PROMPT MODAL --- */}

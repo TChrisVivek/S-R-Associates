@@ -325,15 +325,16 @@ exports.getBlueprintAndTasks = async (req, res) => {
         const project = await Project.findById(projectId);
         if (!project) return res.status(404).json({ message: "Project not found" });
 
-        let blueprint = null;
+        // Return ALL blueprints so frontend can switch sheets
+        const allBlueprints = (project.blueprints || []).map((bp, index) => ({
+            id: bp._id.toString(),
+            name: bp.name || `Blueprint ${index + 1}`,
+            imageUrl: bp.url,
+            uploadedAt: bp.uploadedAt
+        }));
 
-        if (project.blueprints && project.blueprints.length > 0) {
-            blueprint = {
-                id: project.blueprints[0]._id.toString(),
-                name: project.blueprints[0].name || "Project Blueprint",
-                imageUrl: project.blueprints[0].url
-            };
-        }
+        // For backward compatibility, also return the latest as "blueprint"
+        const latestBlueprint = allBlueprints.length > 0 ? allBlueprints[allBlueprints.length - 1] : null;
 
         const pins = await Pin.find({ project_id: projectId });
 
@@ -350,7 +351,7 @@ exports.getBlueprintAndTasks = async (req, res) => {
                 id: pin._id.toString(),
                 title: pin.title,
                 status: status,
-                assignee: "Unassigned", // Can map user if needed
+                assignee: "Unassigned",
                 x: pin.x_cord,
                 y: pin.y_cord,
                 color: color
@@ -358,8 +359,9 @@ exports.getBlueprintAndTasks = async (req, res) => {
         });
 
         res.json({
-            blueprint,
-            tasks: tasks.reverse() // Latest first
+            blueprint: latestBlueprint,
+            blueprints: allBlueprints,
+            tasks: tasks.reverse()
         });
     } catch (error) {
         console.error("Error fetching blueprint data:", error);
