@@ -143,7 +143,7 @@ const Reports = () => {
                     doc.setFont('helvetica', 'normal');
                     doc.text(`Type: ${p.type || 'N/A'}  |  Site: ${p.siteSize ? p.siteSize + ' sq ft' : 'N/A'}  |  Floors: ${p.floors || 'N/A'}  |  Client: ${p.client || 'N/A'}`, 14, y);
                     y += 5;
-                    const budgetVal = p.budget ? `₹${Number(p.budget).toLocaleString('en-IN')}` : 'N/A';
+                    const budgetVal = p.budget ? `Rs.${Number(p.budget).toLocaleString('en-IN')}` : 'N/A';
                     doc.text(`Budget: ${budgetVal}  |  Contractor: ${localStorage.getItem('companyShortName') || 'S R Associates'}`, 14, y);
                     y += 8;
                 });
@@ -198,9 +198,17 @@ const Reports = () => {
                                 head: [['Material', 'Category', 'Quantity', 'Status']],
                                 body: invData,
                                 theme: 'striped',
-                                headStyles: { fillColor: [16, 185, 129], fontSize: 8 },
+                                headStyles: { fillColor: [109, 40, 217], fontSize: 8 },
                                 bodyStyles: { fontSize: 8 },
                                 margin: { left: 14, right: 14 },
+                                didParseCell: (data) => {
+                                    if (data.section === 'body' && data.column.index === 3) {
+                                        const val = (data.cell.raw || '').toString().toUpperCase();
+                                        if (val.includes('OUT')) data.cell.styles.textColor = [220, 38, 38];
+                                        else if (val.includes('LOW')) data.cell.styles.textColor = [234, 138, 0];
+                                        else if (val.includes('OPTIMAL')) data.cell.styles.textColor = [22, 163, 74];
+                                    }
+                                },
                             });
                             y = doc.lastAutoTable.finalY + 10;
                         } else {
@@ -251,7 +259,7 @@ const Reports = () => {
                 const finData = projects.map(p => {
                     const budget = Number(p.budget) || 0;
                     const unit = p.budgetUnit || 'Lakhs';
-                    const budgetDisplay = budget > 0 ? `₹${budget.toLocaleString('en-IN')} ${unit}` : 'N/A';
+                    const budgetDisplay = budget > 0 ? `Rs.${budget.toLocaleString('en-IN')} ${unit}` : 'N/A';
                     return [
                         p.title || 'Untitled',
                         p.client || 'N/A',
@@ -291,7 +299,7 @@ const Reports = () => {
                 doc.setFontSize(9);
                 doc.setFont('helvetica', 'normal');
                 doc.text(`Total Projects: ${projects.length}`, 14, y); y += 5;
-                doc.text(`Combined Budget: ₹${totalInLakhs.toLocaleString('en-IN')} Lakhs`, 14, y); y += 5;
+                doc.text(`Combined Budget: Rs.${totalInLakhs.toLocaleString('en-IN')} Lakhs`, 14, y); y += 5;
                 if (totalCrores > 0) {
                     doc.text(`  (${totalCrores} Crores + ${totalLakhs} Lakhs)`, 14, y); y += 5;
                 }
@@ -495,9 +503,17 @@ const Reports = () => {
                 head: [['Material', 'Unit', 'Inflow', 'Outflow', 'Balance', 'Status']],
                 body: summaryData,
                 theme: 'striped',
-                headStyles: { fillColor: [16, 185, 129], fontSize: 8 },
+                headStyles: { fillColor: [109, 40, 217], fontSize: 8 },
                 bodyStyles: { fontSize: 8 },
                 margin: { left: 14, right: 14 },
+                didParseCell: (data) => {
+                    if (data.section === 'body' && data.column.index === 5) {
+                        const val = (data.cell.raw || '').toString().toUpperCase();
+                        if (val.includes('OUT')) data.cell.styles.textColor = [220, 38, 38];
+                        else if (val.includes('LOW')) data.cell.styles.textColor = [234, 138, 0];
+                        else if (val.includes('OPTIMAL')) data.cell.styles.textColor = [22, 163, 74];
+                    }
+                },
             });
             y = doc.lastAutoTable.finalY + 10;
 
@@ -520,7 +536,7 @@ const Reports = () => {
                         log.type === 'delivery' ? 'Delivery' : 'Usage',
                         `${log.quantity || 0} ${m.unit || ''}`,
                         log.type === 'delivery' ? (log.supplier || 'N/A') : (log.locationPurpose || 'N/A'),
-                        log.totalCost ? `₹${Number(log.totalCost).toLocaleString('en-IN')}` : '-'
+                        log.totalCost ? `Rs.${Number(log.totalCost).toLocaleString('en-IN')}` : '-'
                     ]);
                 });
             });
@@ -580,7 +596,7 @@ const Reports = () => {
             // Project info table
             const budget = Number(project?.budget) || 0;
             const unit = project?.budgetUnit || 'Lakhs';
-            const budgetStr = budget > 0 ? `₹${budget.toLocaleString('en-IN')} ${unit}` : 'N/A';
+            const budgetStr = budget > 0 ? `Rs.${budget.toLocaleString('en-IN')} ${unit}` : 'N/A';
             const startDate = project?.startDate ? new Date(project.startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
             const endDate = project?.endDate ? new Date(project.endDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
 
@@ -632,7 +648,7 @@ const Reports = () => {
                             String(m.inflow || 0),
                             String(m.outflow || 0),
                             String(m.balance || 0),
-                            matCost > 0 ? `₹${matCost.toLocaleString('en-IN')}` : '-'
+                            matCost > 0 ? `Rs.${matCost.toLocaleString('en-IN')}` : '-'
                         ];
                     });
 
@@ -640,7 +656,7 @@ const Reports = () => {
                         startY: y,
                         head: [['Material', 'Unit', 'Inflow', 'Outflow', 'Balance', 'Cost']],
                         body: costData,
-                        foot: [['', '', '', '', 'Total', `₹${totalMaterialCost.toLocaleString('en-IN')}`]],
+                        foot: [['', '', '', '', 'Total', `Rs.${totalMaterialCost.toLocaleString('en-IN')}`]],
                         theme: 'striped',
                         headStyles: { fillColor: [109, 40, 217], fontSize: 8 },
                         footStyles: { fillColor: [240, 240, 255], textColor: [109, 40, 217], fontStyle: 'bold', fontSize: 8 },
@@ -661,7 +677,7 @@ const Reports = () => {
                         doc.setFontSize(9);
                         doc.setFont('helvetica', 'normal');
                         doc.text(`Total Budget: ${budgetStr}`, 14, y); y += 5;
-                        doc.text(`Material Spend: ₹${totalMaterialCost.toLocaleString('en-IN')}`, 14, y); y += 5;
+                        doc.text(`Material Spend: Rs.${totalMaterialCost.toLocaleString('en-IN')}`, 14, y); y += 5;
                         doc.text(`Utilization: ${utilization}%`, 14, y);
                     }
                 }

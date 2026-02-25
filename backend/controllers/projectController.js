@@ -125,8 +125,8 @@ exports.getProjectById = async (req, res) => {
             assignee: task.assignee || "Unassigned"
         }));
 
-        // --- DYNAMIC BUDGET CALCULATION ---
-        let dynamicBudgetSpent = project.stats?.budgetSpent || 0;
+        // --- DYNAMIC BUDGET CALCULATION (Real-time from Material Deliveries) ---
+        let dynamicBudgetSpent = 0;
 
         try {
             // Only calculate if a budget actually exists
@@ -158,10 +158,14 @@ exports.getProjectById = async (req, res) => {
                     const percentage = (totalMaterialSpend / rawBudget) * 100;
                     dynamicBudgetSpent = Math.min(Math.round(percentage * 10) / 10, 100);
                 }
+
+                console.log(`[Budget Calc] Project: ${project.title} | Budget: ${project.budget} ${project.budgetUnit} (₹${rawBudget.toLocaleString('en-IN')}) | Material Spend: ₹${totalMaterialSpend.toLocaleString('en-IN')} | Burn Rate: ${dynamicBudgetSpent}%`);
+            } else {
+                console.log(`[Budget Calc] Project: ${project.title} | No budget set, burn rate = 0%`);
             }
         } catch (calcError) {
             console.error("Failed to calculate dynamic budget:", calcError);
-            // fallback to static DB value
+            // fallback to 0
         }
 
 
