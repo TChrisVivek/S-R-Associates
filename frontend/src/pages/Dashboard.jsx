@@ -26,11 +26,13 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import CreateProjectModal from '../components/CreateProjectModal';
+import GlobalLoader from '../components/GlobalLoader';
 
 const Dashboard = () => {
     const navigate = useNavigate();
     const { user: currentUser } = useAuth();
     const [projects, setProjects] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [companyName, setCompanyName] = useState('BuildCore');
     const [companyInitial, setCompanyInitial] = useState('B');
@@ -61,6 +63,8 @@ const Dashboard = () => {
             setProjects(response.data);
         } catch (error) {
             console.error("Failed to fetch projects", error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -100,6 +104,8 @@ const Dashboard = () => {
 
     const greetingTime = new Date().getHours();
     const greeting = greetingTime < 12 ? 'Good Morning' : greetingTime < 17 ? 'Good Afternoon' : 'Good Evening';
+
+    if (loading) return <GlobalLoader />;
 
     return (
         <div className="flex h-screen bg-[#0f1117] font-sans text-white overflow-hidden">

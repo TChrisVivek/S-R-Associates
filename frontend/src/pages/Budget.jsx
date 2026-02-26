@@ -8,6 +8,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import api from '../api/axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../components/Toast';
+import GlobalLoader from '../components/GlobalLoader';
 
 const Budget = () => {
     const navigate = useNavigate();
@@ -46,14 +48,7 @@ const Budget = () => {
     };
 
     if (loading || !data) {
-        return (
-            <div className="flex h-screen items-center justify-center bg-[#f6f7f9]">
-                <div className="flex flex-col items-center gap-3">
-                    <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-gray-400 text-sm">Loading financials...</p>
-                </div>
-            </div>
-        );
+        return <GlobalLoader />;
     }
 
     return (

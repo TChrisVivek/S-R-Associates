@@ -7,6 +7,7 @@ import {
 import { Document, Page, pdfjs } from 'react-pdf';
 import api from '../api/axios';
 import { useToast } from './Toast';
+import GlobalLoader from './GlobalLoader';
 
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -255,10 +256,7 @@ const BlueprintTab = ({ projectId }) => {
         setPosition({ x: 0, y: 0 });
     };
 
-    if (loading) return <div className="p-8 text-center flex flex-col items-center justify-center gap-4 text-gray-500 h-[400px]">
-        <Loader2 className="animate-spin text-violet-500" size={32} />
-        <p className="font-medium">Loading Blueprint Engine...</p>
-    </div>;
+    if (loading) return <GlobalLoader />;
 
     // --- EMPTY STATE RENDERING ---
     if (allBlueprints.length === 0) return (

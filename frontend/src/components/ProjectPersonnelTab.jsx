@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 
 import { useToast } from './Toast';
+import GlobalLoader from './GlobalLoader';
 
 const ProjectPersonnelTab = ({ projectId }) => {
     const navigate = useNavigate();
@@ -93,7 +94,7 @@ const ProjectPersonnelTab = ({ projectId }) => {
         }
     };
 
-    if (loading) return <div className="p-8 text-center text-gray-500 font-medium">Loading Team Directory...</div>;
+    if (loading) return <GlobalLoader />;
     if (!personnelData) return <div className="p-8 text-center text-red-500 font-medium">Failed to load data.</div>;
 
     return (

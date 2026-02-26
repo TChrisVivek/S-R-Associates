@@ -14,6 +14,24 @@ exports.getPersonnel = async (req, res) => {
 // 2. POST: Add a new member
 exports.addPersonnel = async (req, res) => {
     try {
+        const { name, email, phone } = req.body;
+
+        // Prevent duplicates by name, email, or phone
+        // Case-insensitive match for name to be safe
+        const existingMember = await Personnel.findOne({
+            $or: [
+                { name: { $regex: new RegExp(`^${name}$`, 'i') } },
+                { email },
+                { phone }
+            ]
+        });
+
+        if (existingMember) {
+            return res.status(400).json({
+                message: "Member already exists"
+            });
+        }
+
         const newMember = new Personnel(req.body);
         await newMember.save();
         res.status(201).json(newMember);

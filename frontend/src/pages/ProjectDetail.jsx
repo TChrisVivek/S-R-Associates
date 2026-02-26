@@ -11,6 +11,7 @@ import BlueprintTab from '../components/BlueprintTab';
 import MaterialInventoryTab from '../components/MaterialInventoryTab';
 import DailyLogsTab from '../components/DailyLogsTab';
 import ProjectPersonnelTab from '../components/ProjectPersonnelTab';
+import GlobalLoader from '../components/GlobalLoader';
 
 const ProjectDetail = () => {
     const navigate = useNavigate();
@@ -47,6 +48,7 @@ const ProjectDetail = () => {
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isPersonnelModalOpen, setIsPersonnelModalOpen] = useState(false);
+    const [availablePersonnel, setAvailablePersonnel] = useState([]);
     const [taskToDelete, setTaskToDelete] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
 
@@ -184,7 +186,7 @@ const ProjectDetail = () => {
 
             const isMultipart = data.image && data.image.size > 0;
             let payload = data;
-            let headers = {};
+            let axiosConfig = {};
 
             if (isMultipart) {
                 payload = formData;
@@ -193,12 +195,25 @@ const ProjectDetail = () => {
                 formData.set('budget', data.budget || '');
                 if (data.startDate) formData.set('startDate', data.startDate); else formData.delete('startDate');
                 if (data.endDate) formData.set('endDate', data.endDate); else formData.delete('endDate');
-                headers = { 'Content-Type': 'multipart/form-data' };
+                // Removing manual Content-Type: multipart/form-data to let Axios generate the boundary
+                axiosConfig = {
+                    headers: { 'Content-Type': 'multipart/form-data' } // In newer Axios versions passing FormData strips this, but historically you can just omit this entirely or set to multipart/form-data explicitly. Wait, actually if you set it manually without boundary, it breaks. So let's NOT set it.
+                };
             } else {
                 delete data.image; // remove the empty file object from JSON
             }
 
-            await api.put(`/projects/${id}/settings`, payload, { headers });
+            // Let Axios handle the FormData and browser boundaries automatically by omitting Content-Type.
+            // If the global axios interceptor defaults to application/json, Axios usually strips it when FormData is detected.
+            if (isMultipart) {
+                await api.put(`/projects/${id}/settings`, payload, {
+                    headers: {
+                        'Content-Type': undefined // Force Axios/browser to handle the boundary
+                    }
+                });
+            } else {
+                await api.put(`/projects/${id}/settings`, payload);
+            }
             await fetchProjectDetails();
             setIsSettingsModalOpen(false);
             showToast("Settings updated successfully", "success");
@@ -210,47 +225,58 @@ const ProjectDetail = () => {
         }
     };
 
+    useEffect(() => {
+        if (isPersonnelModalOpen) {
+            fetchAvailablePersonnel();
+        }
+    }, [isPersonnelModalOpen]);
+
+    const fetchAvailablePersonnel = async () => {
+        try {
+            const response = await api.get('/personnel');
+            // Filter out personnel who are already assigned to THIS project
+            const unassigned = response.data.filter(p => p.project_id !== id);
+            setAvailablePersonnel(unassigned);
+        } catch (error) {
+            console.error("Error fetching personnel:", error);
+            showToast("Failed to fetch available personnel", "error");
+        }
+    };
+
     const handleAddPersonnel = async (e) => {
         e.preventDefault();
+        const selectedId = e.target.personnelId.value;
+        if (!selectedId) {
+            showToast("Please select a personnel", "error");
+            return;
+        }
+
         setActionLoading(true);
         try {
-            await api.post(`/personnel`, {
+            // Simply use the existing status from the dropdown
+            const newStatus = e.target.status.value;
+
+            await api.put(`/personnel/${selectedId}`, {
                 project_id: id,
-                name: e.target.name.value,
-                role: e.target.role.value,
-                email: e.target.email.value,
-                phone: e.target.phone.value,
-                site: project.location, // Default to current project's location
-                status: e.target.status.value,
-                avatar: `https://ui-avatars.com/api/?name=${e.target.name.value.split(' ').join('+')}&background=random`
+                site: project.location,
+                status: newStatus
             });
-            // HACK: because the personnel data is fetched inside ProjectPersonnelTab, 
-            // refreshing the project details here doesn't trick the child into re-fetching.
-            // A more robust way would be lifting state up or using context, but to get it
-            // working quickly for the user, we will just force a hard reload of this tab
-            // by toggling to another tab and back, or let the user click the tab again.
-            // Better yet, dispatch a custom event that ProjectPersonnelTab listens to.
+
+            // Dispatch event for child tab
             window.dispatchEvent(new Event('personnelUpdated'));
 
             setIsPersonnelModalOpen(false);
-            showToast("Personnel added successfully", "success");
+            showToast("Personnel allocated successfully", "success");
         } catch (error) {
-            console.error("Failed to add personnel:", error);
-            showToast("Failed to add personnel. Please try again.", "error");
+            console.error("Failed to allocate personnel:", error);
+            showToast("Failed to allocate personnel. Please try again.", "error");
         } finally {
             setActionLoading(false);
         }
     };
 
     if (loading || !project) {
-        return (
-            <div className="flex h-screen items-center justify-center bg-[#f6f7f9]">
-                <div className="flex flex-col items-center gap-3">
-                    <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-gray-400 text-sm">Loading workspace...</p>
-                </div>
-            </div>
-        );
+        return <GlobalLoader />;
     }
 
     const CustomDonut = ({ percentage, color, label }) => {
@@ -868,34 +894,30 @@ const ProjectDetail = () => {
                         <form onSubmit={handleAddPersonnel} className="p-6 space-y-5 bg-gray-50/30 overflow-y-auto max-h-[70vh]">
 
                             <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-2">Full Name</label>
-                                <input type="text" name="name" required placeholder="John Doe" className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-gray-300 focus:ring-2 focus:ring-violet-100 outline-none transition-all shadow-sm text-sm" />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-500 mb-2">Role Title</label>
-                                    <input type="text" name="role" required placeholder="Site Engineer" className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-gray-300 focus:ring-2 focus:ring-violet-100 outline-none transition-all shadow-sm text-sm" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-500 mb-2">Current Status</label>
-                                    <select name="status" defaultValue="On Site" className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-gray-300 focus:ring-2 focus:ring-violet-100 outline-none transition-all shadow-sm text-sm">
-                                        <option value="On Site">On Site</option>
-                                        <option value="Remote">Remote</option>
-                                        <option value="Off Duty">Off Duty</option>
+                                <label className="block text-xs font-medium text-gray-500 mb-2">Select Personnel</label>
+                                {availablePersonnel.length > 0 ? (
+                                    <select name="personnelId" required className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-gray-300 focus:ring-2 focus:ring-violet-100 outline-none transition-all shadow-sm text-sm">
+                                        <option value="" disabled selected>-- Select a team member --</option>
+                                        {availablePersonnel.map((person) => (
+                                            <option key={person._id} value={person._id}>
+                                                {person.name} ({person.role})
+                                            </option>
+                                        ))}
                                     </select>
-                                </div>
+                                ) : (
+                                    <div className="p-4 bg-yellow-50 text-yellow-800 rounded-xl text-sm border border-yellow-200">
+                                        No unassigned personnel available. Please add more members from the main Personnel page.
+                                    </div>
+                                )}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-500 mb-2">Email Address</label>
-                                    <input type="email" name="email" required placeholder="john@company.com" className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-gray-300 focus:ring-2 focus:ring-violet-100 outline-none transition-all shadow-sm text-sm" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-500 mb-2">Phone Number</label>
-                                    <input type="tel" name="phone" required placeholder="+1 234 567 890" className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-gray-300 focus:ring-2 focus:ring-violet-100 outline-none transition-all shadow-sm text-sm" />
-                                </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-2">Initial Status</label>
+                                <select name="status" defaultValue="On Site" className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-gray-300 focus:ring-2 focus:ring-violet-100 outline-none transition-all shadow-sm text-sm">
+                                    <option value="On Site">On Site</option>
+                                    <option value="Remote">Remote</option>
+                                    <option value="Off Duty">Off Duty</option>
+                                </select>
                             </div>
 
                             <div className="flex justify-end gap-3 pt-6 mt-4 border-t border-gray-100">

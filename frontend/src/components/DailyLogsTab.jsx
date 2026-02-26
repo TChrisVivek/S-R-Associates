@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import api from '../api/axios';
 import { useToast } from './Toast';
+import GlobalLoader from './GlobalLoader';
 
 const DailyLogsTab = ({ projectId }) => {
     const [logData, setLogData] = useState(null);
@@ -95,7 +96,7 @@ const DailyLogsTab = ({ projectId }) => {
         }
     };
 
-    if (loading) return <div className="p-8 text-center text-gray-500">Loading Daily Logs...</div>;
+    if (loading) return <GlobalLoader />;
     if (!logData) return <div className="p-8 text-center text-red-500">Failed to load logs.</div>;
 
     return (
