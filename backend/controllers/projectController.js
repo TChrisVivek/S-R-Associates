@@ -244,6 +244,10 @@ exports.updateProjectSettings = async (req, res) => {
         if (contractor !== undefined) project.contractor = contractor;
         if (status !== undefined) project.status = status;
 
+        if (req.file) {
+            project.image = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+        }
+
         await project.save();
         res.status(200).json({ message: "Project settings updated successfully", project });
     } catch (error) {
@@ -404,6 +408,20 @@ exports.addBlueprintTask = async (req, res) => {
     } catch (error) {
         console.error("Error adding blueprint task:", error);
         res.status(500).json({ message: "Error adding blueprint task" });
+    }
+};
+
+exports.deleteBlueprintTask = async (req, res) => {
+    try {
+        const { id: projectId, taskId } = req.params;
+        const result = await Pin.findByIdAndDelete(taskId);
+
+        if (!result) return res.status(404).json({ message: "Task not found" });
+
+        res.status(200).json({ message: "Task deleted successfully", id: taskId });
+    } catch (error) {
+        console.error("Error deleting blueprint task:", error);
+        res.status(500).json({ message: "Error deleting blueprint task" });
     }
 };
 

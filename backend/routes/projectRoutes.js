@@ -35,9 +35,10 @@ router.post('/:id/feed', upload.array('images', 10), projectController.addLiveFe
 router.post('/:id/tasks', projectController.addCriticalTask);
 router.delete('/:id/tasks/:taskId', projectController.deleteCriticalTask);
 router.put('/:id/stats', projectController.updateProjectStats);
-router.put('/:id/settings', projectController.updateProjectSettings);
+router.put('/:id/settings', upload.single('image'), projectController.updateProjectSettings);
 router.get('/:id/blueprint-tasks', projectController.getBlueprintAndTasks);
 router.post('/:id/blueprint-tasks', projectController.addBlueprintTask);
+router.delete('/:id/blueprint-tasks/:taskId', projectController.deleteBlueprintTask);
 router.post('/:id/blueprints', upload.array('plans', 10), projectController.uploadProjectBlueprint);
 router.get('/:id/inventory', inventoryController.getProjectInventory);
 router.get('/:id/personnel', personnelController.getProjectPersonnel);

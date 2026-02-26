@@ -5,12 +5,16 @@ import {
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 
+import { useToast } from './Toast';
+
 const ProjectPersonnelTab = ({ projectId }) => {
     const navigate = useNavigate();
+    const { showToast, ToastComponent } = useToast();
     const [personnelData, setPersonnelData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedMember, setSelectedMember] = useState(null);
+    const [memberToRemove, setMemberToRemove] = useState(null);
 
     // 1. Fetch Real Data
     useEffect(() => {
@@ -42,6 +46,34 @@ const ProjectPersonnelTab = ({ projectId }) => {
         member.role.toLowerCase().includes(searchQuery.toLowerCase())
     ) || [];
 
+    const handleRemovePersonnel = (memberId, memberName) => {
+        setMemberToRemove({ id: memberId, name: memberName });
+    };
+
+    const confirmRemovePersonnel = async () => {
+        if (!memberToRemove) return;
+
+        try {
+            // Update personnel to clear project_id and site
+            await api.put(`/personnel/${memberToRemove.id}`, {
+                project_id: null,
+                site: 'Unassigned',
+                status: 'Remote' // Or whatever default is appropriate
+            });
+
+            // Trigger refresh
+            window.dispatchEvent(new Event('personnelUpdated'));
+
+            // Show success toast
+            showToast(`${memberToRemove.name} removed from site successfully`, "success");
+        } catch (error) {
+            console.error("Failed to remove personnel from site:", error);
+            showToast("Failed to remove personnel from site. Please try again.", "error");
+        } finally {
+            setMemberToRemove(null);
+        }
+    };
+
     // UI Helpers
     const getStatusBadge = (status) => {
         switch (status) {
@@ -66,6 +98,7 @@ const ProjectPersonnelTab = ({ projectId }) => {
 
     return (
         <div className="flex flex-col h-full space-y-10">
+            {ToastComponent}
 
             {/* --- SECTION 1: INTERNAL TEAM --- */}
             <div>
@@ -112,10 +145,10 @@ const ProjectPersonnelTab = ({ projectId }) => {
                             </div>
 
                             <button
-                                onClick={() => navigate('/personnel')}
-                                className="w-full py-2.5 bg-white border border-gray-200 text-gray-700 font-medium rounded-xl text-sm hover:bg-gray-50 transition shadow-sm"
+                                onClick={() => handleRemovePersonnel(member.id, member.name)}
+                                className="w-full py-2.5 bg-white border border-red-200 text-red-600 font-medium rounded-xl text-sm hover:bg-red-50 hover:border-red-300 transition shadow-sm flex items-center justify-center gap-2"
                             >
-                                View Profile
+                                <X size={16} /> Remove from Site
                             </button>
                         </div>
                     ))}
@@ -269,6 +302,36 @@ const ProjectPersonnelTab = ({ projectId }) => {
                                     Full Directory
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- REMOVE CONFIRMATION MODAL --- */}
+            {memberToRemove && (
+                <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+                    <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setMemberToRemove(null)}></div>
+                    <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 overflow-hidden">
+                        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-50 text-red-500 mb-4 mx-auto">
+                            <X size={24} />
+                        </div>
+                        <h3 className="text-lg font-semibold text-center text-gray-900 mb-2">Remove Personnel</h3>
+                        <p className="text-sm text-center text-gray-500 mb-6">
+                            Are you sure you want to remove <span className="font-medium text-gray-900">{memberToRemove.name}</span> from this site?
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setMemberToRemove(null)}
+                                className="flex-1 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium rounded-xl transition-colors text-sm"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmRemovePersonnel}
+                                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl transition-colors text-sm shadow-sm"
+                            >
+                                Remove
+                            </button>
                         </div>
                     </div>
                 </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     Calendar, Users, Sun, Cloud, CloudRain, FileText,
-    Download, Plus, Image as ImageIcon, X, Loader2, UploadCloud
+    Plus, Image as ImageIcon, X, Loader2, UploadCloud
 } from 'lucide-react';
 import api from '../api/axios';
 import { useToast } from './Toast';
@@ -114,9 +114,6 @@ const DailyLogsTab = ({ projectId }) => {
                     </div>
                 </div>
                 <div className="flex gap-3">
-                    <button className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-all shadow-sm">
-                        <Download size={16} /> Download PDF
-                    </button>
                     <button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2 bg-[#1a1d2e] text-white px-5 py-2 rounded-xl text-sm font-medium hover:bg-[#252840] transition-all shadow-sm">
                         <Plus size={18} /> Create Log
                     </button>
