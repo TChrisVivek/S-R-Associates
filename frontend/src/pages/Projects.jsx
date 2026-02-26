@@ -8,6 +8,7 @@ import {
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import CreateProjectModal from '../components/CreateProjectModal';
+import GlobalLoader from '../components/GlobalLoader';
 
 const Projects = () => {
     const navigate = useNavigate();
@@ -155,9 +156,7 @@ const Projects = () => {
 
                     {/* Projects Grid */}
                     {isLoading ? (
-                        <div className="flex justify-center items-center h-64">
-                            <Loader2 className="animate-spin text-gray-300" size={32} />
-                        </div>
+                        <GlobalLoader />
                     ) : filteredProjects.length === 0 ? (
                         <div className="text-center py-20 bg-white border border-gray-100 rounded-2xl">
                             <div className="w-14 h-14 bg-gray-50 rounded-xl flex items-center justify-center mx-auto mb-4">

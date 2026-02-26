@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
+import GlobalLoader from '../components/GlobalLoader';
 
 const SettingsPage = () => {
     const navigate = useNavigate();
@@ -80,6 +81,7 @@ const SettingsPage = () => {
     return (
         <div className="flex h-screen bg-[#0f1117] font-sans text-white overflow-hidden">
             {ToastComponent}
+            {isLoading && <GlobalLoader />}
 
             {/* ─── SIDEBAR ─── */}
             <aside className="w-[240px] bg-[#0f1117] flex flex-col z-20 hidden md:flex border-r border-white/[0.06]">

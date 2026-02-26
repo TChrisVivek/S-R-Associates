@@ -7,6 +7,7 @@ import api from '../api/axios';
 import { useToast } from '../components/Toast';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import GlobalLoader from '../components/GlobalLoader';
 
 const Personnel = () => {
     const navigate = useNavigate();
@@ -79,7 +80,11 @@ const Personnel = () => {
                 setNewMember({ name: '', role: '', email: '', phone: '+91 ', site: '', status: 'On Site' });
                 showToast("Team member added successfully!", "success");
             }
-        } catch (error) { console.error("Error adding member:", error); showToast("Failed to add member.", "error"); }
+        } catch (error) {
+            console.error("Error adding member:", error);
+            const errorMsg = error.response?.data?.message || "Failed to add member.";
+            showToast(errorMsg, "error");
+        }
     };
 
     const confirmDelete = (id) => { setDeleteId(id); setIsDeleteModalOpen(true); };
@@ -113,6 +118,7 @@ const Personnel = () => {
     return (
         <div className="flex h-screen bg-[#0f1117] font-sans text-white overflow-hidden">
             {ToastComponent}
+            {loading && <GlobalLoader />}
 
             {/* ─── SIDEBAR ─── */}
             <aside className="w-[240px] bg-[#0f1117] flex flex-col z-20 hidden md:flex border-r border-white/[0.06]">
@@ -184,9 +190,7 @@ const Personnel = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
-                                {loading ? (
-                                    <tr><td colSpan="5" className="py-16 text-center text-gray-300 text-sm">Loading team directory...</td></tr>
-                                ) : filteredPersonnel.length > 0 ? (
+                                {loading ? null : filteredPersonnel.length > 0 ? (
                                     filteredPersonnel.map((person) => (
                                         <tr key={person._id} className="hover:bg-gray-50/50 transition-colors group">
                                             <td className="py-3.5 px-6">

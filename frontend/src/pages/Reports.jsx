@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import GlobalLoader from '../components/GlobalLoader';
 
 const Reports = () => {
     const navigate = useNavigate();
@@ -945,6 +946,7 @@ const Reports = () => {
 
     return (
         <>
+            {isLoading && <GlobalLoader />}
             <div className="flex h-screen bg-[#0f1117] font-sans text-white overflow-hidden">
                 {/* ─── SIDEBAR ─── */}
                 <aside className="w-[240px] bg-[#0f1117] flex flex-col z-20 hidden md:flex border-r border-white/[0.06]">
@@ -1062,7 +1064,7 @@ const Reports = () => {
                                             ) : (
                                                 <tr>
                                                     <td colSpan="5" className="py-16 text-center text-gray-300 text-sm">
-                                                        {isLoading ? <span className="flex justify-center items-center gap-2"><Loader2 className="animate-spin" size={16} /> Loading...</span> : "No generated reports yet"}
+                                                        {isLoading ? null : "No generated reports yet"}
                                                     </td>
                                                 </tr>
                                             )}
@@ -1133,7 +1135,7 @@ const Reports = () => {
                                             ) : (
                                                 <tr>
                                                     <td colSpan="5" className="py-16 text-center text-gray-300 text-sm">
-                                                        {isLoading ? <span className="flex justify-center items-center gap-2"><Loader2 className="animate-spin" size={16} /> Loading...</span> : "No documents uploaded yet"}
+                                                        {isLoading ? null : "No documents uploaded yet"}
                                                     </td>
                                                 </tr>
                                             )}
