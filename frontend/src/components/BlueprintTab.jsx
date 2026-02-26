@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     Plus, Minus, Maximize, Layers, Target, CheckCircle2,
-    Clock, AlertCircle, ChevronDown, Filter, FileUp, Loader2, X,
+    Clock, AlertCircle, ChevronDown, FileUp, Loader2, X,
     ChevronLeft, ChevronRight, FileText, Trash2
 } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -25,6 +25,7 @@ const BlueprintTab = ({ projectId }) => {
     // Custom Prompt State
     const [isPromptOpen, setIsPromptOpen] = useState(false);
     const [tempClickData, setTempClickData] = useState(null);
+    const [taskToDelete, setTaskToDelete] = useState(null);
 
     // Zoom & Pan State
     const [scale, setScale] = useState(1);
@@ -155,6 +156,26 @@ const BlueprintTab = ({ projectId }) => {
             showToast("Failed to create task pin.", "error");
         } finally {
             setTempClickData(null);
+        }
+    };
+
+    const handleDeleteTask = (taskId, e) => {
+        if (e) e.stopPropagation();
+        setTaskToDelete(taskId);
+    };
+
+    const confirmDeleteTask = async () => {
+        if (!taskToDelete) return;
+
+        try {
+            await api.delete(`/projects/${projectId}/blueprint-tasks/${taskToDelete}`);
+            setTasks(prev => prev.filter(t => t.id !== taskToDelete));
+            showToast("Pin deleted successfully", "success");
+        } catch (error) {
+            console.error("Failed to delete pin:", error);
+            showToast("Failed to delete pin. Please try again.", "error");
+        } finally {
+            setTaskToDelete(null);
         }
     };
 
@@ -453,14 +474,18 @@ const BlueprintTab = ({ projectId }) => {
                             {tasks.filter(t => t.x != null && t.y != null).map(task => (
                                 <div
                                     key={task.id}
-                                    className={`absolute w-4 h-4 rounded-full border-2 border-white shadow-md transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ${activeTaskHover === task.id ? 'scale-150 ring-4 ring-white ring-opacity-50 z-30' : 'z-20'}`}
+                                    className={`absolute w-7 h-7 flex items-center justify-center rounded-full border-[3px] border-white shadow-lg transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ${activeTaskHover === task.id ? 'scale-150 ring-4 ring-white ring-opacity-50 z-30' : 'z-20 hover:scale-125 hover:z-30 cursor-pointer'}`}
                                     style={{
                                         left: `${task.x}%`,
                                         top: `${task.y}%`,
                                         backgroundColor: task.color
                                     }}
                                     title={task.title}
-                                />
+                                    onMouseEnter={() => setActiveTaskHover(task.id)}
+                                    onMouseLeave={() => setActiveTaskHover(null)}
+                                >
+                                    <div className="w-2.5 h-2.5 bg-white rounded-full opacity-80" />
+                                </div>
                             ))}
                         </div>
                     </div>
@@ -501,9 +526,18 @@ const BlueprintTab = ({ projectId }) => {
                                         <span className="text-[11px] text-gray-500">{task.assignee}</span>
                                     </div>
 
-                                    <button className={`p-1 rounded-full transition ${task.x ? 'text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50' : 'text-gray-300'}`}>
-                                        {task.status === 'DONE' ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Target size={16} />}
-                                    </button>
+                                    <div className="flex items-center gap-1">
+                                        <button className={`p-1 rounded-full transition ${task.x ? 'text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50' : 'text-gray-300'}`}>
+                                            {task.status === 'DONE' ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Target size={16} />}
+                                        </button>
+                                        <button
+                                            onClick={(e) => handleDeleteTask(task.id, e)}
+                                            className="p-1 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 transition"
+                                            title="Delete Pin"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -514,13 +548,6 @@ const BlueprintTab = ({ projectId }) => {
                                 <p className="text-xs">Click anywhere on the blueprint to drop a pin.</p>
                             </div>
                         )}
-                    </div>
-
-                    {/* Bottom Filter Button */}
-                    <div className="p-3 border-t border-gray-100 bg-white">
-                        <button className="w-full flex items-center justify-center gap-2 py-2 bg-gray-50 hover:bg-gray-100 text-gray-600 text-xs font-medium rounded-lg transition border border-gray-200">
-                            <Filter size={14} /> Filter View
-                        </button>
                     </div>
 
                 </div>
@@ -562,6 +589,37 @@ const BlueprintTab = ({ projectId }) => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* --- CONFIRM DELETE MODAL --- */}
+            {taskToDelete && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center">
+                            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <AlertCircle size={32} className="text-red-500" />
+                            </div>
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">Delete Pin?</h3>
+                            <p className="text-sm text-gray-500 mb-6">
+                                Are you sure you want to permanently delete this task pin? This action cannot be undone.
+                            </p>
+                            <div className="flex gap-3 w-full">
+                                <button
+                                    onClick={() => setTaskToDelete(null)}
+                                    className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-xl transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmDeleteTask}
+                                    className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-xl shadow-sm transition-colors"
+                                >
+                                    Yes, Delete
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

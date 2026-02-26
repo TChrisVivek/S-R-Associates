@@ -33,6 +33,18 @@ exports.deletePersonnel = async (req, res) => {
     }
 };
 
+// 3.5 PUT: Update a member
+exports.updatePersonnel = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updatedMember = await Personnel.findByIdAndUpdate(id, req.body, { new: true });
+        if (!updatedMember) return res.status(404).json({ message: "Member not found" });
+        res.json(updatedMember);
+    } catch (error) {
+        res.status(400).json({ message: "Failed to update member", error: error.message });
+    }
+};
+
 // 4. GET: Fetch project-specific personnel and vendors
 exports.getProjectPersonnel = async (req, res) => {
     const { id: projectId } = req.params;

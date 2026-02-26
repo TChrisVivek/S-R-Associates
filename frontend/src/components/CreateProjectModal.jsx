@@ -26,6 +26,7 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
     const [coverPreview, setCoverPreview] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [personnel, setPersonnel] = useState([]);
+    const [errors, setErrors] = useState({});
 
     useEffect(() => {
         if (isOpen) {
@@ -46,10 +47,12 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
         }
 
         setFormData(prev => ({ ...prev, [name]: value }));
+        if (errors[name]) setErrors(prev => ({ ...prev, [name]: undefined }));
     };
 
     const handleDateChange = (date, name) => {
         setFormData(prev => ({ ...prev, [name]: date }));
+        if (errors[name]) setErrors(prev => ({ ...prev, [name]: undefined }));
     };
 
     const handleTypeSelect = (type) => {
@@ -79,8 +82,20 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
 
     const handleSubmit = async () => {
         // Basic validation
-        if (!formData.title || formData.title.trim() === '') {
-            showToast("Please enter a project name", "error");
+        const newErrors = {};
+        if (!formData.title?.trim()) newErrors.title = "Project Name is required";
+        if (!formData.client?.trim()) newErrors.client = "Client Name is required";
+        if (!formData.address?.trim()) newErrors.address = "Site Address is required";
+        if (!formData.siteSize?.toString().trim()) newErrors.siteSize = "Site Size is required";
+        if (!formData.floors?.toString().trim()) newErrors.floors = "Number of Floors is required";
+        if (!formData.budget?.toString().trim()) newErrors.budget = "Estimated Budget is required";
+        if (!formData.startDate) newErrors.startDate = "Start Date is required";
+        if (!formData.endDate) newErrors.endDate = "Completion Date is required";
+        if (!formData.manager?.trim()) newErrors.manager = "Site Manager is required";
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            showToast("Please fill in all required fields", "error");
             return;
         }
 
@@ -155,6 +170,7 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                     type: 'Residential', budget: '', budgetUnit: 'Lakhs',
                     startDate: null, endDate: null, manager: '', contractor: ''
                 });
+                setErrors({});
                 setUploadedFiles([]);
                 setCoverImage(null);
                 setCoverPreview(null);
@@ -232,45 +248,48 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
 
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Project Name</label>
+                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Project Name <span className="text-red-500">*</span></label>
                                 <input
                                     type="text"
                                     name="title"
                                     value={formData.title}
                                     onChange={handleChange}
                                     placeholder="e.g. Skyline Towers Phase 1"
-                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all"
+                                    className={`w-full px-4 py-2.5 bg-gray-50 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all ${errors.title ? 'border-red-500 focus:ring-red-200' : 'border-gray-200 focus:border-gray-300 focus:ring-gray-300'}`}
                                 />
+                                {errors.title && <p className="mt-1 text-[11px] text-red-500">{errors.title}</p>}
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Client Name</label>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Client Name <span className="text-red-500">*</span></label>
                                     <input
                                         type="text"
                                         name="client"
                                         value={formData.client}
                                         onChange={handleChange}
                                         placeholder="e.g. Acme Development Corp"
-                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all placeholder:text-gray-300"
+                                        className={`w-full px-4 py-2.5 bg-gray-50 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all placeholder:text-gray-300 ${errors.client ? 'border-red-500 focus:ring-red-200' : 'border-gray-200 focus:border-gray-300 focus:ring-gray-300'}`}
                                     />
+                                    {errors.client && <p className="mt-1 text-[11px] text-red-500">{errors.client}</p>}
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Site Address</label>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Site Address <span className="text-red-500">*</span></label>
                                     <input
                                         type="text"
                                         name="address"
                                         value={formData.address}
                                         onChange={handleChange}
                                         placeholder="123 Construction Blvd"
-                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all placeholder:text-gray-300"
+                                        className={`w-full px-4 py-2.5 bg-gray-50 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all placeholder:text-gray-300 ${errors.address ? 'border-red-500 focus:ring-red-200' : 'border-gray-200 focus:border-gray-300 focus:ring-gray-300'}`}
                                     />
+                                    {errors.address && <p className="mt-1 text-[11px] text-red-500">{errors.address}</p>}
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Site Size (sq ft)</label>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Site Size (sq ft) <span className="text-red-500">*</span></label>
                                     <input
                                         type="number"
                                         name="siteSize"
@@ -278,11 +297,12 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                         onChange={handleChange}
                                         min="0"
                                         placeholder="e.g. 5000"
-                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all placeholder:text-gray-300"
+                                        className={`w-full px-4 py-2.5 bg-gray-50 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all placeholder:text-gray-300 ${errors.siteSize ? 'border-red-500 focus:ring-red-200' : 'border-gray-200 focus:border-gray-300 focus:ring-gray-300'}`}
                                     />
+                                    {errors.siteSize && <p className="mt-1 text-[11px] text-red-500">{errors.siteSize}</p>}
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Number of Floors</label>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Number of Floors <span className="text-red-500">*</span></label>
                                     <input
                                         type="number"
                                         name="floors"
@@ -290,8 +310,9 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                         onChange={handleChange}
                                         min="0"
                                         placeholder="e.g. 3"
-                                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all placeholder:text-gray-300"
+                                        className={`w-full px-4 py-2.5 bg-gray-50 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all placeholder:text-gray-300 ${errors.floors ? 'border-red-500 focus:ring-red-200' : 'border-gray-200 focus:border-gray-300 focus:ring-gray-300'}`}
                                     />
+                                    {errors.floors && <p className="mt-1 text-[11px] text-red-500">{errors.floors}</p>}
                                 </div>
                             </div>
                         </div>
@@ -394,7 +415,7 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Estimated Budget</label>
+                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Estimated Budget <span className="text-red-500">*</span></label>
                                 <div className="relative flex rounded-lg shadow-sm">
                                     <div className="relative flex-grow focus-within:z-10">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -407,7 +428,7 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                             onChange={handleChange}
                                             min="0"
                                             placeholder="0.00"
-                                            className="focus:ring-violet-400 focus:border-gray-300 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-l-md py-2.5 border"
+                                            className={`focus:ring-2 block w-full pl-7 pr-12 sm:text-sm rounded-l-md py-2.5 border ${errors.budget ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:border-gray-400 focus:ring-gray-400'}`}
                                         />
                                     </div>
                                     <div className="-ml-px relative">
@@ -415,21 +436,22 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                             name="budgetUnit"
                                             value={formData.budgetUnit}
                                             onChange={handleChange}
-                                            className="focus:ring-violet-400 focus:border-gray-300 border-gray-300 rounded-r-md sm:text-sm py-2.5 pl-3 pr-7 border bg-gray-50 text-gray-700"
+                                            className="focus:ring-gray-400 focus:border-gray-400 border-gray-300 rounded-r-md sm:text-sm py-2.5 pl-3 pr-7 border bg-gray-50 text-gray-700"
                                         >
                                             <option>Lakhs</option>
                                             <option>Crores</option>
                                         </select>
                                     </div>
                                 </div>
-                                {formData.budget && (
+                                {errors.budget && <p className="mt-1 text-[11px] text-red-500">{errors.budget}</p>}
+                                {formData.budget && !errors.budget && (
                                     <p className="mt-1 text-xs text-violet-500 font-medium">
                                         {getBudgetPreview()}
                                     </p>
                                 )}
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Target Start Date</label>
+                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Target Start Date <span className="text-red-500">*</span></label>
                                 <DatePicker
                                     selected={formData.startDate}
                                     onChange={(date) => handleDateChange(date, 'startDate')}
@@ -438,11 +460,12 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                     showYearDropdown
                                     showMonthDropdown
                                     dropdownMode="select"
-                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all text-gray-500"
+                                    className={`w-full px-4 py-2.5 bg-gray-50 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all text-gray-500 ${errors.startDate ? 'border-red-500 focus:ring-red-200' : 'border-gray-200 focus:border-gray-300 focus:ring-gray-300'}`}
                                 />
+                                {errors.startDate && <p className="mt-1 text-[11px] text-red-500">{errors.startDate}</p>}
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Target Completion</label>
+                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Target Completion <span className="text-red-500">*</span></label>
                                 <DatePicker
                                     selected={formData.endDate}
                                     onChange={(date) => handleDateChange(date, 'endDate')}
@@ -451,8 +474,9 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                     showYearDropdown
                                     showMonthDropdown
                                     dropdownMode="select"
-                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all text-gray-500"
+                                    className={`w-full px-4 py-2.5 bg-gray-50 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all text-gray-500 ${errors.endDate ? 'border-red-500 focus:ring-red-200' : 'border-gray-200 focus:border-gray-300 focus:ring-gray-300'}`}
                                 />
+                                {errors.endDate && <p className="mt-1 text-[11px] text-red-500">{errors.endDate}</p>}
                             </div>
                         </div>
                     </section>
@@ -465,18 +489,19 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                         </h3>
                         <div>
                             <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Site Manager</label>
+                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Site Manager <span className="text-red-500">*</span></label>
                                 <select
                                     name="manager"
                                     value={formData.manager}
                                     onChange={handleChange}
-                                    className={`w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300 transition-all appearance-none ${!formData.manager ? 'text-gray-300' : 'text-gray-900'}`}
+                                    className={`w-full px-4 py-2.5 bg-gray-50 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all appearance-none ${!formData.manager ? 'text-gray-300' : 'text-gray-900'} ${errors.manager ? 'border-red-500 focus:ring-red-200' : 'border-gray-200 focus:border-gray-300 focus:ring-gray-300'}`}
                                 >
                                     <option value="" className="text-gray-300">Select a manager...</option>
                                     {personnel.map(p => (
                                         <option key={p._id} value={p.name} className="text-gray-900">{p.name} — {p.role || 'Team Member'}</option>
                                     ))}
                                 </select>
+                                {errors.manager && <p className="mt-1 text-[11px] text-red-500">{errors.manager}</p>}
                             </div>
                         </div>
                     </section>

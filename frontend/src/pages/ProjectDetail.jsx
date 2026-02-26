@@ -182,7 +182,23 @@ const ProjectDetail = () => {
                 else delete data.endDate;
             }
 
-            await api.put(`/projects/${id}/settings`, data);
+            const isMultipart = data.image && data.image.size > 0;
+            let payload = data;
+            let headers = {};
+
+            if (isMultipart) {
+                payload = formData;
+                formData.set('siteSize', data.siteSize || '');
+                formData.set('floors', data.floors || '');
+                formData.set('budget', data.budget || '');
+                if (data.startDate) formData.set('startDate', data.startDate); else formData.delete('startDate');
+                if (data.endDate) formData.set('endDate', data.endDate); else formData.delete('endDate');
+                headers = { 'Content-Type': 'multipart/form-data' };
+            } else {
+                delete data.image; // remove the empty file object from JSON
+            }
+
+            await api.put(`/projects/${id}/settings`, payload, { headers });
             await fetchProjectDetails();
             setIsSettingsModalOpen(false);
             showToast("Settings updated successfully", "success");
@@ -346,12 +362,17 @@ const ProjectDetail = () => {
                     {/* Project Meta Card */}
                     <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] mb-8 transition-transform hover:-translate-y-1 duration-500">
                         <div className="flex flex-col md:flex-row md:justify-between md:items-start mb-8 gap-4">
-                            <div>
-                                <h1 className="text-2xl font-semibold text-gray-900 tracking-tight mb-3">{project.title}</h1>
-                                <p className="flex items-center gap-1.5 text-gray-500 text-sm font-medium">
-                                    <MapPin size={16} className="text-violet-500" />
-                                    {project.location}
-                                </p>
+                            <div className="flex gap-6 items-center">
+                                {project.image && (
+                                    <img src={project.image} alt={project.title} className="w-20 h-20 rounded-2xl object-cover shadow-sm bg-gray-50 border border-gray-100 hidden sm:block" />
+                                )}
+                                <div>
+                                    <h1 className="text-2xl font-semibold text-gray-900 tracking-tight mb-3">{project.title}</h1>
+                                    <p className="flex items-center gap-1.5 text-gray-500 text-sm font-medium">
+                                        <MapPin size={16} className="text-violet-500" />
+                                        {project.location}
+                                    </p>
+                                </div>
                             </div>
                             <div className="relative shrink-0 flex items-center">
                                 <select
@@ -575,6 +596,19 @@ const ProjectDetail = () => {
                                     <div className="md:col-span-2">
                                         <label className="block text-xs font-medium text-gray-500 mb-2">Location Address</label>
                                         <input type="text" name="address" defaultValue={project.location} className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-gray-300 focus:ring-2 focus:ring-violet-100 outline-none transition-all shadow-sm text-sm" />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-medium text-gray-500 mb-2">Project Cover Image <span className="text-gray-400 font-normal">(Optional)</span></label>
+                                        <div className="flex items-center gap-4">
+                                            {project.image ? (
+                                                <img src={project.image} alt="Cover" className="w-16 h-16 rounded-xl object-cover border border-gray-200 shadow-sm" />
+                                            ) : (
+                                                <div className="w-16 h-16 rounded-xl bg-gray-50 border border-gray-200 shadow-sm flex items-center justify-center text-gray-400">
+                                                    <LayoutDashboard size={20} />
+                                                </div>
+                                            )}
+                                            <input type="file" name="image" accept="image/*" className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-600 hover:file:bg-violet-100 outline-none transition-all text-sm" />
+                                        </div>
                                     </div>
                                 </div>
                             </div>

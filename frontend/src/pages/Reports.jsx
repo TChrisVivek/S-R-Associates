@@ -79,23 +79,64 @@ const Reports = () => {
     // ─── PDF GENERATION HELPERS ───
     const addPdfHeader = (doc, title) => {
         const company = localStorage.getItem('companyShortName') || 'S R Associates';
+
+        // Header background (Dark Blue)
         doc.setFillColor(26, 29, 46);
-        doc.rect(0, 0, 210, 38, 'F');
+        doc.rect(0, 0, 210, 40, 'F');
+
+        // Brand Accent Line (Purple)
+        doc.setFillColor(109, 40, 217);
+        doc.rect(0, 40, 210, 2, 'F');
+
+        // Company Name
         doc.setTextColor(255, 255, 255);
-        doc.setFontSize(18);
+        doc.setFontSize(22);
         doc.setFont('helvetica', 'bold');
-        doc.text(company, 14, 16);
+        doc.text(company, 14, 18);
+
+        // Subtitle
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(200, 200, 215);
+        doc.text('Engineers & Contractors', 14, 25);
+
+        // Report Title
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(255, 255, 255);
+        doc.text(title.toUpperCase(), 14, 35);
+
+        // Date
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text('Engineers & Contractors', 14, 23);
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text(title, 14, 33);
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, 196, 33, { align: 'right' });
+        doc.setTextColor(200, 200, 215);
+        doc.text(`Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, 196, 35, { align: 'right' });
+
+        // Reset text color for body
         doc.setTextColor(0, 0, 0);
-        return 46;
+        return 55;
+    };
+
+    const addPdfFooter = (doc) => {
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+
+            // Subtle footer line
+            doc.setDrawColor(230, 230, 230);
+            doc.setLineWidth(0.5);
+            doc.line(14, 285, 196, 285);
+
+            // Footer Text
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(150, 150, 150);
+            const company = localStorage.getItem('companyShortName') || 'S R Associates';
+            doc.text(`© ${new Date().getFullYear()} ${company}. All rights reserved.`, 14, 290);
+            doc.text(`Page ${i} of ${pageCount}`, 196, 290, { align: 'right' });
+        }
+        // Reset text color
+        doc.setTextColor(0, 0, 0);
     };
 
     const generateDailyProgress = (download = false) => {
@@ -106,10 +147,11 @@ const Reports = () => {
                 let y = addPdfHeader(doc, 'Daily Progress Report');
 
                 // Summary
-                doc.setFontSize(11);
+                doc.setFontSize(14);
                 doc.setFont('helvetica', 'bold');
-                doc.text('Project Summary', 14, y);
-                y += 6;
+                doc.setTextColor(26, 29, 46);
+                doc.text('Project Overview', 14, y);
+                y += 8;
 
                 const tableData = projects.map(p => [
                     p.title || 'Untitled',
@@ -124,29 +166,90 @@ const Reports = () => {
                     startY: y,
                     head: [['Project', 'Location', 'Status', 'Start', 'End', 'Manager']],
                     body: tableData,
-                    theme: 'striped',
-                    headStyles: { fillColor: [26, 29, 46], fontSize: 8 },
-                    bodyStyles: { fontSize: 8 },
+                    theme: 'grid',
+                    headStyles: { fillColor: [26, 29, 46], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
+                    bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
+                    alternateRowStyles: { fillColor: [250, 250, 252] },
                     margin: { left: 14, right: 14 },
+                    styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
+                    columnStyles: {
+                        0: { fontStyle: 'bold', textColor: [26, 29, 46] }
+                    }
                 });
 
-                y = doc.lastAutoTable.finalY + 12;
+                y = doc.lastAutoTable.finalY + 15;
 
-                // Per-project details
-                projects.forEach(p => {
+                // Per-project details Header
+                if (projects.length > 0) {
                     if (y > 250) { doc.addPage(); y = 20; }
-                    doc.setFontSize(10);
+                    doc.setFontSize(14);
                     doc.setFont('helvetica', 'bold');
-                    doc.text(p.title || 'Untitled', 14, y);
-                    y += 5;
-                    doc.setFontSize(8);
+                    doc.setTextColor(26, 29, 46);
+                    doc.text('Project Details', 14, y);
+                    doc.setDrawColor(109, 40, 217);
+                    doc.setLineWidth(0.5);
+                    doc.line(14, y + 2, 45, y + 2);
+                    y += 10;
+                }
+
+                projects.forEach((p, index) => {
+                    if (y > 240) { doc.addPage(); y = 20; }
+
+                    // Project Card Background
+                    doc.setFillColor(248, 248, 250);
+                    doc.setDrawColor(230, 230, 230);
+                    doc.roundedRect(14, y, 182, 28, 2, 2, 'FD');
+
+                    // Project Title
+                    doc.setFontSize(11);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(109, 40, 217); // Purple Title
+                    doc.text(`${index + 1}. ${p.title || 'Untitled'}`, 18, y + 8);
+
+                    // Left Column
+                    doc.setFontSize(9);
                     doc.setFont('helvetica', 'normal');
-                    doc.text(`Type: ${p.type || 'N/A'}  |  Site: ${p.siteSize ? p.siteSize + ' sq ft' : 'N/A'}  |  Floors: ${p.floors || 'N/A'}  |  Client: ${p.client || 'N/A'}`, 14, y);
-                    y += 5;
-                    const budgetVal = p.budget ? `Rs.${Number(p.budget).toLocaleString('en-IN')}` : 'N/A';
-                    doc.text(`Budget: ${budgetVal}  |  Contractor: ${localStorage.getItem('companyShortName') || 'S R Associates'}`, 14, y);
-                    y += 8;
+                    doc.setTextColor(80, 80, 80);
+                    doc.text(`Client:`, 18, y + 15);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(0, 0, 0);
+                    doc.text(`${p.client || 'N/A'}`, 30, y + 15);
+
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(80, 80, 80);
+                    doc.text(`Type:`, 18, y + 22);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(0, 0, 0);
+                    doc.text(`${p.type || 'N/A'}`, 30, y + 22);
+
+                    // Middle Column
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(80, 80, 80);
+                    doc.text(`Site Size:`, 80, y + 15);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(0, 0, 0);
+                    doc.text(`${p.siteSize ? p.siteSize + ' sq ft' : 'N/A'}`, 97, y + 15);
+
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(80, 80, 80);
+                    doc.text(`Floors:`, 80, y + 22);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(0, 0, 0);
+                    doc.text(`${p.floors || 'N/A'}`, 97, y + 22);
+
+                    // Right Column
+                    const budgetVal = p.budget ? `Rs.${Number(p.budget).toLocaleString('en-IN')} ${p.budgetUnit || ''}` : 'N/A';
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(80, 80, 80);
+                    doc.text(`Budget:`, 140, y + 15);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(22, 163, 74); // Green for budget
+                    doc.text(budgetVal, 155, y + 15);
+
+                    y += 35;
                 });
+
+                addPdfFooter(doc);
 
                 if (download) {
                     doc.save(`Daily_Progress_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -197,16 +300,23 @@ const Reports = () => {
                                 startY: y,
                                 head: [['Material', 'Category', 'Quantity', 'Status']],
                                 body: invData,
-                                theme: 'striped',
-                                headStyles: { fillColor: [109, 40, 217], fontSize: 8 },
-                                bodyStyles: { fontSize: 8 },
+                                theme: 'grid',
+                                headStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
+                                bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
+                                alternateRowStyles: { fillColor: [250, 250, 252] },
                                 margin: { left: 14, right: 14 },
+                                styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
                                 didParseCell: (data) => {
                                     if (data.section === 'body' && data.column.index === 3) {
                                         const val = (data.cell.raw || '').toString().toUpperCase();
                                         if (val.includes('OUT')) data.cell.styles.textColor = [220, 38, 38];
                                         else if (val.includes('LOW')) data.cell.styles.textColor = [234, 138, 0];
                                         else if (val.includes('OPTIMAL')) data.cell.styles.textColor = [22, 163, 74];
+                                        data.cell.styles.fontStyle = 'bold';
+                                    }
+                                    if (data.section === 'body' && data.column.index === 0) {
+                                        data.cell.styles.fontStyle = 'bold';
+                                        data.cell.styles.textColor = [26, 29, 46];
                                     }
                                 },
                             });
@@ -218,12 +328,16 @@ const Reports = () => {
                             y += 8;
                         }
                     } catch {
-                        doc.setFontSize(8);
+                        doc.setFontSize(9);
                         doc.setFont('helvetica', 'italic');
+                        doc.setTextColor(150, 150, 150);
                         doc.text('Inventory data unavailable', 14, y);
-                        y += 8;
+                        doc.setTextColor(0, 0, 0);
+                        y += 10;
                     }
                 }
+
+                addPdfFooter(doc);
 
                 if (download) {
                     doc.save(`Inventory_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -273,10 +387,16 @@ const Reports = () => {
                     startY: y,
                     head: [['Project', 'Client', 'Budget', 'Status', 'Type']],
                     body: finData,
-                    theme: 'striped',
-                    headStyles: { fillColor: [109, 40, 217], fontSize: 8 },
-                    bodyStyles: { fontSize: 8 },
+                    theme: 'grid',
+                    headStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
+                    bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
+                    alternateRowStyles: { fillColor: [250, 250, 252] },
                     margin: { left: 14, right: 14 },
+                    styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
+                    columnStyles: {
+                        0: { fontStyle: 'bold', textColor: [26, 29, 46] },
+                        2: { textColor: [22, 163, 74], fontStyle: 'bold' } // Budget green
+                    }
                 });
 
                 y = doc.lastAutoTable.finalY + 12;
@@ -291,18 +411,41 @@ const Reports = () => {
                 });
                 const totalInLakhs = totalLakhs + (totalCrores * 100);
 
-                if (y > 260) { doc.addPage(); y = 20; }
-                doc.setFontSize(10);
+                if (y > 250) { doc.addPage(); y = 20; }
+
+                // Totals Card Background
+                doc.setFillColor(248, 248, 250);
+                doc.setDrawColor(230, 230, 230);
+                doc.roundedRect(14, y, 182, 30, 2, 2, 'FD');
+
+                doc.setFontSize(12);
                 doc.setFont('helvetica', 'bold');
-                doc.text('Financial Totals', 14, y);
-                y += 6;
-                doc.setFontSize(9);
+                doc.setTextColor(109, 40, 217);
+                doc.text('Financial Totals', 18, y + 8);
+
+                doc.setFontSize(10);
                 doc.setFont('helvetica', 'normal');
-                doc.text(`Total Projects: ${projects.length}`, 14, y); y += 5;
-                doc.text(`Combined Budget: Rs.${totalInLakhs.toLocaleString('en-IN')} Lakhs`, 14, y); y += 5;
+                doc.setTextColor(80, 80, 80);
+                doc.text(`Total Projects:`, 18, y + 16);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(0, 0, 0);
+                doc.text(`${projects.length}`, 45, y + 16);
+
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(80, 80, 80);
+                doc.text(`Combined Budget:`, 18, y + 23);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(22, 163, 74);
+                doc.text(`Rs.${totalInLakhs.toLocaleString('en-IN')} Lakhs`, 50, y + 23);
+
                 if (totalCrores > 0) {
-                    doc.text(`  (${totalCrores} Crores + ${totalLakhs} Lakhs)`, 14, y); y += 5;
+                    doc.setFontSize(8);
+                    doc.setFont('helvetica', 'italic');
+                    doc.setTextColor(150, 150, 150);
+                    doc.text(`(${totalCrores} Crores + ${totalLakhs} Lakhs)`, 50, y + 27);
                 }
+
+                addPdfFooter(doc);
 
                 if (download) {
                     doc.save(`Financial_Summary_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -376,42 +519,68 @@ const Reports = () => {
                 let y = addPdfHeader(doc, `Daily Progress — ${dateStr}`);
 
                 // Summary row
-                doc.setFontSize(9);
-                doc.setFont('helvetica', 'normal');
-                doc.text(`Day: ${entry.day || 'N/A'}  |  Total Laborers: ${entry.totalLaborers}  |  Projects: ${entry.logs.length}`, 14, y);
-                y += 8;
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(109, 40, 217);
+                doc.text(`Day: ${entry.day || 'N/A'}`, 14, y);
 
-                entry.logs.forEach(log => {
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(80, 80, 80);
+                doc.text(`Total Laborers:`, 60, y);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(0, 0, 0);
+                doc.text(`${entry.totalLaborers}`, 87, y);
+
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(80, 80, 80);
+                doc.text(`Projects Active:`, 110, y);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(0, 0, 0);
+                doc.text(`${entry.logs.length}`, 138, y);
+
+                y += 10;
+
+                // Separator
+                doc.setDrawColor(230, 230, 230);
+                doc.setLineWidth(0.5);
+                doc.line(14, y, 196, y);
+                y += 6;
+
+                entry.logs.forEach((log, index) => {
                     if (y > 250) { doc.addPage(); y = 20; }
 
                     // Project header
-                    doc.setFillColor(245, 245, 250);
-                    doc.rect(14, y - 4, 182, 8, 'F');
-                    doc.setFontSize(10);
+                    doc.setFillColor(248, 248, 250);
+                    doc.setDrawColor(230, 230, 230);
+                    doc.roundedRect(14, y, 182, 10, 2, 2, 'FD');
+
+                    doc.setFontSize(11);
                     doc.setFont('helvetica', 'bold');
                     doc.setTextColor(26, 29, 46);
-                    doc.text(log.projectTitle || 'Untitled Project', 16, y + 1);
+                    doc.text(`${index + 1}. ${log.projectTitle || 'Untitled Project'}`, 18, y + 7);
                     doc.setTextColor(0, 0, 0);
-                    y += 10;
+                    y += 14;
 
                     // Details table
                     autoTable(doc, {
                         startY: y,
                         body: [
-                            ['Weather', log.weather?.condition || 'N/A'],
+                            ['Weather Conditions', log.weather?.condition || 'Not recorded'],
                             ['Laborers on Site', String(log.laborers || 0)],
-                            ['Notes', log.notes || 'No notes recorded'],
+                            ['Notes / Activities', log.notes || 'No notes recorded for this date'],
                         ],
-                        theme: 'plain',
+                        theme: 'grid',
                         columnStyles: {
-                            0: { fontStyle: 'bold', cellWidth: 40, textColor: [100, 100, 100], fontSize: 8 },
-                            1: { fontSize: 8 }
+                            0: { fontStyle: 'bold', cellWidth: 50, textColor: [100, 100, 100], fontSize: 9 },
+                            1: { fontSize: 9, textColor: [40, 40, 40] }
                         },
                         margin: { left: 14, right: 14 },
-                        styles: { cellPadding: 2 },
+                        styles: { cellPadding: 3, lineColor: [230, 230, 230], lineWidth: 0.1 },
                     });
-                    y = doc.lastAutoTable.finalY + 8;
+                    y = doc.lastAutoTable.finalY + 12;
                 });
+
+                addPdfFooter(doc);
 
                 doc.save(`Daily_Progress_${entry.dateKey}.pdf`);
 
@@ -502,16 +671,23 @@ const Reports = () => {
                 startY: y,
                 head: [['Material', 'Unit', 'Inflow', 'Outflow', 'Balance', 'Status']],
                 body: summaryData,
-                theme: 'striped',
-                headStyles: { fillColor: [109, 40, 217], fontSize: 8 },
-                bodyStyles: { fontSize: 8 },
+                theme: 'grid',
+                headStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
+                bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
+                alternateRowStyles: { fillColor: [250, 250, 252] },
                 margin: { left: 14, right: 14 },
+                styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
                 didParseCell: (data) => {
                     if (data.section === 'body' && data.column.index === 5) {
                         const val = (data.cell.raw || '').toString().toUpperCase();
                         if (val.includes('OUT')) data.cell.styles.textColor = [220, 38, 38];
                         else if (val.includes('LOW')) data.cell.styles.textColor = [234, 138, 0];
                         else if (val.includes('OPTIMAL')) data.cell.styles.textColor = [22, 163, 74];
+                        data.cell.styles.fontStyle = 'bold';
+                    }
+                    if (data.section === 'body' && data.column.index === 0) {
+                        data.cell.styles.fontStyle = 'bold';
+                        data.cell.styles.textColor = [26, 29, 46];
                     }
                 },
             });
@@ -546,16 +722,26 @@ const Reports = () => {
                     startY: y,
                     head: [['Date', 'Material', 'Type', 'Quantity', 'Supplier/Purpose', 'Cost']],
                     body: logRows,
-                    theme: 'striped',
-                    headStyles: { fillColor: [26, 29, 46], fontSize: 8 },
-                    bodyStyles: { fontSize: 8 },
+                    theme: 'grid',
+                    headStyles: { fillColor: [26, 29, 46], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
+                    bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
+                    alternateRowStyles: { fillColor: [250, 250, 252] },
                     margin: { left: 14, right: 14 },
+                    styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
+                    columnStyles: {
+                        0: { fontStyle: 'bold', textColor: [26, 29, 46] },
+                        2: { fontStyle: 'italic' }
+                    }
                 });
             } else {
-                doc.setFontSize(8);
+                doc.setFontSize(9);
                 doc.setFont('helvetica', 'italic');
+                doc.setTextColor(150, 150, 150);
                 doc.text('No transactions in the selected period.', 14, y);
+                doc.setTextColor(0, 0, 0);
             }
+
+            addPdfFooter(doc);
 
             doc.save(`Inventory_${(project?.title || 'Report').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
 
@@ -616,11 +802,18 @@ const Reports = () => {
                 ],
                 theme: 'plain',
                 columnStyles: {
-                    0: { fontStyle: 'bold', cellWidth: 40, textColor: [100, 100, 100], fontSize: 9 },
-                    1: { fontSize: 9 }
+                    0: { fontStyle: 'bold', cellWidth: 50, textColor: [100, 100, 100], fontSize: 9 },
+                    1: { fontSize: 9, textColor: [40, 40, 40] }
                 },
                 margin: { left: 14, right: 14 },
-                styles: { cellPadding: 2 },
+                styles: { cellPadding: 3 },
+                didParseCell: (data) => {
+                    // Make budget value green and bold
+                    if (data.row.index === 7 && data.column.index === 1) {
+                        data.cell.styles.textColor = [22, 163, 74];
+                        data.cell.styles.fontStyle = 'bold';
+                    }
+                }
             });
             y = doc.lastAutoTable.finalY + 10;
 
@@ -657,31 +850,82 @@ const Reports = () => {
                         head: [['Material', 'Unit', 'Inflow', 'Outflow', 'Balance', 'Cost']],
                         body: costData,
                         foot: [['', '', '', '', 'Total', `Rs.${totalMaterialCost.toLocaleString('en-IN')}`]],
-                        theme: 'striped',
-                        headStyles: { fillColor: [109, 40, 217], fontSize: 8 },
-                        footStyles: { fillColor: [240, 240, 255], textColor: [109, 40, 217], fontStyle: 'bold', fontSize: 8 },
-                        bodyStyles: { fontSize: 8 },
+                        theme: 'grid',
+                        headStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
+                        footStyles: { fillColor: [248, 248, 250], textColor: [109, 40, 217], fontStyle: 'bold', fontSize: 9 },
+                        bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
+                        alternateRowStyles: { fillColor: [250, 250, 252] },
                         margin: { left: 14, right: 14 },
+                        styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
+                        columnStyles: {
+                            0: { fontStyle: 'bold', textColor: [26, 29, 46] }
+                        }
                     });
                     y = doc.lastAutoTable.finalY + 10;
 
                     // Budget utilization
                     if (budget > 0) {
-                        if (y > 270) { doc.addPage(); y = 20; }
+                        if (y > 250) { doc.addPage(); y = 20; }
                         const budgetInRupees = unit === 'Crores' ? budget * 10000000 : budget * 100000;
                         const utilization = ((totalMaterialCost / budgetInRupees) * 100).toFixed(1);
-                        doc.setFontSize(10);
+
+                        // Budget Utilization Card
+                        doc.setFillColor(248, 248, 250);
+                        doc.setDrawColor(230, 230, 230);
+                        doc.roundedRect(14, y, 182, 35, 2, 2, 'FD');
+
+                        doc.setFontSize(12);
                         doc.setFont('helvetica', 'bold');
-                        doc.text('Budget Utilization', 14, y);
-                        y += 6;
-                        doc.setFontSize(9);
+                        doc.setTextColor(109, 40, 217);
+                        doc.text('Budget Utilization', 18, y + 8);
+
+                        // Row 1
+                        doc.setFontSize(10);
                         doc.setFont('helvetica', 'normal');
-                        doc.text(`Total Budget: ${budgetStr}`, 14, y); y += 5;
-                        doc.text(`Material Spend: Rs.${totalMaterialCost.toLocaleString('en-IN')}`, 14, y); y += 5;
-                        doc.text(`Utilization: ${utilization}%`, 14, y);
+                        doc.setTextColor(80, 80, 80);
+                        doc.text(`Total Budget:`, 18, y + 16);
+                        doc.setFont('helvetica', 'bold');
+                        doc.setTextColor(22, 163, 74);
+                        doc.text(`${budgetStr}`, 45, y + 16);
+
+                        doc.setFont('helvetica', 'normal');
+                        doc.setTextColor(80, 80, 80);
+                        doc.text(`Material Spend:`, 100, y + 16);
+                        doc.setFont('helvetica', 'bold');
+                        doc.setTextColor(220, 38, 38);
+                        doc.text(`Rs.${totalMaterialCost.toLocaleString('en-IN')}`, 130, y + 16);
+
+                        // Row 2
+                        doc.setFont('helvetica', 'normal');
+                        doc.setTextColor(80, 80, 80);
+                        doc.text(`Utilization:`, 18, y + 25);
+
+                        // Color utilization based on percentage
+                        let utilColor = [22, 163, 74]; // Green
+                        if (utilization > 85 && utilization <= 100) utilColor = [234, 138, 0]; // Orange
+                        else if (utilization > 100) utilColor = [220, 38, 38]; // Red
+
+                        doc.setFont('helvetica', 'bold');
+                        doc.setTextColor(utilColor[0], utilColor[1], utilColor[2]);
+                        doc.text(`${utilization}%`, 40, y + 25);
+
+                        // Simple progress bar visualization
+                        doc.setDrawColor(230, 230, 230);
+                        doc.setFillColor(230, 230, 230);
+                        doc.roundedRect(60, y + 21, 120, 6, 1, 1, 'FD'); // Background
+
+                        let fillWidth = (utilization / 100) * 120;
+                        if (fillWidth > 120) fillWidth = 120; // Cap at 100% for bar
+
+                        if (fillWidth > 0) {
+                            doc.setFillColor(utilColor[0], utilColor[1], utilColor[2]);
+                            doc.roundedRect(60, y + 21, fillWidth, 6, 1, 1, 'F'); // Fill
+                        }
                     }
                 }
             } catch { /* no inventory data */ }
+
+            addPdfFooter(doc);
 
             doc.save(`Financial_${(project?.title || 'Report').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
 
