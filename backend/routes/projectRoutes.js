@@ -31,6 +31,7 @@ router.post('/upload', upload.array('plans', 10), projectController.uploadBluepr
 router.post('/', projectController.createProject);
 router.get('/', projectController.getAllProjects);
 router.get('/:id', projectController.getProjectById);
+router.delete('/:id', projectController.deleteProject);
 router.post('/:id/feed', upload.array('images', 10), projectController.addLiveFeedRecord);
 router.post('/:id/tasks', projectController.addCriticalTask);
 router.delete('/:id/tasks/:taskId', projectController.deleteCriticalTask);
@@ -40,6 +41,7 @@ router.get('/:id/blueprint-tasks', projectController.getBlueprintAndTasks);
 router.post('/:id/blueprint-tasks', projectController.addBlueprintTask);
 router.delete('/:id/blueprint-tasks/:taskId', projectController.deleteBlueprintTask);
 router.post('/:id/blueprints', upload.array('plans', 10), projectController.uploadProjectBlueprint);
+router.delete('/:id/blueprints/:blueprintId', projectController.deleteProjectBlueprint);
 router.get('/:id/inventory', inventoryController.getProjectInventory);
 router.get('/:id/personnel', personnelController.getProjectPersonnel);
 router.post('/:id/materials/delivery', upload.fields([

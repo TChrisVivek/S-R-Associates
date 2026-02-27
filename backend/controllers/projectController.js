@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs-extra');
 const Project = require('../models/Project');
 const Material = require('../models/Material');
+const Personnel = require('../models/Personnel');
 
 exports.uploadBlueprint = async (req, res) => {
     if (!req.files || req.files.length === 0) {
@@ -66,10 +67,50 @@ exports.createProject = async (req, res) => {
 exports.getAllProjects = async (req, res) => {
     try {
         const projects = await Project.find().sort({ createdAt: -1 });
+        let hasUpdates = false;
+
+        // Auto-update status to "Delayed" if time remaining is 0 or negative
+        for (const p of projects) {
+            if (p.endDate && p.status !== 'Completed' && p.status !== 'Delayed') {
+                const diffTime = new Date(p.endDate) - new Date();
+                const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                if (daysLeft <= 0) {
+                    p.status = 'Delayed';
+                    await p.save();
+                    hasUpdates = true;
+                }
+            }
+        }
+
         res.status(200).json(projects);
     } catch (error) {
         console.error("Get Projects Error:", error);
         res.status(500).json({ message: "Error fetching projects", error: error.message });
+    }
+};
+
+exports.deleteProject = async (req, res) => {
+    try {
+        const projectId = req.params.id;
+        const project = await Project.findByIdAndDelete(projectId);
+        if (!project) return res.status(404).json({ message: "Project not found" });
+
+        // Unassign personnel from this project
+        await Personnel.updateMany(
+            { project_id: projectId },
+            {
+                $unset: { project_id: "" },
+                $set: { site: "Unassigned", status: "Off Duty" }
+            }
+        );
+
+        // Optional: you could delete related material, daily logs, and pins here.
+        // For now, we will just unassign personnel and delete the project.
+
+        res.json({ message: "Project deleted successfully" });
+    } catch (error) {
+        console.error("Error deleting project:", error);
+        res.status(500).json({ message: "Failed to delete project" });
     }
 };
 
@@ -91,8 +132,13 @@ exports.getProjectById = async (req, res) => {
         // Days Left Logic
         let daysLeft = 0;
         if (project.endDate) {
-            const diffTime = Math.abs(new Date(project.endDate) - new Date());
+            const diffTime = new Date(project.endDate) - new Date();
             daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (daysLeft <= 0 && project.status !== 'Completed' && project.status !== 'Delayed') {
+                project.status = 'Delayed';
+                await project.save();
+            }
         }
 
         // Format Live Feed
@@ -461,5 +507,22 @@ exports.uploadProjectBlueprint = async (req, res) => {
     } catch (error) {
         console.error("Project Blueprint Upload Error:", error);
         res.status(500).json({ message: "Error processing blueprint files" });
+    }
+};
+
+exports.deleteProjectBlueprint = async (req, res) => {
+    try {
+        const { id: projectId, blueprintId } = req.params;
+        const project = await Project.findById(projectId);
+        if (!project) return res.status(404).json({ message: "Project not found" });
+
+        // Remove blueprint by its subdocument ID
+        project.blueprints = project.blueprints.filter(bp => bp._id.toString() !== blueprintId);
+        await project.save();
+
+        res.status(200).json({ message: "Blueprint deleted successfully" });
+    } catch (error) {
+        console.error("Delete Blueprint Error:", error);
+        res.status(500).json({ message: "Error deleting blueprint" });
     }
 };

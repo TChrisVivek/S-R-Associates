@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     LayoutDashboard, FolderOpen, Users, FileText, Settings, Plus,
-    Search, MapPin, Trash2, X, ChevronRight, BarChart3, Mail, Phone
+    Search, MapPin, Trash2, Edit2, X, ChevronRight, BarChart3, Mail, Phone
 } from 'lucide-react';
 import api from '../api/axios';
 import { useToast } from '../components/Toast';
@@ -23,6 +23,8 @@ const Personnel = () => {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [newMember, setNewMember] = useState({ name: '', role: '', email: '', phone: '+91 ', site: '', status: 'On Site' });
     const [fieldErrors, setFieldErrors] = useState({});
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editMember, setEditMember] = useState(null);
 
     useEffect(() => {
         const updateCompanyDisplay = () => {
@@ -83,6 +85,43 @@ const Personnel = () => {
         } catch (error) {
             console.error("Error adding member:", error);
             const errorMsg = error.response?.data?.message || "Failed to add member.";
+            showToast(errorMsg, "error");
+        }
+    };
+
+    const openEditModal = (person) => {
+        setEditMember({ ...person });
+        setFieldErrors({});
+        setIsEditModalOpen(true);
+    };
+
+    const handleEditSubmit = async (e) => {
+        e.preventDefault();
+        const errors = {};
+        if (!editMember.name.trim()) errors.name = true;
+        if (!editMember.email.trim()) errors.email = true;
+        if (!editMember.phone || editMember.phone.trim() === '+91' || editMember.phone.trim() === '+91 ') errors.phone = true;
+        if (!editMember.site.trim()) errors.site = true;
+        if (!editMember.role) errors.role = true;
+
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors);
+            setTimeout(() => setFieldErrors({}), 2000);
+            return;
+        }
+        setFieldErrors({});
+
+        try {
+            const response = await api.put(`/personnel/${editMember._id}`, editMember);
+            if (response.status === 200) {
+                setPersonnel(personnel.map(p => p._id === editMember._id ? response.data : p));
+                setIsEditModalOpen(false);
+                setEditMember(null);
+                showToast("Team member updated successfully!", "success");
+            }
+        } catch (error) {
+            console.error("Error updating member:", error);
+            const errorMsg = error.response?.data?.message || "Failed to update member.";
             showToast(errorMsg, "error");
         }
     };
@@ -213,9 +252,14 @@ const Personnel = () => {
                                             </td>
                                             <td className="py-3.5 px-6"><StatusPill status={person.status} /></td>
                                             <td className="py-3.5 px-6 text-right">
-                                                <button onClick={() => confirmDelete(person._id)} className="text-gray-200 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100" title="Remove">
-                                                    <Trash2 size={15} />
-                                                </button>
+                                                <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => openEditModal(person)} className="text-gray-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-50 transition-colors" title="Edit">
+                                                        <Edit2 size={15} />
+                                                    </button>
+                                                    <button onClick={() => confirmDelete(person._id)} className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Remove">
+                                                        <Trash2 size={15} />
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
@@ -243,7 +287,18 @@ const Personnel = () => {
                                 <FormField label="Email" type="email" value={newMember.email} onChange={e => { setNewMember({ ...newMember, email: e.target.value }); setFieldErrors(prev => ({ ...prev, email: false })); }} placeholder="john@example.com" error={fieldErrors.email} />
                                 <FormField label="Phone" type="tel" value={newMember.phone} onChange={e => { handlePhoneChange(e); setFieldErrors(prev => ({ ...prev, phone: false })); }} placeholder="+91 99999 99999" error={fieldErrors.phone} />
                             </div>
-                            <FormField label="Site Assignment" type="text" value={newMember.site} onChange={e => { setNewMember({ ...newMember, site: e.target.value }); setFieldErrors(prev => ({ ...prev, site: false })); }} placeholder="e.g. Skyline Plaza" error={fieldErrors.site} />
+                            <div className="grid grid-cols-2 gap-3">
+                                <FormField label="Site Assignment" type="text" value={newMember.site} onChange={e => { setNewMember({ ...newMember, site: e.target.value }); setFieldErrors(prev => ({ ...prev, site: false })); }} placeholder="e.g. Skyline Plaza" error={fieldErrors.site} />
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Status</label>
+                                    <select value={newMember.status} onChange={e => setNewMember({ ...newMember, status: e.target.value })}
+                                        className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none text-sm text-gray-700 appearance-none transition-all">
+                                        <option value="On Site">On Site</option>
+                                        <option value="Remote">Remote</option>
+                                        <option value="Off Duty">Off Duty</option>
+                                    </select>
+                                </div>
+                            </div>
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Role</label>
                                 <select value={newMember.role} onChange={e => { setNewMember({ ...newMember, role: e.target.value }); setFieldErrors(prev => ({ ...prev, role: false })); }}
@@ -256,6 +311,59 @@ const Personnel = () => {
                             <div className="pt-3 flex justify-end gap-2 border-t border-gray-50 mt-2">
                                 <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg transition-colors">Cancel</button>
                                 <button type="submit" className="px-4 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-sm font-medium rounded-lg transition-colors">Save Member</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ─── EDIT MODAL ─── */}
+            {isEditModalOpen && editMember && (
+                <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
+                    <div className="absolute inset-0" onClick={() => setIsEditModalOpen(false)}></div>
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100">
+                        <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50">
+                            <h3 className="font-semibold text-base text-gray-900">Edit Team Member</h3>
+                            <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
+                        </div>
+                        <form onSubmit={handleEditSubmit} noValidate className="p-6 space-y-4">
+                            <FormField label="Full Name" type="text" value={editMember.name} onChange={e => { setEditMember({ ...editMember, name: e.target.value }); setFieldErrors(prev => ({ ...prev, name: false })); }} placeholder="e.g. John Doe" error={fieldErrors.name} />
+                            <div className="grid grid-cols-2 gap-3">
+                                <FormField label="Email" type="email" value={editMember.email} onChange={e => { setEditMember({ ...editMember, email: e.target.value }); setFieldErrors(prev => ({ ...prev, email: false })); }} placeholder="john@example.com" error={fieldErrors.email} />
+                                <FormField label="Phone" type="tel" value={editMember.phone} onChange={e => {
+                                    let val = e.target.value;
+                                    if (!val.startsWith('+91 ')) { setEditMember({ ...editMember, phone: '+91 ' }); return; }
+                                    const numPart = val.slice(4);
+                                    if (!/^\d*$/.test(numPart)) return;
+                                    if (numPart.length > 10) return;
+                                    setEditMember({ ...editMember, phone: val });
+                                    setFieldErrors(prev => ({ ...prev, phone: false }));
+                                }} placeholder="+91 99999 99999" error={fieldErrors.phone} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <FormField label="Site Assignment" type="text" value={editMember.site} onChange={e => { setEditMember({ ...editMember, site: e.target.value }); setFieldErrors(prev => ({ ...prev, site: false })); }} placeholder="e.g. Skyline Plaza" error={fieldErrors.site} />
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Status</label>
+                                    <select value={editMember.status} onChange={e => setEditMember({ ...editMember, status: e.target.value })}
+                                        className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none text-sm text-gray-700 appearance-none transition-all">
+                                        <option value="On Site">On Site</option>
+                                        <option value="Remote">Remote</option>
+                                        <option value="Off Duty">Off Duty</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Role</label>
+                                <select value={editMember.role} onChange={e => { setEditMember({ ...editMember, role: e.target.value }); setFieldErrors(prev => ({ ...prev, role: false })); }}
+                                    className={`w-full bg-gray-50 border px-3 py-2.5 rounded-lg focus:ring-1 focus:ring-gray-300 focus:border-gray-300 outline-none text-sm text-gray-700 appearance-none transition-all ${fieldErrors.role ? 'border-red-400 ring-2 ring-red-100 animate-[shake_0.3s_ease-in-out]' : 'border-gray-200'}`}>
+                                    <option value="" disabled>Select a role</option>
+                                    {['Architect', 'Civil Engineer', 'Structural Engineer', 'Site Supervisor', 'Electrician', 'Plumber', 'Carpenter', 'Mason', 'Laborer', 'Safety Officer'].map(r => <option key={r} value={r}>{r}</option>)}
+                                </select>
+                                {fieldErrors.role && <p className="text-xs text-red-400 mt-1">Please select a role</p>}
+                            </div>
+                            <div className="pt-3 flex justify-end gap-2 border-t border-gray-50 mt-2">
+                                <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg transition-colors">Cancel</button>
+                                <button type="submit" className="px-4 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-sm font-medium rounded-lg transition-colors">Save Changes</button>
                             </div>
                         </form>
                     </div>

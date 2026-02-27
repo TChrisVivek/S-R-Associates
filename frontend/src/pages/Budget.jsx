@@ -113,7 +113,7 @@ const Budget = () => {
                                         <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '10px', border: '1px solid #f1f5f9', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', fontSize: '12px' }} />
                                         <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '16px' }} />
                                         <Bar dataKey="allocated" name="Allocated" fill="#7c3aed" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                                        <Bar dataKey="spent" name="Spent" fill="#e2e8f0" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                                        <Bar dataKey="spent" name="Spent" fill="#cbd5e1" radius={[4, 4, 0, 0]} maxBarSize={40} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
