@@ -4,7 +4,8 @@ import { GoogleLogin } from '@react-oauth/google';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
-import { Building2 } from 'lucide-react';
+import logoWhite from '../assets/logoWhite.png';
+import logo from '../assets/logo.png';
 
 const Login = () => {
     const { login } = useAuth();
@@ -28,6 +29,11 @@ const Login = () => {
 
     const handleGoogleError = () => { showToast("Google Sign-In failed", "error"); };
 
+    const handleUnavailableLink = (e, linkName) => {
+        e.preventDefault();
+        showToast(`${linkName} is not available yet.`, "info");
+    };
+
     return (
         <div className="flex h-screen w-full bg-[#0f1117] font-sans overflow-hidden">
             {ToastComponent}
@@ -39,11 +45,8 @@ const Login = () => {
                     <div className="absolute inset-0 bg-gradient-to-t from-[#0f1117] via-[#0f1117]/60 to-transparent"></div>
                     <div className="absolute inset-0 bg-gradient-to-r from-[#0f1117]/80 to-transparent"></div>
                 </div>
-                <div className="relative z-10 p-10 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-blue-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-                        <Building2 size={16} className="text-white" />
-                    </div>
-                    <span className="font-semibold text-sm text-white/80">BuildCore</span>
+                <div className="relative z-10 p-10 flex items-center">
+                    <img src={logoWhite} alt="Logo" className="h-10 w-auto object-contain drop-shadow-lg" />
                 </div>
                 <div className="relative z-10 p-10 pb-16 max-w-lg">
                     <h1 className="text-5xl font-semibold text-white leading-[1.15] tracking-tight mb-4">
@@ -58,36 +61,38 @@ const Login = () => {
             {/* Right — Login Form */}
             <div className="w-full lg:w-[45%] flex flex-col items-center justify-center p-8 bg-white relative">
                 <div className="w-full max-w-sm flex flex-col items-center">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-blue-600 flex items-center justify-center mb-6 shadow-lg shadow-violet-500/20">
-                        <Building2 size={20} className="text-white" />
+                    <div className="h-24 flex items-center justify-center mb-6">
+                        <img src={logo} alt="Logo" className="h-20 w-auto object-contain" />
                     </div>
 
-                    <p className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase mb-3">BuildCore Portal</p>
-                    <h2 className="text-2xl font-semibold text-gray-900 tracking-tight mb-2">Welcome Back</h2>
-                    <p className="text-gray-400 text-sm text-center mb-8">Sign in to manage your construction projects.</p>
+                    <p className="text-[11px] font-semibold tracking-widest text-slate-500 uppercase mb-3">SR Associates Portal</p>
+                    <h2 className="text-3xl font-bold text-slate-900 tracking-tight mb-3">Secure Access</h2>
+                    <p className="text-slate-500 text-[15px] text-center mb-8 max-w-[280px] leading-relaxed">
+                        Please sign in to authenticate your account and manage your projects.
+                    </p>
 
-                    <div className={`w-full flex justify-center transition-opacity duration-300 ${isLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
-                        <div className="w-full border border-gray-200 rounded-xl overflow-hidden hover:border-gray-300 transition-colors">
+                    <div className={`w-full flex justify-center transition-all duration-300 ${isLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                        <div className="w-[320px] rounded-full overflow-hidden shadow-sm hover:shadow-md hover:shadow-violet-500/10 border border-gray-200 hover:border-violet-200 transition-all duration-300 transform hover:-translate-y-0.5 relative z-10">
                             <GoogleLogin
                                 onSuccess={handleGoogleSuccess}
                                 onError={handleGoogleError}
                                 useOneTap
                                 size="large"
-                                width="400"
+                                width="320"
                                 text="continue_with"
-                                shape="rectangular"
+                                shape="pill"
                                 context="use"
                             />
                         </div>
                     </div>
 
-                    <div className="mt-10 text-center text-[11px] text-gray-300 max-w-xs leading-relaxed">
-                        By signing in, you agree to our <a href="#" className="text-violet-500 hover:text-violet-600">Terms</a> and <a href="#" className="text-violet-500 hover:text-violet-600">Privacy Policy</a>.
+                    <div className="mt-10 text-center text-[11px] text-slate-400 max-w-[260px] leading-relaxed">
+                        By signing in, you agree to our <a href="#" onClick={(e) => handleUnavailableLink(e, 'Terms of Service')} className="font-medium text-slate-600 hover:text-slate-900 underline decoration-slate-300 underline-offset-2 transition-colors">Terms of Service</a> and <a href="#" onClick={(e) => handleUnavailableLink(e, 'Privacy Policy')} className="font-medium text-slate-600 hover:text-slate-900 underline decoration-slate-300 underline-offset-2 transition-colors">Privacy Policy</a>.
                     </div>
                 </div>
 
                 <div className="absolute bottom-6 w-full px-8 flex justify-between items-center text-[10px] text-gray-300">
-                    <p>© 2024 BuildCore Technologies</p>
+                    <p>© 2024 SR Associates</p>
                     <div className="flex gap-5">
                         <a href="#" className="hover:text-gray-500 transition-colors">Help</a>
                         <a href="#" className="hover:text-gray-500 transition-colors">Security</a>

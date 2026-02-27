@@ -20,7 +20,6 @@ exports.addPersonnel = async (req, res) => {
         // Case-insensitive match for name to be safe
         const existingMember = await Personnel.findOne({
             $or: [
-                { name: { $regex: new RegExp(`^${name}$`, 'i') } },
                 { email },
                 { phone }
             ]

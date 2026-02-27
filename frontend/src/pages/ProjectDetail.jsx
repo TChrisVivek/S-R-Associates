@@ -48,6 +48,8 @@ const ProjectDetail = () => {
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isPersonnelModalOpen, setIsPersonnelModalOpen] = useState(false);
+    const [isDeleteProjectModalOpen, setIsDeleteProjectModalOpen] = useState(false);
+    const [deleteProjectConfirmText, setDeleteProjectConfirmText] = useState('');
     const [availablePersonnel, setAvailablePersonnel] = useState([]);
     const [taskToDelete, setTaskToDelete] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
@@ -140,6 +142,21 @@ const ProjectDetail = () => {
         } catch (error) {
             console.error("Failed to delete task:", error);
             showToast("Failed to delete task. Please try again.", "error");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleDeleteProject = async () => {
+        setActionLoading(true);
+        try {
+            await api.delete(`/projects/${id}`);
+            setIsDeleteProjectModalOpen(false);
+            showToast("Project deleted successfully", "success");
+            navigate('/projects');
+        } catch (error) {
+            console.error("Failed to delete project:", error);
+            showToast("Failed to delete project. Please try again.", "error");
         } finally {
             setActionLoading(false);
         }
@@ -423,7 +440,18 @@ const ProjectDetail = () => {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-12 border-t border-gray-50 pt-8">
                             <MetaBlock title="Timeline" value={project.timeline} />
                             <MetaBlock title="Total Budget" value={project.budget} />
-                            <MetaBlock title="Time Remaining" value={`${project.daysLeft} Days`} highlight />
+                            <MetaBlock
+                                title={project.status === 'Completed' ? "Time Taken" : "Time Remaining"}
+                                value={
+                                    project.status === 'Completed' && project.startDate && project.endDate
+                                        ? `${Math.max(1, Math.ceil((new Date(project.endDate) - new Date(project.startDate)) / (1000 * 60 * 60 * 24)))} Days`
+                                        : project.daysLeft <= 0
+                                            ? `Overdue by ${Math.abs(project.daysLeft)} Days`
+                                            : `${project.daysLeft} Days`
+                                }
+                                highlight={project.status !== 'Delayed' && project.daysLeft > 0}
+                                status={project.status === 'Delayed' || project.daysLeft <= 0 ? 'Delayed' : undefined}
+                            />
                             <MetaBlock title="Current Phase" value={project.phase} status={project.status} />
                         </div>
 
@@ -719,6 +747,28 @@ const ProjectDetail = () => {
                                 </div>
                             </div>
 
+                            {/* Section: Danger Zone */}
+                            <div className="pt-6 mt-8 border-t border-red-100">
+                                <h4 className="text-sm font-semibold text-red-500 uppercase tracking-wider mb-4 pb-2">Danger Zone</h4>
+                                <div className="p-5 border border-red-200 rounded-xl bg-red-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-900 mb-1">Delete this project</p>
+                                        <p className="text-[13px] text-gray-500 max-w-lg">Once you delete a project, there is no going back. Please be certain.</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsSettingsModalOpen(false);
+                                            setDeleteProjectConfirmText('');
+                                            setIsDeleteProjectModalOpen(true);
+                                        }}
+                                        className="shrink-0 px-5 py-2.5 text-sm font-bold text-red-600 bg-white border border-red-200 hover:bg-red-50 hover:border-red-300 rounded-xl transition-all shadow-sm"
+                                    >
+                                        Delete Project
+                                    </button>
+                                </div>
+                            </div>
+
                         </form>
 
                         <div className="p-6 border-t border-gray-100 bg-white flex justify-end gap-3 sticky bottom-0 z-10">
@@ -727,6 +777,46 @@ const ProjectDetail = () => {
                             </button>
                             <button type="submit" form="settings-form" disabled={actionLoading} className="px-8 py-3.5 text-sm font-medium text-white bg-[#1a1d2e] hover:bg-[#252840] rounded-xl shadow-md shadow-none transition-all flex items-center gap-2 disabled:opacity-70">
                                 {actionLoading ? <Loader2 size={18} className="animate-spin" /> : "Save Changes"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* GitHub-Style Delete Confirmation Modal */}
+            {isDeleteProjectModalOpen && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-red-100">
+                        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                            <h3 className="font-semibold text-red-600 flex items-center gap-2">
+                                <AlertTriangle size={20} /> Delete Project
+                            </h3>
+                            <button onClick={() => setIsDeleteProjectModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-6">
+                            <div className="bg-red-50 text-red-700 text-sm p-4 rounded-xl mb-6">
+                                <p className="font-semibold mb-1">Warning: Unexpected bad things will happen if you don't read this!</p>
+                                <p>This action <strong>CANNOT</strong> be undone. This will permanently delete the <strong>{project.title}</strong> project, its blueprints, daily logs, material inventory, and all associated data.</p>
+                            </div>
+
+                            <p className="text-sm font-medium text-gray-700 mb-3">
+                                Please type <strong>{project.title}</strong> to confirm.
+                            </p>
+                            <input
+                                type="text"
+                                value={deleteProjectConfirmText}
+                                onChange={(e) => setDeleteProjectConfirmText(e.target.value)}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl mb-6 focus:ring-2 focus:ring-red-100 focus:border-red-400 outline-none transition-all font-mono text-sm"
+                            />
+
+                            <button
+                                onClick={handleDeleteProject}
+                                disabled={deleteProjectConfirmText !== project.title || actionLoading}
+                                className="w-full py-3.5 bg-red-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-red-700 transition-colors disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
+                            >
+                                {actionLoading ? <Loader2 size={18} className="animate-spin" /> : "I understand the consequences, delete this project"}
                             </button>
                         </div>
                     </div>

@@ -27,6 +27,7 @@ const BlueprintTab = ({ projectId }) => {
     const [isPromptOpen, setIsPromptOpen] = useState(false);
     const [tempClickData, setTempClickData] = useState(null);
     const [taskToDelete, setTaskToDelete] = useState(null);
+    const [blueprintToDelete, setBlueprintToDelete] = useState(null);
 
     // Zoom & Pan State
     const [scale, setScale] = useState(1);
@@ -223,6 +224,28 @@ const BlueprintTab = ({ projectId }) => {
         }
     };
 
+    const confirmDeleteBlueprint = async () => {
+        if (!blueprintToDelete) return;
+
+        try {
+            await api.delete(`/projects/${projectId}/blueprints/${blueprintToDelete}`);
+            await fetchBlueprintData();
+
+            // Adjust active index if necessary
+            if (activeBlueprintIndex >= allBlueprints.length - 1) {
+                setActiveBlueprintIndex(Math.max(0, allBlueprints.length - 2));
+            }
+
+            showToast("Blueprint deleted successfully", "success");
+        } catch (error) {
+            console.error("Failed to delete blueprint:", error);
+            showToast("Failed to delete blueprint. Please try again.", "error");
+        } finally {
+            setBlueprintToDelete(null);
+            setIsSheetSelectorOpen(false);
+        }
+    };
+
     // --- ZOOM & PAN HANDLERS ---
     const handleWheel = (e) => {
         if (!blueprintData) return;
@@ -340,28 +363,41 @@ const BlueprintTab = ({ projectId }) => {
                         {isSheetSelectorOpen && (
                             <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-30 min-w-[320px] max-h-[300px] overflow-y-auto py-1">
                                 {allBlueprints.map((bp, index) => (
-                                    <button
+                                    <div
                                         key={bp.id}
-                                        onClick={() => switchSheet(index)}
                                         className={`w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-gray-50 transition ${index === activeBlueprintIndex ? 'bg-violet-50' : ''}`}
                                     >
-                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${index === activeBlueprintIndex ? 'bg-violet-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                                            {index + 1}
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className={`text-sm font-medium truncate ${index === activeBlueprintIndex ? 'text-violet-700' : 'text-gray-800'}`}>
-                                                {bp.name}
-                                            </p>
-                                            {bp.uploadedAt && (
-                                                <p className="text-[10px] text-gray-400 mt-0.5">
-                                                    Uploaded {new Date(bp.uploadedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                        <div
+                                            onClick={() => switchSheet(index)}
+                                            className="flex-1 flex items-center gap-3 cursor-pointer min-w-0"
+                                        >
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${index === activeBlueprintIndex ? 'bg-violet-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                                {index + 1}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className={`text-sm font-medium truncate ${index === activeBlueprintIndex ? 'text-violet-700' : 'text-gray-800'}`}>
+                                                    {bp.name}
                                                 </p>
-                                            )}
+                                                {bp.uploadedAt && (
+                                                    <p className="text-[10px] text-gray-400 mt-0.5">
+                                                        Uploaded {new Date(bp.uploadedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
-                                        {index === activeBlueprintIndex && (
-                                            <span className="text-[10px] text-violet-500 font-semibold uppercase shrink-0">Active</span>
-                                        )}
-                                    </button>
+                                        <div className="flex items-center gap-2">
+                                            {index === activeBlueprintIndex && (
+                                                <span className="text-[10px] text-violet-500 font-semibold uppercase shrink-0">Active</span>
+                                            )}
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setBlueprintToDelete(bp._id || bp.id); }}
+                                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                                                title="Delete Blueprint"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
                         )}
@@ -612,6 +648,37 @@ const BlueprintTab = ({ projectId }) => {
                                 </button>
                                 <button
                                     onClick={confirmDeleteTask}
+                                    className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-xl shadow-sm transition-colors"
+                                >
+                                    Yes, Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- CONFIRM DELETE BLUEPRINT MODAL --- */}
+            {blueprintToDelete && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center">
+                            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <AlertCircle size={32} className="text-red-500" />
+                            </div>
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">Delete Blueprint?</h3>
+                            <p className="text-sm text-gray-500 mb-6">
+                                Are you sure you want to permanently delete this blueprint? All pins associated with it may be lost. This action cannot be undone.
+                            </p>
+                            <div className="flex gap-3 w-full">
+                                <button
+                                    onClick={() => setBlueprintToDelete(null)}
+                                    className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-xl transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmDeleteBlueprint}
                                     className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-xl shadow-sm transition-colors"
                                 >
                                     Yes, Delete

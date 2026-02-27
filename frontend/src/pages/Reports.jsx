@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, FolderOpen, Users, PieChart, FileText, Settings,
     Download, FileIcon, Calendar, Box, Wallet, UploadCloud, File as FilePdf,
-    Trash2, Eye, Loader2, ChevronRight, BarChart3, CheckCircle2, X, CloudSun
+    Trash2, Eye, Loader2, ChevronRight, BarChart3, CheckCircle2, X, CloudSun, AlertCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
+import { useToast } from '../components/Toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import GlobalLoader from '../components/GlobalLoader';
@@ -16,7 +17,14 @@ const Reports = () => {
     const { user: currentUser } = useAuth();
     const [activeTab, setActiveTab] = useState('generated');
     const [uploadedDocs, setUploadedDocs] = useState([]);
-    const [systemReports, setSystemReports] = useState([]);
+    const [systemReports, setSystemReports] = useState(() => {
+        const saved = localStorage.getItem('buildcore_reports_history');
+        if (saved) {
+            try { return JSON.parse(saved); }
+            catch (e) { return []; }
+        }
+        return [];
+    });
     const [isLoading, setIsLoading] = useState(true);
     const [companyName, setCompanyName] = useState('BuildCore');
     const [companyInitial, setCompanyInitial] = useState('B');
@@ -35,6 +43,13 @@ const Reports = () => {
     // Financial picker
     const [showFinPicker, setShowFinPicker] = useState(false);
     const [finSelectedProject, setFinSelectedProject] = useState('');
+    // Upload modal
+    const [showUploadModal, setShowUploadModal] = useState(false);
+    const [uploadProject, setUploadProject] = useState('');
+    const [uploadFile, setUploadFile] = useState(null);
+    const [uploading, setUploading] = useState(false);
+    const [documentToDelete, setDocumentToDelete] = useState(null);
+    const { showToast, ToastComponent } = useToast();
 
     useEffect(() => {
         const updateCompanyDisplay = () => {
@@ -46,6 +61,15 @@ const Reports = () => {
         window.addEventListener('companyNameUpdated', updateCompanyDisplay);
         return () => window.removeEventListener('companyNameUpdated', updateCompanyDisplay);
     }, []);
+
+    useEffect(() => {
+        try {
+            // Keep last 10 reports to avoid localStorage quota limits
+            localStorage.setItem('buildcore_reports_history', JSON.stringify(systemReports.slice(0, 10)));
+        } catch (e) {
+            console.error('Failed to save reports to local storage due to size limit');
+        }
+    }, [systemReports]);
 
     useEffect(() => { fetchData(); }, []);
 
@@ -61,6 +85,7 @@ const Reports = () => {
                     project.blueprints.forEach(bp => {
                         docs.push({
                             id: bp._id || Math.random().toString(),
+                            projectId: project._id,
                             name: bp.name || 'Unknown Document',
                             url: bp.url,
                             originalUrl: bp.originalUrl || bp.url.replace("-1.jpg", ".pdf"),
@@ -75,6 +100,29 @@ const Reports = () => {
             setUploadedDocs(docs);
         } catch (error) { console.error("Failed to fetch reports data", error); }
         finally { setIsLoading(false); }
+    };
+
+    const handleDeleteDocument = async (doc) => {
+        if (!doc.projectId || !doc.id) {
+            showToast("Cannot delete: missing document identifiers.", "error");
+            return;
+        }
+        setDocumentToDelete(doc);
+    };
+
+    const confirmDeleteDocument = async () => {
+        if (!documentToDelete) return;
+
+        try {
+            await api.delete(`/projects/${documentToDelete.projectId}/blueprints/${documentToDelete.id}`);
+            setUploadedDocs(uploadedDocs.filter(d => d.id !== documentToDelete.id));
+            showToast("Document deleted successfully.", "success");
+        } catch (error) {
+            console.error("Failed to delete document", error);
+            showToast("Failed to delete document. Please try again.", "error");
+        } finally {
+            setDocumentToDelete(null);
+        }
     };
 
     // ─── PDF GENERATION HELPERS ───
@@ -256,15 +304,14 @@ const Reports = () => {
                     doc.save(`Daily_Progress_${new Date().toISOString().slice(0, 10)}.pdf`);
                 }
 
-                // Add to history
                 const newReport = {
                     id: Date.now().toString(),
                     name: 'Daily Progress Report',
-                    project: projects.length > 0 ? `${projects.length} Projects` : 'No Projects',
+                    project: projects.length > 0 ? `${projects.length} ${projects.length === 1 ? 'Project' : 'Projects'}` : 'No Projects',
                     date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
                     status: 'Ready',
                     size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
-                    blob: doc.output('blob')
+                    dataUri: doc.output('datauristring')
                 };
                 setSystemReports(prev => [newReport, ...prev]);
             } catch (err) { console.error('PDF generation failed:', err); }
@@ -347,11 +394,11 @@ const Reports = () => {
                 const newReport = {
                     id: Date.now().toString(),
                     name: 'Inventory Report',
-                    project: projects.length > 0 ? `${projects.length} Projects` : 'No Projects',
+                    project: projects.length > 0 ? `${projects.length} ${projects.length === 1 ? 'Project' : 'Projects'}` : 'No Projects',
                     date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
                     status: 'Ready',
                     size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
-                    blob: doc.output('blob')
+                    dataUri: doc.output('datauristring')
                 };
                 setSystemReports(prev => [newReport, ...prev]);
             } catch (err) { console.error('Inventory report failed:', err); }
@@ -455,11 +502,11 @@ const Reports = () => {
                 const newReport = {
                     id: Date.now().toString(),
                     name: 'Financial Summary',
-                    project: projects.length > 0 ? `${projects.length} Projects` : 'No Projects',
+                    project: projects.length > 0 ? `${projects.length} ${projects.length === 1 ? 'Project' : 'Projects'}` : 'No Projects',
                     date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
                     status: 'Ready',
                     size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
-                    blob: doc.output('blob')
+                    dataUri: doc.output('datauristring')
                 };
                 setSystemReports(prev => [newReport, ...prev]);
             } catch (err) { console.error('Financial report failed:', err); }
@@ -468,12 +515,13 @@ const Reports = () => {
     };
 
     const downloadReport = (report) => {
-        const url = URL.createObjectURL(report.blob);
+        if (!report.dataUri && !report.blob) return;
+        const url = report.blob ? URL.createObjectURL(report.blob) : report.dataUri;
         const a = document.createElement('a');
         a.href = url;
         a.download = `${report.name.replace(/\s+/g, '_')}_${report.date.replace(/\s+/g, '_')}.pdf`;
         a.click();
-        URL.revokeObjectURL(url);
+        if (report.blob) URL.revokeObjectURL(url);
     };
 
     // ─── DAILY LOG DATE PICKER ───
@@ -589,11 +637,11 @@ const Reports = () => {
                 const newReport = {
                     id: Date.now().toString(),
                     name: `Daily Progress — ${dateStr}`,
-                    project: `${entry.logs.length} Projects`,
+                    project: `${entry.logs.length} ${entry.logs.length === 1 ? 'Project' : 'Projects'}`,
                     date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
                     status: 'Ready',
                     size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
-                    blob: doc.output('blob')
+                    dataUri: doc.output('datauristring')
                 };
                 setSystemReports(prev => [newReport, ...prev]);
             } catch (err) { console.error('Daily log PDF failed:', err); }
@@ -944,8 +992,30 @@ const Reports = () => {
         finally { setGenerating(null); }
     };
 
+    const handleDocumentUpload = async (e) => {
+        e.preventDefault();
+        if (!uploadProject || !uploadFile) return;
+        setUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('plans', uploadFile);
+            await api.post(`/projects/${uploadProject}/blueprints`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            setShowUploadModal(false);
+            setUploadFile(null);
+            setUploadProject('');
+            fetchData();
+        } catch (error) {
+            console.error("Failed to upload document:", error);
+        } finally {
+            setUploading(false);
+        }
+    };
+
     return (
         <>
+            {ToastComponent}
             {isLoading && <GlobalLoader />}
             <div className="flex h-screen bg-[#0f1117] font-sans text-white overflow-hidden">
                 {/* ─── SIDEBAR ─── */}
@@ -1055,7 +1125,7 @@ const Reports = () => {
                                                         <td className="py-3 px-6 text-xs text-gray-400">{report.date}</td>
                                                         <td className="py-3 px-6"><span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${report.status === 'Ready' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{report.status}</span></td>
                                                         <td className="py-3 px-6 text-right">
-                                                            <button onClick={() => downloadReport(report)} className="text-gray-200 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors" title="Download">
+                                                            <button onClick={() => downloadReport(report)} className="text-gray-400 hover:text-gray-800 p-1.5 rounded-lg hover:bg-gray-100 transition-colors" title="Download">
                                                                 <Download size={14} />
                                                             </button>
                                                         </td>
@@ -1093,7 +1163,7 @@ const Reports = () => {
                                             <h3 className="text-sm font-semibold text-gray-900">Project Documents</h3>
                                             <p className="text-[11px] text-gray-400 mt-0.5">{uploadedDocs.length} files uploaded</p>
                                         </div>
-                                        <button className="bg-[#1a1d2e] hover:bg-[#252840] text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-medium transition-colors">
+                                        <button onClick={() => setShowUploadModal(true)} className="bg-[#1a1d2e] hover:bg-[#252840] text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-medium transition-colors">
                                             <UploadCloud size={13} /> Upload
                                         </button>
                                     </div>
@@ -1125,9 +1195,9 @@ const Reports = () => {
                                                         <td className="py-3 px-6 text-xs text-gray-400">{doc.date}</td>
                                                         <td className="py-3 px-6 text-right">
                                                             <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                {doc.originalUrl && <a href={doc.originalUrl} target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-violet-500 p-1.5 rounded-lg hover:bg-violet-50 transition-colors"><Eye size={13} /></a>}
-                                                                {doc.originalUrl && <a href={doc.originalUrl} download target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><Download size={13} /></a>}
-                                                                <button className="text-gray-300 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>
+                                                                {doc.originalUrl && <a href={doc.originalUrl} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-violet-600 p-1.5 rounded-lg hover:bg-violet-50 transition-colors"><Eye size={13} /></a>}
+                                                                {doc.originalUrl && <a href={doc.originalUrl} download target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-800 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"><Download size={13} /></a>}
+                                                                <button onClick={() => handleDeleteDocument(doc)} className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -1310,6 +1380,74 @@ const Reports = () => {
                             >
                                 <Download size={12} /> Download PDF
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ─── UPLOAD DOCUMENT MODAL ─── */}
+            {showUploadModal && (
+                <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
+                    <div className="absolute inset-0" onClick={() => !uploading && setShowUploadModal(false)}></div>
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100">
+                        <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50">
+                            <div>
+                                <h3 className="font-semibold text-base text-gray-900">Upload Document</h3>
+                                <p className="text-xs text-gray-400 mt-0.5">Add a new file to the Document Vault</p>
+                            </div>
+                            <button onClick={() => !uploading && setShowUploadModal(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
+                        </div>
+                        <form onSubmit={handleDocumentUpload} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Project</label>
+                                <select required value={uploadProject} onChange={e => setUploadProject(e.target.value)}
+                                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
+                                    <option value="">Select a project...</option>
+                                    {projects.map(p => <option key={p._id} value={p._id}>{p.title}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1.5">File</label>
+                                <input required type="file" onChange={e => setUploadFile(e.target.files[0])}
+                                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2 rounded-lg text-sm text-gray-700 outline-none file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-violet-50 file:text-violet-600 hover:file:bg-violet-100 transition-all cursor-pointer" />
+                            </div>
+                            <div className="pt-2 flex justify-end gap-2 border-t border-gray-50 mt-2">
+                                <button type="button" onClick={() => setShowUploadModal(false)} disabled={uploading} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">Cancel</button>
+                                <button type="submit" disabled={uploading || !uploadProject || !uploadFile} className="px-5 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50">
+                                    {uploading ? <Loader2 size={12} className="animate-spin" /> : <UploadCloud size={12} />} Upload
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ─── CONFIRM DELETE MODAL ─── */}
+            {documentToDelete && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 backdrop-blur-sm bg-black/30">
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center">
+                            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <AlertCircle size={32} className="text-red-500" />
+                            </div>
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">Delete Document?</h3>
+                            <p className="text-sm text-gray-500 mb-6">
+                                Are you sure you want to permanently delete "{documentToDelete.name}"? This action cannot be undone.
+                            </p>
+                            <div className="flex gap-3 w-full">
+                                <button
+                                    onClick={() => setDocumentToDelete(null)}
+                                    className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-xl transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmDeleteDocument}
+                                    className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-xl shadow-sm transition-colors"
+                                >
+                                    Yes, Delete
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
