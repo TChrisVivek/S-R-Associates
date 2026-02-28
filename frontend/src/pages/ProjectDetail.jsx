@@ -96,6 +96,7 @@ const ProjectDetail = () => {
                 imageUrls = await uploadMultipleToCloudinary(files);
             }
 
+            // Backend now expects JSON
             await api.post(`/projects/${id}/feed`, {
                 title: e.target.title.value,
                 location: e.target.location.value,

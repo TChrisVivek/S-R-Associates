@@ -457,10 +457,15 @@ exports.uploadProjectBlueprint = async (req, res) => {
     const { id: projectId } = req.params;
 
     try {
+        if (!req.body) {
+            console.error('[Blueprint Upload Error] req.body is undefined. Content-Type:', req.headers['content-type']);
+            return res.status(400).json({ message: 'Request body is undefined. Check Content-Type.' });
+        }
+
         const { plans } = req.body;
 
-        if (!plans || plans.length === 0) {
-            return res.status(400).json({ message: 'No URLs provided.' });
+        if (!plans || !Array.isArray(plans) || plans.length === 0) {
+            return res.status(400).json({ message: 'No URLs provided in plans array.' });
         }
 
         const project = await Project.findById(projectId);
