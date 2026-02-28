@@ -5,30 +5,17 @@ const Material = require('../models/Material');
 const Personnel = require('../models/Personnel');
 
 exports.uploadBlueprint = async (req, res) => {
-    if (!req.files || req.files.length === 0) {
-        return res.status(400).send('No files uploaded.');
-    }
-
     try {
-        const uploadedFiles = [];
-
-        for (const file of req.files) {
-            const fileName = path.basename(file.path);
-            const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${fileName}`;
-
-            uploadedFiles.push({
-                name: file.originalname,
-                url: fileUrl,
-                originalUrl: fileUrl,
-                type: file.mimetype
-            });
+        const { plan } = req.body;
+        if (!plan) {
+            return res.status(400).send('No plan URL provided.');
         }
 
         res.json({
             message: "Upload Successful",
-            files: uploadedFiles
+            imageUrl: plan, // Send back the URL directly since Cloudinary handles hosting
+            files: [{ name: "Plan", url: plan }]
         });
-
     } catch (error) {
         console.error("Upload Error:", error);
         res.status(500).send("Error processing files");
@@ -271,7 +258,7 @@ exports.updateProjectStats = async (req, res) => {
 
 exports.updateProjectSettings = async (req, res) => {
     try {
-        const { title, client, address, siteSize, floors, type, budget, budgetUnit, startDate, endDate, manager, contractor, status } = req.body;
+        const { title, client, address, siteSize, floors, type, budget, budgetUnit, startDate, endDate, manager, contractor, status, image } = req.body;
         const project = await Project.findById(req.params.id);
 
         if (!project) return res.status(404).json({ message: "Project not found" });
@@ -289,10 +276,7 @@ exports.updateProjectSettings = async (req, res) => {
         if (manager !== undefined) project.manager = manager;
         if (contractor !== undefined) project.contractor = contractor;
         if (status !== undefined) project.status = status;
-
-        if (req.file) {
-            project.image = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-        }
+        if (image !== undefined) project.image = image;
 
         await project.save();
         res.status(200).json({ message: "Project settings updated successfully", project });
@@ -335,24 +319,22 @@ exports.deleteCriticalTask = async (req, res) => {
     }
 };
 
-// Handled after multer middleware
 exports.addLiveFeedRecord = async (req, res) => {
     try {
-        if (!req.files || req.files.length === 0) {
-            return res.status(400).json({ message: "No image files provided" });
-        }
-
         const project = await Project.findById(req.params.id);
         if (!project) return res.status(404).json({ message: "Project not found" });
 
-        const { title, location } = req.body;
+        const { title, location, images } = req.body;
 
-        const newFeeds = req.files.map(file => {
-            const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${file.filename}`;
+        if (!images || images.length === 0) {
+            return res.status(400).json({ message: "No image URLs provided" });
+        }
+
+        const newFeeds = images.map(imgUrl => {
             return {
                 title: title || "Site Update",
                 location: location || "Remote",
-                image: imageUrl
+                image: imgUrl
             };
         });
 
@@ -474,27 +456,24 @@ exports.deleteBlueprintTask = async (req, res) => {
 exports.uploadProjectBlueprint = async (req, res) => {
     const { id: projectId } = req.params;
 
-    if (!req.files || req.files.length === 0) {
-        return res.status(400).json({ message: 'No files uploaded.' });
-    }
-
     try {
+        const { plans } = req.body;
+
+        if (!plans || plans.length === 0) {
+            return res.status(400).json({ message: 'No URLs provided.' });
+        }
+
         const project = await Project.findById(projectId);
         if (!project) return res.status(404).json({ message: "Project not found" });
 
-        const uploadedFiles = [];
-
-        for (const file of req.files) {
-            const fileName = path.basename(file.path);
-            const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${fileName}`;
-
-            uploadedFiles.push({
-                name: file.originalname,
-                url: fileUrl,
-                originalUrl: fileUrl,
-                type: file.mimetype
-            });
-        }
+        const uploadedFiles = plans.map(url => {
+            return {
+                name: "Document",
+                url: url,
+                originalUrl: url,
+                type: 'application/pdf' // Default assumption or derive from URL
+            };
+        });
 
         project.blueprints.push(...uploadedFiles);
         await project.save();

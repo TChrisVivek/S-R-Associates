@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import BlueprintCanvas from './BlueprintCanvas';
 import api from '../api/axios';
 import { useToast } from './Toast';
+import { uploadToCloudinary } from '../utils/cloudinaryUpload';
 
 const ProjectPlanManager = () => {
     const [selectedImage, setSelectedImage] = useState(null);
@@ -17,21 +18,19 @@ const ProjectPlanManager = () => {
         const file = event.target.files[0];
         if (!file) return;
 
-        const formData = new FormData();
-        formData.append('plan', file);
-
         try {
-            // Show loading state here if desired
-            const response = await api.post('/projects/upload', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            showToast("Uploading plan...", "info");
+            const imageUrl = await uploadToCloudinary(file);
+
+            const response = await api.post('/projects/upload', { plan: imageUrl });
 
             // The backend returns the URL of the converted image (or the original image)
             setSelectedImage(response.data.imageUrl);
             setMimeType('image/jpeg'); // Always treat as image now!
+            showToast("Plan uploaded successfully", "success");
         } catch (error) {
             console.error("Upload failed", error);
-            showToast("Failed to upload/convert plan.", "error");
+            showToast(error.message || "Failed to upload/convert plan.", "error");
         }
     };
 

@@ -7,6 +7,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
+import { uploadMultipleToCloudinary, uploadToCloudinary } from '../utils/cloudinaryUpload';
 import BlueprintTab from '../components/BlueprintTab';
 import MaterialInventoryTab from '../components/MaterialInventoryTab';
 import DailyLogsTab from '../components/DailyLogsTab';
@@ -89,19 +90,24 @@ const ProjectDetail = () => {
         e.preventDefault();
         setActionLoading(true);
         try {
-            const formData = new FormData();
-            formData.append('title', e.target.title.value);
-            formData.append('location', e.target.location.value);
+            let imageUrls = [];
+            const files = Array.from(e.target.elements.images.files);
+            if (files.length > 0) {
+                imageUrls = await uploadMultipleToCloudinary(files);
+            }
 
-            Array.from(e.target.elements.images.files).forEach(file => {
-                formData.append('images', file);
+            await api.post(`/projects/${id}/feed`, {
+                title: e.target.title.value,
+                location: e.target.location.value,
+                images: imageUrls
             });
 
-            await api.post(`/projects/${id}/feed`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
             await fetchProjectDetails();
             setIsFeedModalOpen(false);
+            showToast("Feed added successfully", "success");
         } catch (error) {
             console.error(error);
+            showToast(error.message || "Failed to add feed", "error");
         } finally {
             setActionLoading(false);
         }
@@ -201,42 +207,27 @@ const ProjectDetail = () => {
                 else delete data.endDate;
             }
 
-            const isMultipart = data.image && data.image.size > 0;
-            let payload = data;
-            let axiosConfig = {};
+            const imageFile = data.image;
+            let imageUrl = null;
 
-            if (isMultipart) {
-                payload = formData;
-                formData.set('siteSize', data.siteSize || '');
-                formData.set('floors', data.floors || '');
-                formData.set('budget', data.budget || '');
-                if (data.startDate) formData.set('startDate', data.startDate); else formData.delete('startDate');
-                if (data.endDate) formData.set('endDate', data.endDate); else formData.delete('endDate');
-                // Removing manual Content-Type: multipart/form-data to let Axios generate the boundary
-                axiosConfig = {
-                    headers: { 'Content-Type': 'multipart/form-data' } // In newer Axios versions passing FormData strips this, but historically you can just omit this entirely or set to multipart/form-data explicitly. Wait, actually if you set it manually without boundary, it breaks. So let's NOT set it.
-                };
-            } else {
-                delete data.image; // remove the empty file object from JSON
+            if (imageFile && imageFile.size > 0) {
+                imageUrl = await uploadToCloudinary(imageFile);
             }
 
-            // Let Axios handle the FormData and browser boundaries automatically by omitting Content-Type.
-            // If the global axios interceptor defaults to application/json, Axios usually strips it when FormData is detected.
-            if (isMultipart) {
-                await api.put(`/projects/${id}/settings`, payload, {
-                    headers: {
-                        'Content-Type': undefined // Force Axios/browser to handle the boundary
-                    }
-                });
+            const payload = { ...data };
+            if (imageUrl) {
+                payload.image = imageUrl;
             } else {
-                await api.put(`/projects/${id}/settings`, payload);
+                delete payload.image;
             }
+
+            await api.put(`/projects/${id}/settings`, payload);
             await fetchProjectDetails();
             setIsSettingsModalOpen(false);
             showToast("Settings updated successfully", "success");
         } catch (error) {
             console.error("Failed to update project settings:", error);
-            showToast("Failed to update project settings. Please try again.", "error");
+            showToast(error.message || "Failed to update project settings. Please try again.", "error");
         } finally {
             setActionLoading(false);
         }

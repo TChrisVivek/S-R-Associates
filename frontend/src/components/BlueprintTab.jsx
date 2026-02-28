@@ -8,6 +8,7 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import api from '../api/axios';
 import { useToast } from './Toast';
 import GlobalLoader from './GlobalLoader';
+import { uploadToCloudinary } from '../utils/cloudinaryUpload';
 
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -204,13 +205,16 @@ const BlueprintTab = ({ projectId }) => {
         }
 
         setUploading(true);
-        const formData = new FormData();
-        formData.append('plans', file);
 
         try {
-            await api.post(`/projects/${projectId}/blueprints`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            showToast("Uploading blueprint to secure storage...", "info");
+            const cloudinaryUrl = await uploadToCloudinary(file);
+
+            const payload = {
+                plans: [cloudinaryUrl]
+            };
+
+            await api.post(`/projects/${projectId}/blueprints`, payload);
             await fetchBlueprintData();
             showToast("Blueprint uploaded successfully", "success");
         } catch (error) {
@@ -465,38 +469,51 @@ const BlueprintTab = ({ projectId }) => {
                                 transformOrigin: 'center center'
                             }}
                         >
-                            {blueprintData.imageUrl && blueprintData.imageUrl.toLowerCase().endsWith('.pdf') ? (
-                                <div className="relative">
-                                    {pdfPageLoading && (
-                                        <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
-                                            <Loader2 className="animate-spin text-violet-500" size={28} />
+                            {(() => {
+                                const url = blueprintData.imageUrl;
+                                if (!url) return null;
+
+                                const isCloudinaryPdf = url.includes('cloudinary.com') && url.toLowerCase().split('?')[0].endsWith('.pdf');
+                                const displayUrl = isCloudinaryPdf ? url.replace(/\.pdf$/i, '.jpg') : url;
+                                const needsReactPdf = !isCloudinaryPdf && displayUrl.toLowerCase().split('?')[0].endsWith('.pdf');
+
+                                if (needsReactPdf) {
+                                    return (
+                                        <div className="relative">
+                                            {pdfPageLoading && (
+                                                <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+                                                    <Loader2 className="animate-spin text-violet-500" size={28} />
+                                                </div>
+                                            )}
+                                            <Document
+                                                file={displayUrl}
+                                                loading={null}
+                                                onLoadError={(err) => console.error('PDF load error:', err)}
+                                            >
+                                                <Page
+                                                    pageNumber={1}
+                                                    width={Math.min(containerWidth, 900)}
+                                                    renderTextLayer={false}
+                                                    renderAnnotationLayer={false}
+                                                    onRenderSuccess={() => setPdfPageLoading(false)}
+                                                    onLoadStart={() => setPdfPageLoading(true)}
+                                                    loading={null}
+                                                    className="pointer-events-none"
+                                                />
+                                            </Document>
                                         </div>
-                                    )}
-                                    <Document
-                                        file={blueprintData.imageUrl}
-                                        loading={null}
-                                        onLoadError={(err) => console.error('PDF load error:', err)}
-                                    >
-                                        <Page
-                                            pageNumber={1}
-                                            width={Math.min(containerWidth, 900)}
-                                            renderTextLayer={false}
-                                            renderAnnotationLayer={false}
-                                            onRenderSuccess={() => setPdfPageLoading(false)}
-                                            onLoadStart={() => setPdfPageLoading(true)}
-                                            loading={null}
-                                            className="pointer-events-none"
+                                    );
+                                } else {
+                                    return (
+                                        <img
+                                            ref={imageRef}
+                                            src={displayUrl}
+                                            alt="Project Blueprint"
+                                            className="w-full h-auto block pointer-events-none"
                                         />
-                                    </Document>
-                                </div>
-                            ) : (
-                                <img
-                                    ref={imageRef}
-                                    src={blueprintData.imageUrl}
-                                    alt="Project Blueprint"
-                                    className="w-full h-auto block pointer-events-none"
-                                />
-                            )}
+                                    );
+                                }
+                            })()}
 
                             {/* Event Capture Layer for Pin Dropping */}
                             <div

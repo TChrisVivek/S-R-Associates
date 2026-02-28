@@ -150,6 +150,10 @@ const BlueprintCanvas = ({ projectId, blueprintId, imageUrl, onPinSelect, active
         }
     };
 
+    const displayUrl = imageUrl
+        ? (imageUrl.includes('cloudinary.com') && imageUrl.toLowerCase().split('?')[0].endsWith('.pdf') ? imageUrl.replace(/\.pdf$/i, '.jpg') : imageUrl)
+        : "https://images.unsplash.com/photo-1581094794329-c8112a89af12?q=80&w=1000&auto=format&fit=crop";
+
     return (
         <div style={styles.viewport}>
             {ToastComponent}
@@ -165,7 +169,7 @@ const BlueprintCanvas = ({ projectId, blueprintId, imageUrl, onPinSelect, active
             >
                 <img
                     alt="Blueprint"
-                    src={imageUrl || "https://images.unsplash.com/photo-1581094794329-c8112a89af12?q=80&w=1000&auto=format&fit=crop"}
+                    src={displayUrl}
                     style={styles.image}
                     draggable={false}
                 />
