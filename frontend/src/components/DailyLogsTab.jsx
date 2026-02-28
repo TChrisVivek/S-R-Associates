@@ -6,6 +6,7 @@ import {
 import api from '../api/axios';
 import { useToast } from './Toast';
 import GlobalLoader from './GlobalLoader';
+import { uploadMultipleToCloudinary } from '../utils/cloudinaryUpload';
 
 const DailyLogsTab = ({ projectId }) => {
     const [logData, setLogData] = useState(null);
@@ -48,14 +49,16 @@ const DailyLogsTab = ({ projectId }) => {
 
         try {
             const formData = new FormData(e.target);
+            const payload = Object.fromEntries(formData.entries());
 
-            galleryFiles.forEach(file => {
-                formData.append('gallery', file);
-            });
+            if (galleryFiles.length > 0) {
+                showToast("Uploading gallery images...", "info");
+                payload.gallery = await uploadMultipleToCloudinary(galleryFiles);
+            } else {
+                payload.gallery = [];
+            }
 
-            await api.post(`/projects/${projectId}/daily-logs`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            await api.post(`/projects/${projectId}/daily-logs`, payload);
 
             await fetchLogs();
             setIsCreateModalOpen(false);

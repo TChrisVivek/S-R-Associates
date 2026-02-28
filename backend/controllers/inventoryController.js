@@ -72,25 +72,11 @@ const getProjectInventory = async (req, res) => {
 
 const logDelivery = async (req, res) => {
     const { id: projectId } = req.params;
-    const { materialName, unit, quantity, supplier, totalCost, iconType } = req.body;
+    const { materialName, unit, quantity, supplier, totalCost, iconType, deliveryChallanUrl, stackPhotoUrl } = req.body;
 
     try {
         const parsedQuantity = parseFloat(quantity);
         const parsedTotalCost = parseFloat(totalCost);
-
-        // Files
-        let deliveryChallanUrl = '';
-        let stackPhotoUrl = '';
-
-        if (req.files) {
-            console.log("FILES RECEIVED: ", req.files);
-            if (req.files['deliveryChallan'] && req.files['deliveryChallan'][0]) {
-                deliveryChallanUrl = `${req.protocol}://${req.get('host')}/uploads/${req.files['deliveryChallan'][0].filename}`;
-            }
-            if (req.files['stackPhoto'] && req.files['stackPhoto'][0]) {
-                stackPhotoUrl = `${req.protocol}://${req.get('host')}/uploads/${req.files['stackPhoto'][0].filename}`;
-            }
-        }
 
         // Try to find material by exact name or create new
         let material = await Material.findOne({ project_id: projectId, name: new RegExp('^' + materialName + '$', 'i') });
@@ -134,7 +120,7 @@ const logDelivery = async (req, res) => {
 
 const logUsage = async (req, res) => {
     const { id: projectId } = req.params;
-    const { materialId, quantity, locationPurpose } = req.body;
+    const { materialId, quantity, locationPurpose, usagePhotoUrl } = req.body;
 
     try {
         const parsedQuantity = parseFloat(quantity);
@@ -142,11 +128,6 @@ const logUsage = async (req, res) => {
 
         if (!material) {
             return res.status(404).json({ message: "Material not found" });
-        }
-
-        let usagePhotoUrl = '';
-        if (req.files && req.files['usagePhoto'] && req.files['usagePhoto'][0]) {
-            usagePhotoUrl = `${req.protocol}://${req.get('host')}/uploads/${req.files['usagePhoto'][0].filename}`;
         }
 
         // Update balances

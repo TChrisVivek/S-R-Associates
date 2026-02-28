@@ -7,6 +7,7 @@ import {
 import api from '../api/axios';
 import { useToast } from './Toast';
 import GlobalLoader from './GlobalLoader';
+import { uploadToCloudinary } from '../utils/cloudinaryUpload';
 
 const MaterialInventoryTab = ({ projectId }) => {
     const [inventoryData, setInventoryData] = useState(null);
@@ -56,19 +57,32 @@ const MaterialInventoryTab = ({ projectId }) => {
 
         try {
             const formData = new FormData(e.target);
+            const payload = Object.fromEntries(formData.entries());
+
+            delete payload.deliveryChallan;
+            delete payload.stackPhoto;
+
+            if (deliveryChallanFile || stackPhotoFile) {
+                showToast("Uploading documents...", "info");
+            }
+
+            if (deliveryChallanFile) {
+                payload.deliveryChallanUrl = await uploadToCloudinary(deliveryChallanFile);
+            }
+            if (stackPhotoFile) {
+                payload.stackPhotoUrl = await uploadToCloudinary(stackPhotoFile);
+            }
 
             // Add icon fallback based on unit if it's a new material
-            const unit = formData.get('unit');
+            const unit = payload.unit;
             let iconType = 'box';
             if (unit === 'BAGS') iconType = 'bag';
             if (unit === 'METRIC TONS') iconType = 'grid';
             if (unit === 'CUBIC FT') iconType = 'layers';
             if (unit === 'UNITS') iconType = 'brick';
-            formData.append('iconType', iconType);
+            payload.iconType = iconType;
 
-            await api.post(`/projects/${projectId}/materials/delivery`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            await api.post(`/projects/${projectId}/materials/delivery`, payload);
 
             await fetchInventory();
             setIsDeliveryModalOpen(false);
@@ -90,11 +104,16 @@ const MaterialInventoryTab = ({ projectId }) => {
         setActionLoading(true);
         try {
             const formData = new FormData(e.target);
-            formData.append('materialId', selectedMaterialForUsage);
+            const payload = Object.fromEntries(formData.entries());
+            payload.materialId = selectedMaterialForUsage;
+            delete payload.usagePhoto;
 
-            await api.post(`/projects/${projectId}/materials/usage`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            if (usagePhotoFile) {
+                showToast("Uploading photo...", "info");
+                payload.usagePhotoUrl = await uploadToCloudinary(usagePhotoFile);
+            }
+
+            await api.post(`/projects/${projectId}/materials/usage`, payload);
 
             await fetchInventory();
             setIsUsageModalOpen(false);

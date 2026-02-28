@@ -11,6 +11,7 @@ import { useToast } from '../components/Toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import GlobalLoader from '../components/GlobalLoader';
+import { uploadToCloudinary } from '../utils/cloudinaryUpload';
 
 const Reports = () => {
     const navigate = useNavigate();
@@ -997,17 +998,19 @@ const Reports = () => {
         if (!uploadProject || !uploadFile) return;
         setUploading(true);
         try {
-            const formData = new FormData();
-            formData.append('plans', uploadFile);
-            await api.post(`/projects/${uploadProject}/blueprints`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            showToast("Uploading document to Cloudinary...", "info");
+            const fileUrl = await uploadToCloudinary(uploadFile);
+
+            await api.post(`/projects/${uploadProject}/blueprints`, { plans: [fileUrl] });
+
             setShowUploadModal(false);
             setUploadFile(null);
             setUploadProject('');
             fetchData();
+            showToast("Document uploaded successfully", "success");
         } catch (error) {
             console.error("Failed to upload document:", error);
+            showToast(error.message || "Failed to upload document", "error");
         } finally {
             setUploading(false);
         }

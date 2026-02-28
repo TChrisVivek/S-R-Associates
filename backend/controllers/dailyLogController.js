@@ -35,14 +35,7 @@ const createDailyLog = async (req, res) => {
     const { id: projectId } = req.params;
 
     try {
-        const { date, day, weatherCondition, laborers, notes } = req.body;
-
-        const galleryPaths = [];
-        if (req.files && req.files.length > 0) {
-            req.files.forEach(file => {
-                galleryPaths.push(`${req.protocol}://${req.get('host')}/uploads/${file.filename}`);
-            });
-        }
+        const { date, day, weatherCondition, laborers, notes, gallery } = req.body;
 
         const newLog = new DailyLog({
             project_id: projectId,
@@ -53,7 +46,7 @@ const createDailyLog = async (req, res) => {
             },
             laborers: parseInt(laborers) || 0,
             notes,
-            gallery: galleryPaths
+            gallery: gallery || []
         });
 
         await newLog.save();
