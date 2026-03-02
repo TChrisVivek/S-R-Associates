@@ -16,14 +16,15 @@ connectDB();
 const allowedOrigins = [
     process.env.CLIENT_URL,
     'http://localhost:5173', // For local development
-].filter(Boolean);
+    'https://s-r-associates.vercel.app' // Vercel production URL
+].filter(Boolean).map(url => url.replace(/\/$/, '')); // Remove trailing slashes
 
 app.use(cors({
     origin: function (origin, callback) {
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            callback(new Error('Not allowed by CORS'));
+            callback(new Error('Not allowed by CORS: ' + origin));
         }
     },
     credentials: true
