@@ -34,6 +34,7 @@ const Dashboard = () => {
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
     const [companyName, setCompanyName] = useState('BuildCore');
     const [companyInitial, setCompanyInitial] = useState('B');
     const [animateIn, setAnimateIn] = useState(false);
@@ -101,6 +102,14 @@ const Dashboard = () => {
 
         return alerts.slice(0, 4);
     }, [projects]);
+
+    // Filter projects based on search term SAFELY
+    const lowerSearch = (searchTerm || '').toLowerCase();
+    const visibleProjects = projects.filter(p =>
+        (p.title || '').toLowerCase().includes(lowerSearch) ||
+        (p.address || '').toLowerCase().includes(lowerSearch) ||
+        (p.client || '').toLowerCase().includes(lowerSearch)
+    );
 
     const greetingTime = new Date().getHours();
     const greeting = greetingTime < 12 ? 'Good Morning' : greetingTime < 17 ? 'Good Afternoon' : 'Good Evening';
@@ -173,11 +182,13 @@ const Dashboard = () => {
                             </div>
                             <div className="flex items-center gap-3">
                                 <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" size={15} />
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={15} />
                                     <input
                                         type="text"
-                                        placeholder="Search..."
-                                        className="pl-9 pr-4 py-2 bg-white/[0.06] border border-white/[0.08] rounded-lg focus:outline-none focus:bg-white/[0.1] focus:border-white/[0.15] w-52 text-sm text-white placeholder-white/20 transition-all"
+                                        placeholder="Search projects..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="pl-9 pr-4 py-2 bg-white/[0.06] border border-white/[0.1] rounded-lg focus:outline-none focus:bg-white/[0.12] focus:border-white/[0.2] focus:ring-2 focus:ring-violet-500/30 w-52 text-sm !text-white placeholder-white/40 transition-all shadow-inner font-medium"
                                     />
                                 </div>
                                 <button
@@ -215,8 +226,12 @@ const Dashboard = () => {
                                             <Building2 size={15} className="text-violet-500" />
                                         </div>
                                         <div>
-                                            <h2 className="text-sm font-semibold text-gray-900">Active Projects</h2>
-                                            <p className="text-[11px] text-gray-400">{projects.length} total projects in pipeline</p>
+                                            <h2 className="text-sm font-semibold text-gray-900">
+                                                {searchTerm ? 'Search Results' : 'Active Projects'}
+                                            </h2>
+                                            <p className="text-[11px] text-gray-400">
+                                                {searchTerm ? `Found ${visibleProjects.length} matching projects` : `${projects.length} total projects in pipeline`}
+                                            </p>
                                         </div>
                                     </div>
                                     <button
@@ -227,9 +242,9 @@ const Dashboard = () => {
                                     </button>
                                 </div>
 
-                                {projects.length > 0 ? (
-                                    <div className="divide-y divide-gray-50">
-                                        {projects.slice(0, 5).map((project, i) => (
+                                {visibleProjects.length > 0 ? (
+                                    <div className="divide-y divide-gray-50 max-h-[400px] overflow-y-auto">
+                                        {visibleProjects.map((project, i) => (
                                             <div
                                                 key={project._id}
                                                 onClick={() => navigate(`/projects/${project._id}`)}
@@ -272,8 +287,8 @@ const Dashboard = () => {
                                         <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center mx-auto mb-3">
                                             <FolderOpen size={20} className="text-gray-300" />
                                         </div>
-                                        <p className="text-sm text-gray-400">No projects yet</p>
-                                        <p className="text-xs text-gray-300 mt-1">Create your first project to get started</p>
+                                        <p className="text-sm text-gray-400">{searchTerm ? 'No projects match your search' : 'No projects yet'}</p>
+                                        <p className="text-xs text-gray-300 mt-1">{searchTerm ? 'Try adjusting your search terms' : 'Create your first project to get started'}</p>
                                     </div>
                                 )}
                             </div>

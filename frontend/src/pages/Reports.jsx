@@ -50,6 +50,9 @@ const Reports = () => {
     const [uploadFile, setUploadFile] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [documentToDelete, setDocumentToDelete] = useState(null);
+    // Report Delete Modal
+    const [reportToDelete, setReportToDelete] = useState(null);
+    const [reportDeleteConfirmText, setReportDeleteConfirmText] = useState('');
     const { showToast, ToastComponent } = useToast();
 
     useEffect(() => {
@@ -124,6 +127,16 @@ const Reports = () => {
         } finally {
             setDocumentToDelete(null);
         }
+    };
+
+    const confirmDeleteReport = () => {
+        if (!reportToDelete) return;
+
+        const updatedReports = systemReports.filter(r => r.id !== reportToDelete.id);
+        setSystemReports(updatedReports);
+        showToast("Report deleted successfully.", "success");
+        setReportToDelete(null);
+        setReportDeleteConfirmText('');
     };
 
     // ─── PDF GENERATION HELPERS ───
@@ -341,13 +354,13 @@ const Reports = () => {
                         if (items.length > 0) {
                             const invData = items.map(item => [
                                 item.name || 'N/A',
-                                item.category || 'N/A',
-                                `${item.quantity || 0} ${item.unit || ''}`,
+                                item.unit || 'N/A',
+                                String(item.balance || 0),
                                 item.status || 'N/A'
                             ]);
                             autoTable(doc, {
                                 startY: y,
-                                head: [['Material', 'Category', 'Quantity', 'Status']],
+                                head: [['Material', 'Unit', 'Balance', 'Status']],
                                 body: invData,
                                 theme: 'grid',
                                 headStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
@@ -480,19 +493,22 @@ const Reports = () => {
                 doc.setTextColor(0, 0, 0);
                 doc.text(`${projects.length}`, 45, y + 16);
 
+                // Format the combined budget
+                let combinedBudgetText = '';
+                if (totalInLakhs >= 100) {
+                    const inCrores = totalInLakhs / 100;
+                    // Format up to 2 decimal places to elegantly show partial Crores
+                    combinedBudgetText = `Rs.${inCrores.toLocaleString('en-IN', { maximumFractionDigits: 2 })} Crores`;
+                } else {
+                    combinedBudgetText = `Rs.${totalInLakhs.toLocaleString('en-IN')} Lakhs`;
+                }
+
                 doc.setFont('helvetica', 'normal');
                 doc.setTextColor(80, 80, 80);
                 doc.text(`Combined Budget:`, 18, y + 23);
                 doc.setFont('helvetica', 'bold');
                 doc.setTextColor(22, 163, 74);
-                doc.text(`Rs.${totalInLakhs.toLocaleString('en-IN')} Lakhs`, 50, y + 23);
-
-                if (totalCrores > 0) {
-                    doc.setFontSize(8);
-                    doc.setFont('helvetica', 'italic');
-                    doc.setTextColor(150, 150, 150);
-                    doc.text(`(${totalCrores} Crores + ${totalLakhs} Lakhs)`, 50, y + 27);
-                }
+                doc.text(combinedBudgetText, 50, y + 23);
 
                 addPdfFooter(doc);
 
@@ -1128,9 +1144,14 @@ const Reports = () => {
                                                         <td className="py-3 px-6 text-xs text-gray-400">{report.date}</td>
                                                         <td className="py-3 px-6"><span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${report.status === 'Ready' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{report.status}</span></td>
                                                         <td className="py-3 px-6 text-right">
-                                                            <button onClick={() => downloadReport(report)} className="text-gray-400 hover:text-gray-800 p-1.5 rounded-lg hover:bg-gray-100 transition-colors" title="Download">
-                                                                <Download size={14} />
-                                                            </button>
+                                                            <div className="flex justify-end gap-1 opacity-100 transition-opacity">
+                                                                <button onClick={() => downloadReport(report)} className="text-gray-400 hover:text-gray-800 p-1.5 rounded-lg hover:bg-gray-100 transition-colors" title="Download">
+                                                                    <Download size={14} />
+                                                                </button>
+                                                                <button onClick={() => setReportToDelete(report)} className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Delete">
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 ))
@@ -1218,243 +1239,294 @@ const Reports = () => {
                             </div>
                         )}
                     </div>
-                </main>
-            </div>
+                </main >
+            </div >
 
             {/* ─── DATE PICKER MODAL ─── */}
-            {showDatePicker && (
-                <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
-                    <div className="absolute inset-0" onClick={() => setShowDatePicker(false)}></div>
-                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100">
-                        <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50">
-                            <div>
-                                <h3 className="font-semibold text-base text-gray-900">Select Log Date</h3>
-                                <p className="text-xs text-gray-400 mt-0.5">Choose a date to download the daily progress report</p>
-                            </div>
-                            <button onClick={() => setShowDatePicker(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
-                        </div>
-                        <div className="p-6 max-h-[400px] overflow-y-auto">
-                            {loadingDates ? (
-                                <div className="flex items-center justify-center py-12 gap-2 text-gray-400 text-sm"><Loader2 size={16} className="animate-spin" /> Loading dates...</div>
-                            ) : logDates.length === 0 ? (
-                                <div className="text-center py-12 text-gray-300 text-sm">No daily logs found across any project</div>
-                            ) : (
-                                <div className="space-y-2">
-                                    {logDates.map(entry => (
-                                        <button
-                                            key={entry.dateKey}
-                                            onClick={() => downloadDailyLogPdf(entry)}
-                                            className="w-full flex items-center gap-4 p-3 rounded-xl border border-gray-100 hover:border-violet-200 hover:bg-violet-50/30 transition-all text-left group"
-                                        >
-                                            <div className="w-12 h-12 bg-violet-50 rounded-xl flex flex-col items-center justify-center shrink-0">
-                                                <span className="text-sm font-bold text-violet-600">{new Date(entry.dateKey).getDate()}</span>
-                                                <span className="text-[9px] font-medium text-violet-400 uppercase">{new Date(entry.dateKey).toLocaleDateString('en-IN', { month: 'short' })}</span>
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-gray-900">{entry.day || new Date(entry.dateKey).toLocaleDateString('en-IN', { weekday: 'long' })}</p>
-                                                <p className="text-xs text-gray-400 mt-0.5 truncate">
-                                                    {entry.logs.length} {entry.logs.length === 1 ? 'project' : 'projects'} • {entry.totalLaborers} laborers
-                                                </p>
-                                            </div>
-                                            <Download size={14} className="text-gray-200 group-hover:text-violet-500 transition-colors shrink-0" />
-                                        </button>
-                                    ))}
+            {
+                showDatePicker && (
+                    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
+                        <div className="absolute inset-0" onClick={() => setShowDatePicker(false)}></div>
+                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100">
+                            <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50">
+                                <div>
+                                    <h3 className="font-semibold text-base text-gray-900">Select Log Date</h3>
+                                    <p className="text-xs text-gray-400 mt-0.5">Choose a date to download the daily progress report</p>
                                 </div>
-                            )}
+                                <button onClick={() => setShowDatePicker(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
+                            </div>
+                            <div className="p-6 max-h-[400px] overflow-y-auto">
+                                {loadingDates ? (
+                                    <div className="flex items-center justify-center py-12 gap-2 text-gray-400 text-sm"><Loader2 size={16} className="animate-spin" /> Loading dates...</div>
+                                ) : logDates.length === 0 ? (
+                                    <div className="text-center py-12 text-gray-300 text-sm">No daily logs found across any project</div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {logDates.map(entry => (
+                                            <button
+                                                key={entry.dateKey}
+                                                onClick={() => downloadDailyLogPdf(entry)}
+                                                className="w-full flex items-center gap-4 p-3 rounded-xl border border-gray-100 hover:border-violet-200 hover:bg-violet-50/30 transition-all text-left group"
+                                            >
+                                                <div className="w-12 h-12 bg-violet-50 rounded-xl flex flex-col items-center justify-center shrink-0">
+                                                    <span className="text-sm font-bold text-violet-600">{new Date(entry.dateKey).getDate()}</span>
+                                                    <span className="text-[9px] font-medium text-violet-400 uppercase">{new Date(entry.dateKey).toLocaleDateString('en-IN', { month: 'short' })}</span>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-gray-900">{entry.day || new Date(entry.dateKey).toLocaleDateString('en-IN', { weekday: 'long' })}</p>
+                                                    <p className="text-xs text-gray-400 mt-0.5 truncate">
+                                                        {entry.logs.length} {entry.logs.length === 1 ? 'project' : 'projects'} • {entry.totalLaborers} laborers
+                                                    </p>
+                                                </div>
+                                                <Download size={14} className="text-gray-200 group-hover:text-violet-500 transition-colors shrink-0" />
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* ─── INVENTORY PICKER MODAL ─── */}
-            {showInvPicker && (
-                <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
-                    <div className="absolute inset-0" onClick={() => setShowInvPicker(false)}></div>
-                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100">
-                        <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50">
-                            <div>
-                                <h3 className="font-semibold text-base text-gray-900">Inventory Report</h3>
-                                <p className="text-xs text-gray-400 mt-0.5">Select a site and date range</p>
+            {
+                showInvPicker && (
+                    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
+                        <div className="absolute inset-0" onClick={() => setShowInvPicker(false)}></div>
+                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100">
+                            <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50">
+                                <div>
+                                    <h3 className="font-semibold text-base text-gray-900">Inventory Report</h3>
+                                    <p className="text-xs text-gray-400 mt-0.5">Select a site and date range</p>
+                                </div>
+                                <button onClick={() => setShowInvPicker(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
                             </div>
-                            <button onClick={() => setShowInvPicker(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
-                        </div>
-                        <div className="p-6 space-y-4">
-                            {loadingInv ? (
-                                <div className="flex items-center justify-center py-12 gap-2 text-gray-400 text-sm"><Loader2 size={16} className="animate-spin" /> Loading...</div>
-                            ) : (
-                                <>
-                                    <div>
-                                        <label className="block text-xs font-medium text-gray-500 mb-1.5">Site / Project</label>
-                                        <select
-                                            value={invSelectedProject}
-                                            onChange={e => { setInvSelectedProject(e.target.value); handleInvProjectChange(e.target.value); }}
-                                            className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300"
-                                        >
-                                            <option value="">Select a project...</option>
-                                            {projects.map(p => <option key={p._id} value={p._id}>{p.title} — {p.address || 'N/A'}</option>)}
-                                        </select>
-                                    </div>
-                                    {invAvailDates.length > 0 && (
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div>
-                                                <label className="block text-xs font-medium text-gray-500 mb-1.5">From Date</label>
-                                                <select value={invDateFrom} onChange={e => setInvDateFrom(e.target.value)}
-                                                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
-                                                    <option value="">Earliest</option>
-                                                    {invAvailDates.map(d => <option key={d} value={d}>{new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</option>)}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-medium text-gray-500 mb-1.5">To Date</label>
-                                                <select value={invDateTo} onChange={e => setInvDateTo(e.target.value)}
-                                                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
-                                                    <option value="">Latest</option>
-                                                    {invAvailDates.map(d => <option key={d} value={d}>{new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</option>)}
-                                                </select>
-                                            </div>
+                            <div className="p-6 space-y-4">
+                                {loadingInv ? (
+                                    <div className="flex items-center justify-center py-12 gap-2 text-gray-400 text-sm"><Loader2 size={16} className="animate-spin" /> Loading...</div>
+                                ) : (
+                                    <>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-500 mb-1.5">Site / Project</label>
+                                            <select
+                                                value={invSelectedProject}
+                                                onChange={e => { setInvSelectedProject(e.target.value); handleInvProjectChange(e.target.value); }}
+                                                className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300"
+                                            >
+                                                <option value="">Select a project...</option>
+                                                {projects.map(p => <option key={p._id} value={p._id}>{p.title} — {p.address || 'N/A'}</option>)}
+                                            </select>
                                         </div>
-                                    )}
-                                    {invSelectedProject && invAvailDates.length === 0 && (
-                                        <p className="text-xs text-gray-300 text-center py-4">No inventory transactions found for this project</p>
-                                    )}
-                                    <div className="pt-2 flex justify-end gap-2">
-                                        <button onClick={() => setShowInvPicker(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">Cancel</button>
-                                        <button
-                                            onClick={downloadFilteredInventory}
-                                            disabled={!invSelectedProject}
-                                            className="px-4 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40 flex items-center gap-1.5"
-                                        >
-                                            <Download size={12} /> Download PDF
-                                        </button>
-                                    </div>
-                                </>
-                            )}
+                                        {invAvailDates.length > 0 && (
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">From Date</label>
+                                                    <select value={invDateFrom} onChange={e => setInvDateFrom(e.target.value)}
+                                                        className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
+                                                        <option value="">Earliest</option>
+                                                        {invAvailDates.map(d => <option key={d} value={d}>{new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">To Date</label>
+                                                    <select value={invDateTo} onChange={e => setInvDateTo(e.target.value)}
+                                                        className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
+                                                        <option value="">Latest</option>
+                                                        {invAvailDates.map(d => <option key={d} value={d}>{new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</option>)}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {invSelectedProject && invAvailDates.length === 0 && (
+                                            <p className="text-xs text-gray-300 text-center py-4">No inventory transactions found for this project</p>
+                                        )}
+                                        <div className="pt-2 flex justify-end gap-2">
+                                            <button onClick={() => setShowInvPicker(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">Cancel</button>
+                                            <button
+                                                onClick={downloadFilteredInventory}
+                                                disabled={!invSelectedProject}
+                                                className="px-4 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40 flex items-center gap-1.5"
+                                            >
+                                                <Download size={12} /> Download PDF
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* ─── FINANCIAL PICKER MODAL ─── */}
-            {showFinPicker && (
-                <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
-                    <div className="absolute inset-0" onClick={() => setShowFinPicker(false)}></div>
-                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 flex flex-col" style={{ maxHeight: '80vh' }}>
-                        <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50 shrink-0">
-                            <div>
-                                <h3 className="font-semibold text-base text-gray-900">Financial Summary</h3>
-                                <p className="text-xs text-gray-400 mt-0.5">Select a project to download its financial report</p>
+            {
+                showFinPicker && (
+                    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
+                        <div className="absolute inset-0" onClick={() => setShowFinPicker(false)}></div>
+                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 flex flex-col" style={{ maxHeight: '80vh' }}>
+                            <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50 shrink-0">
+                                <div>
+                                    <h3 className="font-semibold text-base text-gray-900">Financial Summary</h3>
+                                    <p className="text-xs text-gray-400 mt-0.5">Select a project to download its financial report</p>
+                                </div>
+                                <button onClick={() => setShowFinPicker(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
                             </div>
-                            <button onClick={() => setShowFinPicker(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
-                        </div>
-                        <div className="px-6 py-4 overflow-y-auto flex-1">
-                            <div className="space-y-2">
-                                {projects.map(p => {
-                                    const budget = Number(p.budget) || 0;
-                                    const unit = p.budgetUnit || 'Lakhs';
-                                    const budgetStr = budget > 0 ? `₹${budget.toLocaleString('en-IN')} ${unit}` : 'No budget set';
-                                    return (
-                                        <button
-                                            key={p._id}
-                                            onClick={() => setFinSelectedProject(p._id)}
-                                            className={`w-full flex items-center gap-4 p-3 rounded-xl border transition-all text-left group ${finSelectedProject === p._id
-                                                ? 'border-violet-300 bg-violet-50/50 ring-1 ring-violet-200'
-                                                : 'border-gray-100 hover:border-violet-200 hover:bg-violet-50/30'
-                                                }`}
-                                        >
-                                            <div className="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center shrink-0">
-                                                <Wallet size={16} className="text-violet-500" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-gray-900 truncate">{p.title}</p>
-                                                <p className="text-xs text-gray-400 mt-0.5">{budgetStr} • {p.status || 'Planning'}</p>
-                                            </div>
-                                            {finSelectedProject === p._id && <CheckCircle2 size={16} className="text-violet-500 shrink-0" />}
-                                        </button>
-                                    );
-                                })}
+                            <div className="px-6 py-4 overflow-y-auto flex-1">
+                                <div className="space-y-2">
+                                    {projects.map(p => {
+                                        const budget = Number(p.budget) || 0;
+                                        const unit = p.budgetUnit || 'Lakhs';
+                                        const budgetStr = budget > 0 ? `₹${budget.toLocaleString('en-IN')} ${unit}` : 'No budget set';
+                                        return (
+                                            <button
+                                                key={p._id}
+                                                onClick={() => setFinSelectedProject(p._id)}
+                                                className={`w-full flex items-center gap-4 p-3 rounded-xl border transition-all text-left group ${finSelectedProject === p._id
+                                                    ? 'border-violet-300 bg-violet-50/50 ring-1 ring-violet-200'
+                                                    : 'border-gray-100 hover:border-violet-200 hover:bg-violet-50/30'
+                                                    }`}
+                                            >
+                                                <div className="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center shrink-0">
+                                                    <Wallet size={16} className="text-violet-500" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-gray-900 truncate">{p.title}</p>
+                                                    <p className="text-xs text-gray-400 mt-0.5">{budgetStr} • {p.status || 'Planning'}</p>
+                                                </div>
+                                                {finSelectedProject === p._id && <CheckCircle2 size={16} className="text-violet-500 shrink-0" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                        <div className="px-6 py-4 border-t border-gray-50 flex justify-end gap-2 shrink-0 bg-white">
-                            <button onClick={() => setShowFinPicker(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">Cancel</button>
-                            <button
-                                onClick={downloadProjectFinancial}
-                                disabled={!finSelectedProject}
-                                className="px-4 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40 flex items-center gap-1.5"
-                            >
-                                <Download size={12} /> Download PDF
-                            </button>
+                            <div className="px-6 py-4 border-t border-gray-50 flex justify-end gap-2 shrink-0 bg-white">
+                                <button onClick={() => setShowFinPicker(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">Cancel</button>
+                                <button
+                                    onClick={downloadProjectFinancial}
+                                    disabled={!finSelectedProject}
+                                    className="px-4 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40 flex items-center gap-1.5"
+                                >
+                                    <Download size={12} /> Download PDF
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* ─── UPLOAD DOCUMENT MODAL ─── */}
-            {showUploadModal && (
-                <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
-                    <div className="absolute inset-0" onClick={() => !uploading && setShowUploadModal(false)}></div>
-                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100">
-                        <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50">
-                            <div>
-                                <h3 className="font-semibold text-base text-gray-900">Upload Document</h3>
-                                <p className="text-xs text-gray-400 mt-0.5">Add a new file to the Document Vault</p>
+            {
+                showUploadModal && (
+                    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
+                        <div className="absolute inset-0" onClick={() => !uploading && setShowUploadModal(false)}></div>
+                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100">
+                            <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50">
+                                <div>
+                                    <h3 className="font-semibold text-base text-gray-900">Upload Document</h3>
+                                    <p className="text-xs text-gray-400 mt-0.5">Add a new file to the Document Vault</p>
+                                </div>
+                                <button onClick={() => !uploading && setShowUploadModal(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
                             </div>
-                            <button onClick={() => !uploading && setShowUploadModal(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
+                            <form onSubmit={handleDocumentUpload} className="p-6 space-y-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Project</label>
+                                    <select required value={uploadProject} onChange={e => setUploadProject(e.target.value)}
+                                        className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
+                                        <option value="">Select a project...</option>
+                                        {projects.map(p => <option key={p._id} value={p._id}>{p.title}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">File</label>
+                                    <input required type="file" onChange={e => setUploadFile(e.target.files[0])}
+                                        className="w-full bg-gray-50 border border-gray-200 px-3 py-2 rounded-lg text-sm text-gray-700 outline-none file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-violet-50 file:text-violet-600 hover:file:bg-violet-100 transition-all cursor-pointer" />
+                                </div>
+                                <div className="pt-2 flex justify-end gap-2 border-t border-gray-50 mt-2">
+                                    <button type="button" onClick={() => setShowUploadModal(false)} disabled={uploading} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">Cancel</button>
+                                    <button type="submit" disabled={uploading || !uploadProject || !uploadFile} className="px-5 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50">
+                                        {uploading ? <Loader2 size={12} className="animate-spin" /> : <UploadCloud size={12} />} Upload
+                                    </button>
+                                </div>
+                            </form>
                         </div>
-                        <form onSubmit={handleDocumentUpload} className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1.5">Project</label>
-                                <select required value={uploadProject} onChange={e => setUploadProject(e.target.value)}
-                                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
-                                    <option value="">Select a project...</option>
-                                    {projects.map(p => <option key={p._id} value={p._id}>{p.title}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-500 mb-1.5">File</label>
-                                <input required type="file" onChange={e => setUploadFile(e.target.files[0])}
-                                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2 rounded-lg text-sm text-gray-700 outline-none file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-violet-50 file:text-violet-600 hover:file:bg-violet-100 transition-all cursor-pointer" />
-                            </div>
-                            <div className="pt-2 flex justify-end gap-2 border-t border-gray-50 mt-2">
-                                <button type="button" onClick={() => setShowUploadModal(false)} disabled={uploading} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">Cancel</button>
-                                <button type="submit" disabled={uploading || !uploadProject || !uploadFile} className="px-5 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50">
-                                    {uploading ? <Loader2 size={12} className="animate-spin" /> : <UploadCloud size={12} />} Upload
-                                </button>
-                            </div>
-                        </form>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* ─── CONFIRM DELETE MODAL ─── */}
-            {documentToDelete && (
-                <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 backdrop-blur-sm bg-black/30">
-                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
-                        <div className="p-6 text-center">
-                            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <AlertCircle size={32} className="text-red-500" />
+            {
+                documentToDelete && (
+                    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 backdrop-blur-sm bg-black/30">
+                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+                            <div className="p-6 text-center">
+                                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <AlertCircle size={32} className="text-red-500" />
+                                </div>
+                                <h3 className="text-lg font-medium text-gray-900 mb-2">Delete Document?</h3>
+                                <p className="text-sm text-gray-500 mb-6">
+                                    Are you sure you want to permanently delete "{documentToDelete.name}"? This action cannot be undone.
+                                </p>
+                                <div className="flex gap-3 w-full">
+                                    <button
+                                        onClick={() => setDocumentToDelete(null)}
+                                        className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-xl transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={confirmDeleteDocument}
+                                        className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-xl shadow-sm transition-colors"
+                                    >
+                                        Yes, Delete
+                                    </button>
+                                </div>
                             </div>
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">Delete Document?</h3>
-                            <p className="text-sm text-gray-500 mb-6">
-                                Are you sure you want to permanently delete "{documentToDelete.name}"? This action cannot be undone.
-                            </p>
-                            <div className="flex gap-3 w-full">
-                                <button
-                                    onClick={() => setDocumentToDelete(null)}
-                                    className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-xl transition-colors"
-                                >
-                                    Cancel
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* ─── CONFIRM DELETE REPORT MODAL (GITHUB STYLE) ─── */}
+            {
+                reportToDelete && (
+                    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 backdrop-blur-sm bg-black/30">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-red-100">
+                            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                                <h3 className="font-semibold text-red-600 flex items-center gap-2">
+                                    <AlertCircle size={20} /> Delete Report
+                                </h3>
+                                <button onClick={() => { setReportToDelete(null); setReportDeleteConfirmText(''); }} className="text-gray-400 hover:text-gray-600 transition-colors">
+                                    <X size={20} />
                                 </button>
+                            </div>
+                            <div className="p-6">
+                                <div className="bg-red-50 text-red-700 text-sm p-4 rounded-xl mb-6">
+                                    <p className="font-semibold mb-1">Warning: Unexpected bad things will happen if you don't read this!</p>
+                                    <p>This action <strong>CANNOT</strong> be undone. This will permanently delete the <strong>{reportToDelete.name}</strong> report from your history.</p>
+                                </div>
+
+                                <p className="text-sm font-medium text-gray-700 mb-3">
+                                    Please type <strong>{reportToDelete.name}</strong> to confirm.
+                                </p>
+                                <input
+                                    type="text"
+                                    value={reportDeleteConfirmText}
+                                    onChange={(e) => setReportDeleteConfirmText(e.target.value)}
+                                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:border-red-400 focus:ring-2 focus:ring-red-100 outline-none transition-all mb-6 text-sm"
+                                />
                                 <button
-                                    onClick={confirmDeleteDocument}
-                                    className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-xl shadow-sm transition-colors"
+                                    onClick={confirmDeleteReport}
+                                    disabled={reportDeleteConfirmText !== reportToDelete.name}
+                                    className="w-full py-3 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-red-200 disabled:hover:bg-red-50 disabled:hover:text-red-600"
                                 >
-                                    Yes, Delete
+                                    I understand the consequences, delete this report
                                 </button>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
         </>
     );
 };
