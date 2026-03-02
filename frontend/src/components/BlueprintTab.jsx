@@ -136,6 +136,7 @@ const BlueprintTab = ({ projectId }) => {
             status: "PENDING",
             x: tempClickData.xPercent,
             y: tempClickData.yPercent,
+            blueprint_id: blueprintData?.id || blueprintData?._id
         };
 
         const tempId = `temp-${Date.now()}`;
@@ -522,22 +523,24 @@ const BlueprintTab = ({ projectId }) => {
                             />
 
                             {/* Render Pins */}
-                            {tasks.filter(t => t.x != null && t.y != null).map(task => (
-                                <div
-                                    key={task.id}
-                                    className={`absolute w-7 h-7 flex items-center justify-center rounded-full border-[3px] border-white shadow-lg transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ${activeTaskHover === task.id ? 'scale-150 ring-4 ring-white ring-opacity-50 z-30' : 'z-20 hover:scale-125 hover:z-30 cursor-pointer'}`}
-                                    style={{
-                                        left: `${task.x}%`,
-                                        top: `${task.y}%`,
-                                        backgroundColor: task.color
-                                    }}
-                                    title={task.title}
-                                    onMouseEnter={() => setActiveTaskHover(task.id)}
-                                    onMouseLeave={() => setActiveTaskHover(null)}
-                                >
-                                    <div className="w-2.5 h-2.5 bg-white rounded-full opacity-80" />
-                                </div>
-                            ))}
+                            {tasks
+                                .filter(t => t.x != null && t.y != null && (!t.blueprint_id || t.blueprint_id === blueprintData?.id || t.blueprint_id === blueprintData?._id))
+                                .map(task => (
+                                    <div
+                                        key={task.id}
+                                        className={`absolute w-7 h-7 flex items-center justify-center rounded-full border-[3px] border-white shadow-lg transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ${activeTaskHover === task.id ? 'scale-150 ring-4 ring-white ring-opacity-50 z-30' : 'z-20 hover:scale-125 hover:z-30 cursor-pointer'}`}
+                                        style={{
+                                            left: `${task.x}%`,
+                                            top: `${task.y}%`,
+                                            backgroundColor: task.color
+                                        }}
+                                        title={task.title}
+                                        onMouseEnter={() => setActiveTaskHover(task.id)}
+                                        onMouseLeave={() => setActiveTaskHover(null)}
+                                    >
+                                        <div className="w-2.5 h-2.5 bg-white rounded-full opacity-80" />
+                                    </div>
+                                ))}
                         </div>
                     </div>
                 </div>
@@ -548,51 +551,55 @@ const BlueprintTab = ({ projectId }) => {
                     {/* Task List Header */}
                     <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-white z-10">
                         <h3 className="font-medium text-gray-900 text-sm">Active Tasks</h3>
-                        <span className="text-[10px] font-semibold text-violet-500 bg-violet-50 px-2 py-1 rounded-md">{tasks.length} PINS</span>
+                        <span className="text-[10px] font-semibold text-violet-500 bg-violet-50 px-2 py-1 rounded-md">
+                            {tasks.filter(t => !t.blueprint_id || t.blueprint_id === blueprintData?.id || t.blueprint_id === blueprintData?._id).length} PINS
+                        </span>
                     </div>
 
                     {/* Scrollable Task List */}
                     <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50/50">
-                        {tasks.map(task => (
-                            <div
-                                key={task.id}
-                                className={`bg-white border rounded-xl p-3.5 transition cursor-pointer ${activeTaskHover === task.id ? 'border-violet-300 shadow-md shadow-violet-100/50' : 'border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200'}`}
-                                onMouseEnter={() => setActiveTaskHover(task.id)}
-                                onMouseLeave={() => setActiveTaskHover(null)}
-                            >
-                                <div className="flex justify-between items-start mb-2">
-                                    {getStatusBadge(task.status)}
-                                    <span className="text-[10px] font-mono text-gray-300">#{task.id && task.id.substring ? task.id.substring(task.id.length - 4).toUpperCase() : 'NEW'}</span>
-                                </div>
-
-                                <h4 className="font-medium text-gray-900 text-sm mb-2.5 leading-snug">{task.title}</h4>
-
-                                <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-2">
-                                        {task.assignee === 'Unassigned' ? (
-                                            <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[8px] font-medium text-gray-500">UN</div>
-                                        ) : (
-                                            <img src={`https://ui-avatars.com/api/?name=${task.assignee}&background=random`} alt={task.assignee} className="w-5 h-5 rounded-full" />
-                                        )}
-                                        <span className="text-[11px] text-gray-500">{task.assignee}</span>
+                        {tasks
+                            .filter(t => !t.blueprint_id || t.blueprint_id === blueprintData?.id || t.blueprint_id === blueprintData?._id)
+                            .map(task => (
+                                <div
+                                    key={task.id}
+                                    className={`bg-white border rounded-xl p-3.5 transition cursor-pointer ${activeTaskHover === task.id ? 'border-violet-300 shadow-md shadow-violet-100/50' : 'border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200'}`}
+                                    onMouseEnter={() => setActiveTaskHover(task.id)}
+                                    onMouseLeave={() => setActiveTaskHover(null)}
+                                >
+                                    <div className="flex justify-between items-start mb-2">
+                                        {getStatusBadge(task.status)}
+                                        <span className="text-[10px] font-mono text-gray-300">#{task.id && task.id.substring ? task.id.substring(task.id.length - 4).toUpperCase() : 'NEW'}</span>
                                     </div>
 
-                                    <div className="flex items-center gap-1">
-                                        <button className={`p-1 rounded-full transition ${task.x ? 'text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50' : 'text-gray-300'}`}>
-                                            {task.status === 'DONE' ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Target size={16} />}
-                                        </button>
-                                        <button
-                                            onClick={(e) => handleDeleteTask(task.id, e)}
-                                            className="p-1 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 transition"
-                                            title="Delete Pin"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
+                                    <h4 className="font-medium text-gray-900 text-sm mb-2.5 leading-snug">{task.title}</h4>
+
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-2">
+                                            {task.assignee === 'Unassigned' ? (
+                                                <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[8px] font-medium text-gray-500">UN</div>
+                                            ) : (
+                                                <img src={`https://ui-avatars.com/api/?name=${task.assignee}&background=random`} alt={task.assignee} className="w-5 h-5 rounded-full" />
+                                            )}
+                                            <span className="text-[11px] text-gray-500">{task.assignee}</span>
+                                        </div>
+
+                                        <div className="flex items-center gap-1">
+                                            <button className={`p-1 rounded-full transition ${task.x ? 'text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50' : 'text-gray-300'}`}>
+                                                {task.status === 'DONE' ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Target size={16} />}
+                                            </button>
+                                            <button
+                                                onClick={(e) => handleDeleteTask(task.id, e)}
+                                                className="p-1 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 transition"
+                                                title="Delete Pin"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
-                        {tasks.length === 0 && (
+                            ))}
+                        {tasks.filter(t => !t.blueprint_id || t.blueprint_id === blueprintData?.id || t.blueprint_id === blueprintData?._id).length === 0 && (
                             <div className="text-center p-8 text-gray-400 text-sm">
                                 <Target size={24} className="mx-auto mb-3 text-gray-300" />
                                 <p className="font-medium text-gray-500 mb-1">No tasks yet</p>

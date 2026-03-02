@@ -381,6 +381,7 @@ exports.getBlueprintAndTasks = async (req, res) => {
 
             return {
                 id: pin._id.toString(),
+                blueprint_id: pin.blueprint_id ? pin.blueprint_id.toString() : null,
                 title: pin.title,
                 status: status,
                 assignee: "Unassigned",
@@ -403,7 +404,7 @@ exports.getBlueprintAndTasks = async (req, res) => {
 
 exports.addBlueprintTask = async (req, res) => {
     const { id: projectId } = req.params;
-    const { title, x, y, status } = req.body;
+    const { title, x, y, status, blueprint_id } = req.body;
 
     try {
         const project = await Project.findById(projectId);
@@ -415,7 +416,7 @@ exports.addBlueprintTask = async (req, res) => {
 
         const newPin = new Pin({
             project_id: projectId,
-            blueprint_id: project.blueprints && project.blueprints.length > 0 ? project.blueprints[0]._id : new require('mongoose').Types.ObjectId(),
+            blueprint_id: blueprint_id || (project.blueprints && project.blueprints.length > 0 ? project.blueprints[0]._id : new require('mongoose').Types.ObjectId()),
             title: title || "New Task",
             x_cord: x,
             y_cord: y,
@@ -426,6 +427,7 @@ exports.addBlueprintTask = async (req, res) => {
 
         res.status(201).json({
             id: newPin._id.toString(),
+            blueprint_id: newPin.blueprint_id.toString(),
             title: newPin.title,
             status: status || "PENDING",
             assignee: "Unassigned",
