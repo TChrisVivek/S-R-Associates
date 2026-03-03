@@ -5,7 +5,8 @@ const settingsSchema = new mongoose.Schema({
     companyInfo: {
         name: { type: String, default: "BuildCore Construction Ltd." },
         license: { type: String, default: "BC-8829-X" },
-        address: { type: String, default: "123 Industrial Way, Suite 400, Seattle, WA" }
+        address: { type: String, default: "123 Industrial Way, Suite 400, Seattle, WA" },
+        logoUrl: { type: String, default: "" }
     },
     notifications: {
         lowStock: { type: Boolean, default: true },

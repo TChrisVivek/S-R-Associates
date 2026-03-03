@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import CompanyLogo from '../components/CompanyLogo';
 import { useNavigate } from 'react-router-dom';
 import {
     LayoutDashboard, FolderOpen, Users, PieChart, FileText, Settings,
@@ -18,14 +19,14 @@ const Projects = () => {
     const [projects, setProjects] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    const [companyName, setCompanyName] = useState('BuildCore');
+    const [companyName, setCompanyName] = useState('S R Associates');
     const [companyInitial, setCompanyInitial] = useState('B');
 
     useEffect(() => {
         const updateCompanyDisplay = () => {
             const shortName = localStorage.getItem('companyShortName');
             if (shortName) { setCompanyName(shortName); setCompanyInitial(shortName[0].toUpperCase()); }
-            else { setCompanyName('BuildCore'); setCompanyInitial('B'); }
+            else { setCompanyName('S R Associates'); setCompanyInitial('B'); }
         };
         updateCompanyDisplay();
         window.addEventListener('companyNameUpdated', updateCompanyDisplay);
@@ -76,7 +77,7 @@ const Projects = () => {
 
             {/* ─── SIDEBAR ─── */}
             <aside className="w-[240px] bg-[#0f1117] flex flex-col z-20 hidden md:flex border-r border-white/[0.06]">
-                <div className="px-5 py-5 flex items-center justify-center"><img src="/logo.png" alt="S R Associates" className="w-28 h-auto object-contain opacity-90" /></div>
+                <div className="px-5 py-5 flex items-center justify-center"><CompanyLogo className="w-28 h-auto object-contain opacity-90" defaultLogoType="white" /></div>
                 <nav className="flex-1 px-3 space-y-0.5 mt-2">
                     <div className="px-3 mb-3"><p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">Menu</p></div>
                     <NavItem icon={<LayoutDashboard size={17} />} text="Dashboard" href="/" />

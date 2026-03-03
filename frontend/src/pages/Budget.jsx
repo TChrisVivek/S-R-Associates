@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import CompanyLogo from '../components/CompanyLogo';
 import {
     LayoutDashboard, FolderOpen, Users, FileText, Settings,
     Wallet, Building2, AlertTriangle, Hourglass, FileSpreadsheet,
@@ -14,7 +15,7 @@ import GlobalLoader from '../components/GlobalLoader';
 const Budget = () => {
     const navigate = useNavigate();
     const { user: currentUser } = useAuth();
-    const [companyName, setCompanyName] = useState('BuildCore');
+    const [companyName, setCompanyName] = useState('S R Associates');
     const [companyInitial, setCompanyInitial] = useState('B');
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -23,7 +24,7 @@ const Budget = () => {
         const updateCompanyDisplay = () => {
             const shortName = localStorage.getItem('companyShortName');
             if (shortName) { setCompanyName(shortName); setCompanyInitial(shortName[0].toUpperCase()); }
-            else { setCompanyName('BuildCore'); setCompanyInitial('B'); }
+            else { setCompanyName('S R Associates'); setCompanyInitial('B'); }
         };
         updateCompanyDisplay();
         window.addEventListener('companyNameUpdated', updateCompanyDisplay);
@@ -55,7 +56,7 @@ const Budget = () => {
         <div className="flex h-screen bg-[#0f1117] font-sans text-white overflow-hidden">
             {/* ─── SIDEBAR ─── */}
             <aside className="w-[240px] bg-[#0f1117] flex flex-col z-20 hidden md:flex border-r border-white/[0.06]">
-                <div className="px-5 py-5 flex items-center justify-center"><img src="/logo.png" alt="S R Associates" className="w-28 h-auto object-contain opacity-90" /></div>
+                <div className="px-5 py-5 flex items-center justify-center"><CompanyLogo className="w-28 h-auto object-contain opacity-90" defaultLogoType="white" /></div>
                 <nav className="flex-1 px-3 space-y-0.5 mt-2">
                     <div className="px-3 mb-3"><p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">Menu</p></div>
                     <NavItem icon={<LayoutDashboard size={17} />} text="Dashboard" href="/" />

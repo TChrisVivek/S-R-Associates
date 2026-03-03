@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import CompanyLogo from '../components/CompanyLogo';
 import { useNavigate } from 'react-router-dom';
 import {
     LayoutDashboard, FolderOpen, Users, FileText, Settings,
@@ -12,7 +13,7 @@ const UserProfile = () => {
     const { user: currentUser, logout } = useAuth();
     const { showToast, ToastComponent } = useToast();
     const companyInitial = localStorage.getItem('companyShortName')?.[0]?.toUpperCase() || 'B';
-    const companyName = localStorage.getItem('companyShortName') || 'BuildCore';
+    const companyName = localStorage.getItem('companyShortName') || 'S R Associates';
 
     const [profileName, setProfileName] = useState(currentUser?.username || '');
     const [profilePhone, setProfilePhone] = useState(currentUser?.phone || '');
@@ -45,7 +46,7 @@ const UserProfile = () => {
 
             {/* ─── SIDEBAR ─── */}
             <aside className="w-[240px] bg-[#0f1117] flex flex-col z-20 hidden md:flex border-r border-white/[0.06]">
-                <div className="px-5 py-5 flex items-center justify-center"><img src="/logo.png" alt="S R Associates" className="w-28 h-auto object-contain opacity-90" /></div>
+                <div className="px-5 py-5 flex items-center justify-center"><CompanyLogo className="w-28 h-auto object-contain opacity-90" defaultLogoType="white" /></div>
                 <nav className="flex-1 px-3 space-y-0.5 mt-2">
                     <div className="px-3 mb-3"><p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">Menu</p></div>
                     <NavItem icon={<LayoutDashboard size={17} />} text="Dashboard" href="/" />

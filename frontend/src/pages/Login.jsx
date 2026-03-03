@@ -4,8 +4,7 @@ import { GoogleLogin } from '@react-oauth/google';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
-import logoWhite from '../assets/logoWhite.png';
-import logo from '../assets/logo.png';
+import CompanyLogo from '../components/CompanyLogo';
 
 const Login = () => {
     const { login } = useAuth();
@@ -46,7 +45,7 @@ const Login = () => {
                     <div className="absolute inset-0 bg-gradient-to-r from-[#0f1117]/80 to-transparent"></div>
                 </div>
                 <div className="relative z-10 p-10 flex items-center">
-                    <img src={logoWhite} alt="Logo" className="h-10 w-auto object-contain drop-shadow-lg" />
+                    <CompanyLogo className="h-10 w-auto object-contain drop-shadow-lg" defaultLogoType="white" />
                 </div>
                 <div className="relative z-10 p-10 pb-16 max-w-lg">
                     <h1 className="text-5xl font-semibold text-white leading-[1.15] tracking-tight mb-4">
@@ -62,7 +61,7 @@ const Login = () => {
             <div className="w-full lg:w-[45%] flex flex-col items-center justify-center p-8 bg-white relative">
                 <div className="w-full max-w-sm flex flex-col items-center">
                     <div className="h-24 flex items-center justify-center mb-6">
-                        <img src={logo} alt="Logo" className="h-20 w-auto object-contain" />
+                        <CompanyLogo className="h-20 w-auto object-contain" defaultLogoType="dark" />
                     </div>
 
                     <p className="text-[11px] font-semibold tracking-widest text-slate-500 uppercase mb-3">SR Associates Portal</p>

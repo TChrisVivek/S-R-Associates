@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import CompanyLogo from '../components/CompanyLogo';
 import {
     LayoutDashboard,
     FolderOpen,
@@ -35,7 +36,7 @@ const Dashboard = () => {
     const [loading, setLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [companyName, setCompanyName] = useState('BuildCore');
+    const [companyName, setCompanyName] = useState('S R Associates');
     const [companyInitial, setCompanyInitial] = useState('B');
     const [animateIn, setAnimateIn] = useState(false);
 
@@ -46,7 +47,7 @@ const Dashboard = () => {
                 setCompanyName(shortName);
                 setCompanyInitial(shortName[0].toUpperCase());
             } else {
-                setCompanyName('BuildCore');
+                setCompanyName('S R Associates');
                 setCompanyInitial('B');
             }
         };
@@ -122,7 +123,7 @@ const Dashboard = () => {
             {/* ─── SIDEBAR ─── */}
             <aside className="w-[240px] bg-[#0f1117] flex flex-col z-20 hidden md:flex border-r border-white/[0.06]">
                 {/* Logo */}
-                <div className="px-5 py-5 flex items-center justify-center"><img src="/logo.png" alt="S R Associates" className="w-28 h-auto object-contain opacity-90" /></div>
+                <div className="px-5 py-5 flex items-center justify-center"><CompanyLogo className="w-28 h-auto object-contain opacity-90" defaultLogoType="white" /></div>
 
                 {/* Navigation */}
                 <nav className="flex-1 px-3 space-y-0.5 mt-4">
