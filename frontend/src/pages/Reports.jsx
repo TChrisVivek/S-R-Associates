@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import CompanyLogo from '../components/CompanyLogo';
 import {
     LayoutDashboard, FolderOpen, Users, PieChart, FileText, Settings,
     Download, FileIcon, Calendar, Box, Wallet, UploadCloud, File as FilePdf,
@@ -19,7 +20,7 @@ const Reports = () => {
     const [activeTab, setActiveTab] = useState('generated');
     const [uploadedDocs, setUploadedDocs] = useState([]);
     const [systemReports, setSystemReports] = useState(() => {
-        const saved = localStorage.getItem('buildcore_reports_history');
+        const saved = localStorage.getItem('S R Associates_reports_history');
         if (saved) {
             try { return JSON.parse(saved); }
             catch (e) { return []; }
@@ -27,10 +28,13 @@ const Reports = () => {
         return [];
     });
     const [isLoading, setIsLoading] = useState(true);
-    const [companyName, setCompanyName] = useState('BuildCore');
+    const [companyName, setCompanyName] = useState('S R Associates');
     const [companyInitial, setCompanyInitial] = useState('B');
     const [projects, setProjects] = useState([]);
     const [generating, setGenerating] = useState(null);
+    const [showDailyPicker, setShowDailyPicker] = useState(false);
+    const [dailySelectedProject, setDailySelectedProject] = useState('');
+    // Global Date Picker for Daily Logs
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [logDates, setLogDates] = useState([]);
     const [loadingDates, setLoadingDates] = useState(false);
@@ -59,7 +63,7 @@ const Reports = () => {
         const updateCompanyDisplay = () => {
             const shortName = localStorage.getItem('companyShortName');
             if (shortName) { setCompanyName(shortName); setCompanyInitial(shortName[0].toUpperCase()); }
-            else { setCompanyName('BuildCore'); setCompanyInitial('B'); }
+            else { setCompanyName('S R Associates'); setCompanyInitial('B'); }
         };
         updateCompanyDisplay();
         window.addEventListener('companyNameUpdated', updateCompanyDisplay);
@@ -69,7 +73,7 @@ const Reports = () => {
     useEffect(() => {
         try {
             // Keep last 10 reports to avoid localStorage quota limits
-            localStorage.setItem('buildcore_reports_history', JSON.stringify(systemReports.slice(0, 10)));
+            localStorage.setItem('S R Associates_reports_history', JSON.stringify(systemReports.slice(0, 10)));
         } catch (e) {
             console.error('Failed to save reports to local storage due to size limit');
         }
@@ -202,32 +206,51 @@ const Reports = () => {
         doc.setTextColor(0, 0, 0);
     };
 
-    const generateDailyProgress = (download = false) => {
+    const downloadProjectDailyLogs = async () => {
+        if (!dailySelectedProject) return;
+        const project = projects.find(p => p._id === dailySelectedProject);
+        if (!project) return;
+
+        setShowDailyPicker(false);
         setGenerating('daily');
-        setTimeout(() => {
-            try {
-                const doc = new jsPDF();
-                let y = addPdfHeader(doc, 'Daily Progress Report');
 
-                // Summary
-                doc.setFontSize(14);
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(26, 29, 46);
-                doc.text('Project Overview', 14, y);
-                y += 8;
+        try {
+            const res = await api.get(`/projects/${project._id}/daily-logs`);
+            const logs = res.data?.logs || [];
 
-                const tableData = projects.map(p => [
-                    p.title || 'Untitled',
-                    p.address || 'N/A',
-                    p.status || 'Planning',
-                    p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : 'N/A',
-                    p.endDate ? new Date(p.endDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : 'N/A',
-                    p.manager || 'Unassigned'
+            // Sort logs descending by date
+            logs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            const doc = new jsPDF();
+            let y = addPdfHeader(doc, `Daily Logs — ${project.title}`);
+
+            // Summary
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(26, 29, 46);
+            doc.text('Project Daily Logs', 14, y);
+
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Total recorded logs: ${logs.length}`, 196, y, { align: 'right' });
+            y += 8;
+
+            if (logs.length === 0) {
+                doc.setFontSize(10);
+                doc.text('No daily logs have been recorded for this project yet.', 14, y);
+            } else {
+                const tableData = logs.map(log => [
+                    new Date(log.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+                    log.day || '-',
+                    log.weather?.condition || '-',
+                    log.laborers || 0,
+                    log.notes || '-'
                 ]);
 
                 autoTable(doc, {
                     startY: y,
-                    head: [['Project', 'Location', 'Status', 'Start', 'End', 'Manager']],
+                    head: [['Date', 'Day', 'Weather', 'Laborers', 'Notes / Activities']],
                     body: tableData,
                     theme: 'grid',
                     headStyles: { fillColor: [26, 29, 46], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
@@ -236,101 +259,135 @@ const Reports = () => {
                     margin: { left: 14, right: 14 },
                     styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
                     columnStyles: {
-                        0: { fontStyle: 'bold', textColor: [26, 29, 46] }
+                        0: { fontStyle: 'bold', cellWidth: 25 },
+                        1: { cellWidth: 15, halign: 'center' },
+                        2: { cellWidth: 25 },
+                        3: { cellWidth: 20, halign: 'center' },
+                        4: { cellWidth: 'auto' }
                     }
                 });
+            }
 
-                y = doc.lastAutoTable.finalY + 15;
+            addPdfFooter(doc);
 
-                // Per-project details Header
-                if (projects.length > 0) {
-                    if (y > 250) { doc.addPage(); y = 20; }
-                    doc.setFontSize(14);
-                    doc.setFont('helvetica', 'bold');
-                    doc.setTextColor(26, 29, 46);
-                    doc.text('Project Details', 14, y);
-                    doc.setDrawColor(109, 40, 217);
-                    doc.setLineWidth(0.5);
-                    doc.line(14, y + 2, 45, y + 2);
-                    y += 10;
-                }
+            doc.save(`Daily_Logs_${project.title.replace(/\s+/g, '_')}.pdf`);
 
-                projects.forEach((p, index) => {
-                    if (y > 240) { doc.addPage(); y = 20; }
+            const newReport = {
+                id: Date.now().toString(),
+                name: `Daily Logs — ${project.title}`,
+                project: project.title,
+                date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+                status: 'Ready',
+                size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
+                dataUri: doc.output('datauristring')
+            };
+            setSystemReports(prev => [newReport, ...prev]);
 
-                    // Project Card Background
-                    doc.setFillColor(248, 248, 250);
-                    doc.setDrawColor(230, 230, 230);
-                    doc.roundedRect(14, y, 182, 28, 2, 2, 'FD');
+        } catch (error) {
+            console.error('Failed to generate daily logs report:', error);
+            showToast('Failed to generate logs report', 'error');
+        } finally {
+            setGenerating(null);
+            setDailySelectedProject('');
+        }
+    };
 
-                    // Project Title
-                    doc.setFontSize(11);
-                    doc.setFont('helvetica', 'bold');
-                    doc.setTextColor(109, 40, 217); // Purple Title
-                    doc.text(`${index + 1}. ${p.title || 'Untitled'}`, 18, y + 8);
+    const openDatePicker = async () => {
+        setLogDates([]);
+        setShowDatePicker(true);
+        setLoadingDates(true);
+        try {
+            const dateMap = {};
+            for (const p of projects) {
+                if (['Completed', 'On Hold'].includes(p.status)) continue;
+                try {
+                    const res = await api.get(`/projects/${p._id}/daily-logs`);
+                    const logs = res.data?.logs || [];
+                    logs.forEach(log => {
+                        const dateKey = log.date.slice(0, 10);
+                        if (!dateMap[dateKey]) dateMap[dateKey] = { dateKey, day: log.day, logs: [], totalLaborers: 0 };
+                        dateMap[dateKey].logs.push({ ...log, projectTitle: p.title });
+                        dateMap[dateKey].totalLaborers += Number(log.laborers) || 0;
+                    });
+                } catch (e) { }
+            }
+            const sortedDates = Object.values(dateMap).sort((a, b) => new Date(b.dateKey) - new Date(a.dateKey));
+            setLogDates(sortedDates);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoadingDates(false);
+        }
+    };
 
-                    // Left Column
-                    doc.setFontSize(9);
-                    doc.setFont('helvetica', 'normal');
-                    doc.setTextColor(80, 80, 80);
-                    doc.text(`Client:`, 18, y + 15);
-                    doc.setFont('helvetica', 'bold');
-                    doc.setTextColor(0, 0, 0);
-                    doc.text(`${p.client || 'N/A'}`, 30, y + 15);
+    const generateGlobalDailyLogsForDate = async (entry) => {
+        setShowDatePicker(false);
+        setGenerating('daily');
+        try {
+            const doc = new jsPDF();
+            let y = addPdfHeader(doc, `Global Daily Logs — ${new Date(entry.dateKey).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`);
 
-                    doc.setFont('helvetica', 'normal');
-                    doc.setTextColor(80, 80, 80);
-                    doc.text(`Type:`, 18, y + 22);
-                    doc.setFont('helvetica', 'bold');
-                    doc.setTextColor(0, 0, 0);
-                    doc.text(`${p.type || 'N/A'}`, 30, y + 22);
+            // Summary
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(26, 29, 46);
+            doc.text('Global Daily Logs', 14, y);
 
-                    // Middle Column
-                    doc.setFont('helvetica', 'normal');
-                    doc.setTextColor(80, 80, 80);
-                    doc.text(`Site Size:`, 80, y + 15);
-                    doc.setFont('helvetica', 'bold');
-                    doc.setTextColor(0, 0, 0);
-                    doc.text(`${p.siteSize ? p.siteSize + ' sq ft' : 'N/A'}`, 97, y + 15);
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Active Projects on this day: ${entry.logs.length}`, 196, y, { align: 'right' });
+            y += 8;
 
-                    doc.setFont('helvetica', 'normal');
-                    doc.setTextColor(80, 80, 80);
-                    doc.text(`Floors:`, 80, y + 22);
-                    doc.setFont('helvetica', 'bold');
-                    doc.setTextColor(0, 0, 0);
-                    doc.text(`${p.floors || 'N/A'}`, 97, y + 22);
+            if (entry.logs.length > 0) {
+                const tableData = entry.logs.map(log => [
+                    log.projectTitle,
+                    log.weather?.condition || '-',
+                    log.laborers || 0,
+                    log.notes || '-'
+                ]);
 
-                    // Right Column
-                    const budgetVal = p.budget ? `Rs.${Number(p.budget).toLocaleString('en-IN')} ${p.budgetUnit || ''}` : 'N/A';
-                    doc.setFont('helvetica', 'normal');
-                    doc.setTextColor(80, 80, 80);
-                    doc.text(`Budget:`, 140, y + 15);
-                    doc.setFont('helvetica', 'bold');
-                    doc.setTextColor(22, 163, 74); // Green for budget
-                    doc.text(budgetVal, 155, y + 15);
-
-                    y += 35;
+                autoTable(doc, {
+                    startY: y,
+                    head: [['Project Name', 'Weather', 'Laborers', 'Notes / Activities']],
+                    body: tableData,
+                    theme: 'grid',
+                    headStyles: { fillColor: [26, 29, 46], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
+                    bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
+                    alternateRowStyles: { fillColor: [250, 250, 252] },
+                    margin: { left: 14, right: 14 },
+                    styles: { cellPadding: 3, lineColor: [230, 230, 230], lineWidth: 0.1 },
+                    columnStyles: {
+                        0: { fontStyle: 'bold', cellWidth: 40 },
+                        1: { cellWidth: 25 },
+                        2: { cellWidth: 20, halign: 'center' },
+                        3: { cellWidth: 'auto' }
+                    }
                 });
+            }
 
-                addPdfFooter(doc);
+            addPdfFooter(doc);
 
-                if (download) {
-                    doc.save(`Daily_Progress_${new Date().toISOString().slice(0, 10)}.pdf`);
-                }
+            doc.save(`Global_Daily_Logs_${entry.dateKey}.pdf`);
 
-                const newReport = {
-                    id: Date.now().toString(),
-                    name: 'Daily Progress Report',
-                    project: projects.length > 0 ? `${projects.length} ${projects.length === 1 ? 'Project' : 'Projects'}` : 'No Projects',
-                    date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-                    status: 'Ready',
-                    size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
-                    dataUri: doc.output('datauristring')
-                };
-                setSystemReports(prev => [newReport, ...prev]);
-            } catch (err) { console.error('PDF generation failed:', err); }
-            finally { setGenerating(null); }
-        }, 500);
+            // Add to report history
+            const newReport = {
+                id: Date.now().toString(),
+                name: `Global Logs: ${new Date(entry.dateKey).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}`,
+                project: `${entry.logs.length} Projects`,
+                date: new Date(entry.dateKey).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+                status: 'Ready',
+                size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
+                dataUri: doc.output('datauristring')
+            };
+            setSystemReports(prev => [newReport, ...prev]);
+
+        } catch (error) {
+            console.error('Failed to generate global daily logs report:', error);
+            showToast('Failed to generate global report', 'error');
+        } finally {
+            setGenerating(null);
+        }
     };
 
     const generateInventoryReport = (download = false) => {
@@ -539,131 +596,6 @@ const Reports = () => {
         a.download = `${report.name.replace(/\s+/g, '_')}_${report.date.replace(/\s+/g, '_')}.pdf`;
         a.click();
         if (report.blob) URL.revokeObjectURL(url);
-    };
-
-    // ─── DAILY LOG DATE PICKER ───
-    const openDatePicker = async () => {
-        setShowDatePicker(true);
-        setLoadingDates(true);
-        try {
-            const allLogs = [];
-            for (const p of projects) {
-                try {
-                    const res = await api.get(`/projects/${p._id}/daily-logs`);
-                    const logs = res.data || [];
-                    logs.forEach(log => {
-                        allLogs.push({ ...log, projectTitle: p.title, projectId: p._id });
-                    });
-                } catch { /* skip */ }
-            }
-
-            // Group by date
-            const dateMap = {};
-            allLogs.forEach(log => {
-                const dateKey = new Date(log.date).toISOString().slice(0, 10);
-                if (!dateMap[dateKey]) {
-                    dateMap[dateKey] = { dateKey, day: log.day, logs: [], totalLaborers: 0 };
-                }
-                dateMap[dateKey].logs.push(log);
-                dateMap[dateKey].totalLaborers += (log.laborers || 0);
-            });
-
-            // Sort descending
-            const sorted = Object.values(dateMap).sort((a, b) => b.dateKey.localeCompare(a.dateKey));
-            setLogDates(sorted);
-        } catch (err) { console.error('Failed to fetch daily logs:', err); }
-        finally { setLoadingDates(false); }
-    };
-
-    const downloadDailyLogPdf = (entry) => {
-        setShowDatePicker(false);
-        setGenerating('daily');
-        setTimeout(() => {
-            try {
-                const doc = new jsPDF();
-                const dateStr = new Date(entry.dateKey).toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-                let y = addPdfHeader(doc, `Daily Progress — ${dateStr}`);
-
-                // Summary row
-                doc.setFontSize(10);
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(109, 40, 217);
-                doc.text(`Day: ${entry.day || 'N/A'}`, 14, y);
-
-                doc.setFont('helvetica', 'normal');
-                doc.setTextColor(80, 80, 80);
-                doc.text(`Total Laborers:`, 60, y);
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(0, 0, 0);
-                doc.text(`${entry.totalLaborers}`, 87, y);
-
-                doc.setFont('helvetica', 'normal');
-                doc.setTextColor(80, 80, 80);
-                doc.text(`Projects Active:`, 110, y);
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(0, 0, 0);
-                doc.text(`${entry.logs.length}`, 138, y);
-
-                y += 10;
-
-                // Separator
-                doc.setDrawColor(230, 230, 230);
-                doc.setLineWidth(0.5);
-                doc.line(14, y, 196, y);
-                y += 6;
-
-                entry.logs.forEach((log, index) => {
-                    if (y > 250) { doc.addPage(); y = 20; }
-
-                    // Project header
-                    doc.setFillColor(248, 248, 250);
-                    doc.setDrawColor(230, 230, 230);
-                    doc.roundedRect(14, y, 182, 10, 2, 2, 'FD');
-
-                    doc.setFontSize(11);
-                    doc.setFont('helvetica', 'bold');
-                    doc.setTextColor(26, 29, 46);
-                    doc.text(`${index + 1}. ${log.projectTitle || 'Untitled Project'}`, 18, y + 7);
-                    doc.setTextColor(0, 0, 0);
-                    y += 14;
-
-                    // Details table
-                    autoTable(doc, {
-                        startY: y,
-                        body: [
-                            ['Weather Conditions', log.weather?.condition || 'Not recorded'],
-                            ['Laborers on Site', String(log.laborers || 0)],
-                            ['Notes / Activities', log.notes || 'No notes recorded for this date'],
-                        ],
-                        theme: 'grid',
-                        columnStyles: {
-                            0: { fontStyle: 'bold', cellWidth: 50, textColor: [100, 100, 100], fontSize: 9 },
-                            1: { fontSize: 9, textColor: [40, 40, 40] }
-                        },
-                        margin: { left: 14, right: 14 },
-                        styles: { cellPadding: 3, lineColor: [230, 230, 230], lineWidth: 0.1 },
-                    });
-                    y = doc.lastAutoTable.finalY + 12;
-                });
-
-                addPdfFooter(doc);
-
-                doc.save(`Daily_Progress_${entry.dateKey}.pdf`);
-
-                // Add to report history
-                const newReport = {
-                    id: Date.now().toString(),
-                    name: `Daily Progress — ${dateStr}`,
-                    project: `${entry.logs.length} ${entry.logs.length === 1 ? 'Project' : 'Projects'}`,
-                    date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-                    status: 'Ready',
-                    size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
-                    dataUri: doc.output('datauristring')
-                };
-                setSystemReports(prev => [newReport, ...prev]);
-            } catch (err) { console.error('Daily log PDF failed:', err); }
-            finally { setGenerating(null); }
-        }, 300);
     };
 
     // ─── INVENTORY PICKER ───
@@ -1039,7 +971,7 @@ const Reports = () => {
             <div className="flex h-screen bg-[#0f1117] font-sans text-white overflow-hidden">
                 {/* ─── SIDEBAR ─── */}
                 <aside className="w-[240px] bg-[#0f1117] flex flex-col z-20 hidden md:flex border-r border-white/[0.06]">
-                    <div className="px-5 py-5 flex items-center justify-center"><img src="/logo.png" alt="S R Associates" className="w-28 h-auto object-contain opacity-90" /></div>
+                    <div className="px-5 py-5 flex items-center justify-center"><CompanyLogo className="w-28 h-auto object-contain opacity-90" defaultLogoType="white" /></div>
                     <nav className="flex-1 px-3 space-y-0.5 mt-2">
                         <div className="px-3 mb-3"><p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">Menu</p></div>
                         <NavItem icon={<LayoutDashboard size={17} />} text="Dashboard" href="/" />
@@ -1094,8 +1026,8 @@ const Reports = () => {
                                     <GeneratorCard
                                         title="Daily Progress" desc="Site activities, manpower usage, and milestone completions."
                                         icon={<Calendar size={16} className="text-violet-500" />}
-                                        onGenerate={() => generateDailyProgress(false)}
-                                        onDownload={openDatePicker}
+                                        onGenerate={openDatePicker}
+                                        onDownload={() => setShowDailyPicker(true)}
                                         loading={generating === 'daily'}
                                     />
                                     <GeneratorCard
@@ -1242,20 +1174,20 @@ const Reports = () => {
                 </main >
             </div >
 
-            {/* ─── DATE PICKER MODAL ─── */}
+            {/* ─── GLOBAL DATE PICKER MODAL ─── */}
             {
                 showDatePicker && (
                     <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
                         <div className="absolute inset-0" onClick={() => setShowDatePicker(false)}></div>
-                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100">
-                            <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50">
+                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 flex flex-col" style={{ maxHeight: '80vh' }}>
+                            <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50 shrink-0">
                                 <div>
                                     <h3 className="font-semibold text-base text-gray-900">Select Log Date</h3>
-                                    <p className="text-xs text-gray-400 mt-0.5">Choose a date to download the daily progress report</p>
+                                    <p className="text-xs text-gray-400 mt-0.5">Choose a date to gather all project logs for</p>
                                 </div>
                                 <button onClick={() => setShowDatePicker(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
                             </div>
-                            <div className="p-6 max-h-[400px] overflow-y-auto">
+                            <div className="p-6 overflow-y-auto flex-1">
                                 {loadingDates ? (
                                     <div className="flex items-center justify-center py-12 gap-2 text-gray-400 text-sm"><Loader2 size={16} className="animate-spin" /> Loading dates...</div>
                                 ) : logDates.length === 0 ? (
@@ -1265,7 +1197,7 @@ const Reports = () => {
                                         {logDates.map(entry => (
                                             <button
                                                 key={entry.dateKey}
-                                                onClick={() => downloadDailyLogPdf(entry)}
+                                                onClick={() => generateGlobalDailyLogsForDate(entry)}
                                                 className="w-full flex items-center gap-4 p-3 rounded-xl border border-gray-100 hover:border-violet-200 hover:bg-violet-50/30 transition-all text-left group"
                                             >
                                                 <div className="w-12 h-12 bg-violet-50 rounded-xl flex flex-col items-center justify-center shrink-0">
@@ -1283,6 +1215,57 @@ const Reports = () => {
                                         ))}
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* ─── DAILY PROJECT PICKER MODAL ─── */}
+            {
+                showDailyPicker && (
+                    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
+                        <div className="absolute inset-0" onClick={() => setShowDailyPicker(false)}></div>
+                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 flex flex-col" style={{ maxHeight: '80vh' }}>
+                            <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50 shrink-0">
+                                <div>
+                                    <h3 className="font-semibold text-base text-gray-900">Project Logs Selector</h3>
+                                    <p className="text-xs text-gray-400 mt-0.5">Select a project to download its daily progress logs</p>
+                                </div>
+                                <button onClick={() => setShowDailyPicker(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
+                            </div>
+                            <div className="px-6 py-4 overflow-y-auto flex-1">
+                                <div className="space-y-2">
+                                    {projects.map(p => (
+                                        <button
+                                            key={p._id}
+                                            onClick={() => setDailySelectedProject(p._id)}
+                                            className={`w-full flex items-center gap-4 p-3 rounded-xl border transition-all text-left group ${dailySelectedProject === p._id
+                                                ? 'border-violet-300 bg-violet-50/50 ring-1 ring-violet-200'
+                                                : 'border-gray-100 hover:border-violet-200 hover:bg-violet-50/30'
+                                                }`}
+                                        >
+                                            <div className="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center shrink-0">
+                                                <Calendar size={16} className="text-violet-500" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 truncate">{p.title}</p>
+                                                <p className="text-xs text-gray-400 mt-0.5">{p.status || 'Planning'}</p>
+                                            </div>
+                                            {dailySelectedProject === p._id && <CheckCircle2 size={16} className="text-violet-500 shrink-0" />}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="px-6 py-4 border-t border-gray-50 flex justify-end gap-2 shrink-0 bg-white">
+                                <button onClick={() => setShowDailyPicker(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">Cancel</button>
+                                <button
+                                    onClick={downloadProjectDailyLogs}
+                                    disabled={!dailySelectedProject || generating === 'daily'}
+                                    className="px-4 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40 flex items-center gap-1.5"
+                                >
+                                    {generating === 'daily' ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Download PDF
+                                </button>
                             </div>
                         </div>
                     </div>

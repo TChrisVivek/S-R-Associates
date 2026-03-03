@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import CompanyLogo from '../components/CompanyLogo';
 import {
     LayoutDashboard, FolderOpen, Users, FileText, Settings,
     Save, CreditCard, CloudLightning, Slack, FileJson,
-    UserPlus, Loader2, ChevronRight, BarChart3
+    UserPlus, Loader2, ChevronRight, BarChart3, ImagePlus
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
 import GlobalLoader from '../components/GlobalLoader';
+import { uploadToCloudinary } from '../utils/cloudinaryUpload';
 
 const SettingsPage = () => {
     const navigate = useNavigate();
@@ -17,7 +19,8 @@ const SettingsPage = () => {
     const [activeSection, setActiveSection] = useState('company');
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    const [companyInfo, setCompanyInfo] = useState({ name: "BuildCore Construction Ltd.", license: "BC-8829-X", address: "123 Industrial Way, Suite 400, Seattle, WA" });
+    const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+    const [companyInfo, setCompanyInfo] = useState({ name: "S R Associates Construction Ltd.", license: "BC-8829-X", address: "123 Industrial Way, Suite 400, Seattle, WA" });
     const [notifications, setNotifications] = useState({ lowStock: true, budgetOverrun: true, compliance: false });
     const [users, setUsers] = useState([]);
     const [isUsersLoading, setIsUsersLoading] = useState(true);
@@ -41,11 +44,31 @@ const SettingsPage = () => {
         setIsSaving(true);
         try {
             await api.put('/settings', { companyInfo, notifications });
-            localStorage.setItem('companyShortName', companyInfo.name || 'BuildCore');
+            localStorage.setItem('companyShortName', companyInfo.name || 'S R Associates');
+            if (companyInfo.logoUrl) {
+                localStorage.setItem('companyLogoUrl', companyInfo.logoUrl);
+            }
             window.dispatchEvent(new Event('companyNameUpdated'));
+            window.dispatchEvent(new Event('logoUpdated'));
             showToast("Settings saved successfully!", "success");
         } catch (error) { console.error("Failed to save settings:", error); showToast("Failed to save settings.", "error"); }
         finally { setIsSaving(false); }
+    };
+
+    const handleLogoUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setIsUploadingLogo(true);
+        try {
+            const url = await uploadToCloudinary(file);
+            setCompanyInfo({ ...companyInfo, logoUrl: url });
+            showToast("Logo uploaded. Click Save Changes to apply everywhere.", "success");
+        } catch (error) {
+            console.error("Failed to upload logo:", error);
+            showToast("Failed to upload logo.", "error");
+        } finally {
+            setIsUploadingLogo(false);
+        }
     };
 
     const fetchUsers = async () => {
@@ -85,7 +108,7 @@ const SettingsPage = () => {
 
             {/* ─── SIDEBAR ─── */}
             <aside className="w-[240px] bg-[#0f1117] flex flex-col z-20 hidden md:flex border-r border-white/[0.06]">
-                <div className="px-5 py-5 flex items-center justify-center"><img src="/logo.png" alt="S R Associates" className="w-28 h-auto object-contain opacity-90" /></div>
+                <div className="px-5 py-5 flex items-center justify-center"><CompanyLogo className="w-28 h-auto object-contain opacity-90" defaultLogoType="white" /></div>
                 <nav className="flex-1 px-3 space-y-0.5 mt-2">
                     <div className="px-3 mb-3"><p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">Menu</p></div>
                     <NavItem icon={<LayoutDashboard size={17} />} text="Dashboard" href="/" />
@@ -138,9 +161,35 @@ const SettingsPage = () => {
                         <div id="company" className="bg-white rounded-2xl border border-gray-100 p-6 scroll-mt-24">
                             <h2 className="text-sm font-semibold text-gray-900 mb-1">Company Profile</h2>
                             <p className="text-xs text-gray-400 mb-5">Public information about your firm</p>
+
+                            <div className="mb-6 flex items-center gap-6">
+                                <div className="w-20 h-20 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-center overflow-hidden shrink-0">
+                                    {isUploadingLogo ? (
+                                        <Loader2 className="animate-spin text-gray-400" size={24} />
+                                    ) : companyInfo.logoUrl ? (
+                                        <img src={companyInfo.logoUrl} alt="Logo Preview" className="w-full h-full object-contain p-2" />
+                                    ) : (
+                                        <div className="text-gray-400 text-xs font-medium text-center">No Logo</div>
+                                    )}
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-medium text-gray-900 mb-1">Company Logo</h3>
+                                    <p className="text-[11px] text-gray-400 max-w-sm mb-3">
+                                        Upload a high-resolution logo. This will be displayed on reports, login screens, and the sidebar.
+                                    </p>
+                                    <div className="inline-block relative">
+                                        <input type="file" id="logoUpload" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleLogoUpload} disabled={isUploadingLogo} />
+                                        <label htmlFor="logoUpload" className={`cursor-pointer bg-white border border-gray-200 text-gray-700 text-xs font-medium py-1.5 px-3 rounded-lg transition-colors flex items-center gap-2 ${isUploadingLogo ? 'opacity-50 pointer-events-none' : 'hover:bg-gray-50'}`}>
+                                            <ImagePlus size={14} />
+                                            <span>{isUploadingLogo ? 'Uploading...' : 'Select Image'}</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="grid grid-cols-2 gap-4 mb-4">
-                                <FormField label="Company Name" name="name" value={companyInfo.name} onChange={handleCompanyChange} />
-                                <FormField label="License Number" name="license" value={companyInfo.license} onChange={handleCompanyChange} />
+                                <FormField label="Company Name" name="name" value={companyInfo.name || ''} onChange={handleCompanyChange} />
+                                <FormField label="License Number" name="license" value={companyInfo.license || ''} onChange={handleCompanyChange} />
                             </div>
                             <FormField label="Headquarters Address" name="address" value={companyInfo.address} onChange={handleCompanyChange} />
                             <div className="flex justify-end mt-5">

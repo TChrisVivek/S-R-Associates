@@ -77,7 +77,7 @@ const ProjectPlanManager = () => {
                         🏗️
                     </div>
                     <div>
-                        <h1 style={{ fontSize: '1rem', fontWeight: '600', margin: 0 }}>BuildMaster Pro</h1>
+                        <h1 style={{ fontSize: '1rem', fontWeight: '600', margin: 0 }}>S R Associates</h1>
                         <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Projects  ›  4500 Wilshire Blvd</span>
                     </div>
                 </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import CompanyLogo from '../components/CompanyLogo';
 import {
     LayoutDashboard, FolderOpen, Users, FileText, Settings,
     ArrowLeft, MapPin, Grid, Layers, Box, FileClock, MoreVertical, AlertTriangle, ClipboardList, FileSignature, X, Upload, Loader2, Plus, UserPlus, Trash2, ChevronRight, ChevronDown, BarChart3
@@ -24,7 +25,7 @@ const ProjectDetail = () => {
     const { showToast, ToastComponent } = useToast();
 
     // Company Name State for Sidebar
-    const [companyName, setCompanyName] = useState('BuildCore');
+    const [companyName, setCompanyName] = useState('S R Associates');
     const [companyInitial, setCompanyInitial] = useState('B');
 
     useEffect(() => {
@@ -34,7 +35,7 @@ const ProjectDetail = () => {
                 setCompanyName(shortName);
                 setCompanyInitial(shortName[0].toUpperCase());
             } else {
-                setCompanyName('BuildCore');
+                setCompanyName('S R Associates');
                 setCompanyInitial('B');
             }
         };
@@ -335,7 +336,7 @@ const ProjectDetail = () => {
 
             {/* ─── SIDEBAR ─── */}
             <aside className="w-[240px] bg-[#0f1117] flex flex-col z-20 hidden md:flex border-r border-white/[0.06]">
-                <div className="px-5 py-5 flex items-center justify-center"><img src="/logo.png" alt="S R Associates" className="w-28 h-auto object-contain opacity-90" /></div>
+                <div className="px-5 py-5 flex items-center justify-center"><CompanyLogo className="w-28 h-auto object-contain opacity-90" defaultLogoType="white" /></div>
                 <nav className="flex-1 px-3 space-y-0.5 mt-2">
                     <div className="px-3 mb-3"><p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">Menu</p></div>
                     <NavItem icon={<LayoutDashboard size={17} />} text="Dashboard" href="/" />
