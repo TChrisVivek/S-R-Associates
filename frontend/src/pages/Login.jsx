@@ -44,8 +44,8 @@ const Login = () => {
                     <div className="absolute inset-0 bg-gradient-to-t from-[#0f1117] via-[#0f1117]/60 to-transparent"></div>
                     <div className="absolute inset-0 bg-gradient-to-r from-[#0f1117]/80 to-transparent"></div>
                 </div>
-                <div className="relative z-10 p-10 flex items-center">
-                    <CompanyLogo className="h-10 w-auto object-contain drop-shadow-lg" defaultLogoType="white" />
+                <div className="relative z-10 p-10 flex items-center gap-3">
+                    <CompanyLogo className="h-12 w-auto object-contain drop-shadow-xl saturate-150 contrast-125 hover:scale-105 transition-transform duration-300" defaultLogoType="white" />
                 </div>
                 <div className="relative z-10 p-10 pb-16 max-w-lg">
                     <h1 className="text-5xl font-semibold text-white leading-[1.15] tracking-tight mb-4">
@@ -60,8 +60,12 @@ const Login = () => {
             {/* Right — Login Form */}
             <div className="w-full lg:w-[45%] flex flex-col items-center justify-center p-8 bg-white relative">
                 <div className="w-full max-w-sm flex flex-col items-center">
-                    <div className="h-24 flex items-center justify-center mb-6">
-                        <CompanyLogo className="h-20 w-auto object-contain" defaultLogoType="dark" />
+                    <div className="w-full flex justify-center mb-8 relative">
+                        {/* Elegant background halo */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-violet-500/10 via-blue-500/5 to-transparent blur-3xl rounded-full scale-150 pointer-events-none"></div>
+                        <div className="relative p-2">
+                            <CompanyLogo className="h-16 w-auto object-contain drop-shadow-sm transition-transform duration-500 hover:scale-[1.02] filter invert opacity-90" defaultLogoType="dark" />
+                        </div>
                     </div>
 
                     <p className="text-[11px] font-semibold tracking-widest text-slate-500 uppercase mb-3">SR Associates Portal</p>
@@ -99,7 +103,7 @@ const Login = () => {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 
