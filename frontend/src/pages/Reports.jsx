@@ -85,7 +85,10 @@ const Reports = () => {
         setIsLoading(true);
         try {
             const response = await api.get('/projects');
-            const projectsData = response.data || [];
+            let projectsData = response.data || [];
+            if (currentUser?.role === 'Site Manager') {
+                projectsData = projectsData.filter(p => p.manager === currentUser.username);
+            }
             setProjects(projectsData);
             const docs = [];
             projectsData.forEach(project => {
@@ -976,11 +979,17 @@ const Reports = () => {
                         <div className="px-3 mb-3"><p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">Menu</p></div>
                         <NavItem icon={<LayoutDashboard size={17} />} text="Dashboard" href="/" />
                         <NavItem icon={<FolderOpen size={17} />} text="Projects" href="/projects" />
-                        <NavItem icon={<Users size={17} />} text="Personnel" href="/personnel" />
-                        <NavItem icon={<BarChart3 size={17} />} text="Budget" href="/budget" />
-                        <NavItem icon={<FileText size={17} />} text="Reports" active href="/reports" />
-                        <div className="px-3 mt-6 mb-3"><p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">System</p></div>
-                        <NavItem icon={<Settings size={17} />} text="Settings" href="/settings" />
+                        {['Admin', 'Site Manager'].includes(currentUser?.role) && <NavItem icon={<Users size={17} />} text="Personnel" href="/personnel" />}
+                        {['Admin'].includes(currentUser?.role) && <NavItem icon={<BarChart3 size={17} />} text="Budget" href="/budget" />}
+                        {['Admin', 'Site Manager', 'Client'].includes(currentUser?.role) && <NavItem icon={<FileText size={17} />} text="Reports" active href="/reports" />}
+                        {['Admin', 'Site Manager'].includes(currentUser?.role) && (
+                        <>
+                            <div className="px-3 mt-6 mb-3">
+                                <p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">System</p>
+                            </div>
+                            <NavItem icon={<Settings size={17} />} text="Settings" href="/settings" />
+                        </>
+                    )}
                     </nav>
                     <div className="px-3 pb-4">
                         <div onClick={() => navigate('/profile')} className="flex items-center gap-3 px-3 py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.04] transition-all cursor-pointer group">
@@ -1037,13 +1046,15 @@ const Reports = () => {
                                         onDownload={openInventoryPicker}
                                         loading={generating === 'inventory'}
                                     />
-                                    <GeneratorCard
-                                        title="Financial Summary" desc="Spending breakdown, invoice status, and budget variances."
-                                        icon={<Wallet size={16} className="text-violet-500" />}
-                                        onGenerate={() => generateFinancialSummary(false)}
-                                        onDownload={openFinancialPicker}
-                                        loading={generating === 'financial'}
-                                    />
+                                    {['Admin'].includes(currentUser?.role) && (
+                                        <GeneratorCard
+                                            title="Financial Summary" desc="Spending breakdown, invoice status, and budget variances."
+                                            icon={<Wallet size={16} className="text-violet-500" />}
+                                            onGenerate={() => generateFinancialSummary(false)}
+                                            onDownload={openFinancialPicker}
+                                            loading={generating === 'financial'}
+                                        />
+                                    )}
                                 </div>
 
                                 {/* History Table */}

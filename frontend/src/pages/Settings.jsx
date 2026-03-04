@@ -113,11 +113,17 @@ const SettingsPage = () => {
                     <div className="px-3 mb-3"><p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">Menu</p></div>
                     <NavItem icon={<LayoutDashboard size={17} />} text="Dashboard" href="/" />
                     <NavItem icon={<FolderOpen size={17} />} text="Projects" href="/projects" />
-                    <NavItem icon={<Users size={17} />} text="Personnel" href="/personnel" />
-                    <NavItem icon={<BarChart3 size={17} />} text="Budget" href="/budget" />
-                    <NavItem icon={<FileText size={17} />} text="Reports" href="/reports" />
-                    <div className="px-3 mt-6 mb-3"><p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">System</p></div>
-                    <NavItem icon={<Settings size={17} />} text="Settings" active href="/settings" />
+                    {['Admin', 'Site Manager'].includes(currentUser?.role) && <NavItem icon={<Users size={17} />} text="Personnel" href="/personnel" />}
+                    {['Admin'].includes(currentUser?.role) && <NavItem icon={<BarChart3 size={17} />} text="Budget" href="/budget" />}
+                    {['Admin', 'Site Manager', 'Client'].includes(currentUser?.role) && <NavItem icon={<FileText size={17} />} text="Reports" href="/reports" />}
+                    {['Admin', 'Site Manager'].includes(currentUser?.role) && (
+                        <>
+                            <div className="px-3 mt-6 mb-3">
+                                <p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">System</p>
+                            </div>
+                            <NavItem icon={<Settings size={17} />} text="Settings" active href="/settings" />
+                        </>
+                    )}
                 </nav>
                 <div className="px-3 pb-4">
                     <div onClick={() => navigate('/profile')} className="flex items-center gap-3 px-3 py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.04] transition-all cursor-pointer group">
@@ -163,13 +169,13 @@ const SettingsPage = () => {
                             <p className="text-xs text-gray-400 mb-5">Public information about your firm</p>
 
                             <div className="mb-6 flex items-center gap-6">
-                                <div className="w-20 h-20 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-center overflow-hidden shrink-0">
+                                <div className="w-20 h-20 bg-[#0f1117] rounded-xl flex items-center justify-center overflow-hidden shrink-0">
                                     {isUploadingLogo ? (
                                         <Loader2 className="animate-spin text-gray-400" size={24} />
                                     ) : companyInfo.logoUrl ? (
                                         <img src={companyInfo.logoUrl} alt="Logo Preview" className="w-full h-full object-contain p-2" />
                                     ) : (
-                                        <div className="text-gray-400 text-xs font-medium text-center">No Logo</div>
+                                        <CompanyLogo className="w-full h-full object-contain p-2" defaultLogoType="dark" />
                                     )}
                                 </div>
                                 <div>

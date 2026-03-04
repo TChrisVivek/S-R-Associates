@@ -4,6 +4,7 @@ import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import api from '../api/axios';
 import { useToast } from './Toast';
+import { uploadToCloudinary, uploadMultipleToCloudinary } from '../utils/cloudinaryUpload';
 
 const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
     const { showToast, ToastComponent } = useToast();
@@ -107,43 +108,31 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
 
             // 1. Upload Cover Image if exists
             if (coverImage) {
-                const coverData = new FormData();
-                coverData.append('plans', coverImage);
                 try {
-                    const coverRes = await api.post('/projects/upload', coverData, {
-                        headers: { 'Content-Type': 'multipart/form-data' }
-                    });
-                    if (coverRes.data.files && coverRes.data.files.length > 0) {
-                        imageUrl = coverRes.data.files[0].url;
-                    }
+                    imageUrl = await uploadToCloudinary(coverImage);
                 } catch (err) {
                     console.error("Cover image upload failed", err);
+                    showToast("Cover image upload failed, but continuing with project creation...", "error");
                 }
             }
 
             // 2. Upload Blueprint Files if exist
             if (uploadedFiles.length > 0) {
-                const uploadData = new FormData();
-                uploadedFiles.forEach(file => {
-                    uploadData.append('plans', file);
-                });
-
                 try {
-                    const uploadRes = await api.post('/projects/upload', uploadData, {
-                        headers: { 'Content-Type': 'multipart/form-data' }
-                    });
-
-                    if (uploadRes.data.files && uploadRes.data.files.length > 0) {
-                        uploadedBlueprints = uploadRes.data.files;
-                    }
-
+                    const uploadedUrls = await uploadMultipleToCloudinary(uploadedFiles);
+                    uploadedBlueprints = uploadedFiles.map((file, index) => ({
+                        name: file.name || `Blueprint ${index + 1}`,
+                        url: uploadedUrls[index],
+                        originalUrl: uploadedUrls[index],
+                        type: file.type || 'application/pdf'
+                    }));
                 } catch (err) {
                     console.error("Upload failed", err);
                     showToast("File upload failed, but continuing with project creation...", "error");
                 }
             }
 
-            // 2. Create Project
+            // 3. Create Project
             const projectPayload = {
                 ...formData,
                 image: imageUrl,

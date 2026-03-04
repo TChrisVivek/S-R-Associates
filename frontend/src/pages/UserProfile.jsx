@@ -51,11 +51,17 @@ const UserProfile = () => {
                     <div className="px-3 mb-3"><p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">Menu</p></div>
                     <NavItem icon={<LayoutDashboard size={17} />} text="Dashboard" href="/" />
                     <NavItem icon={<FolderOpen size={17} />} text="Projects" href="/projects" />
-                    <NavItem icon={<Users size={17} />} text="Personnel" href="/personnel" />
-                    <NavItem icon={<BarChart3 size={17} />} text="Budget" href="/budget" />
-                    <NavItem icon={<FileText size={17} />} text="Reports" href="/reports" />
-                    <div className="px-3 mt-6 mb-3"><p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">System</p></div>
-                    <NavItem icon={<Settings size={17} />} text="Settings" href="/settings" />
+                    {['Admin', 'Site Manager'].includes(currentUser?.role) && <NavItem icon={<Users size={17} />} text="Personnel" href="/personnel" />}
+                    {['Admin'].includes(currentUser?.role) && <NavItem icon={<BarChart3 size={17} />} text="Budget" href="/budget" />}
+                    {['Admin', 'Site Manager', 'Client'].includes(currentUser?.role) && <NavItem icon={<FileText size={17} />} text="Reports" href="/reports" />}
+                    {['Admin', 'Site Manager'].includes(currentUser?.role) && (
+                        <>
+                            <div className="px-3 mt-6 mb-3">
+                                <p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">System</p>
+                            </div>
+                            <NavItem icon={<Settings size={17} />} text="Settings" href="/settings" />
+                        </>
+                    )}
                 </nav>
                 <div className="px-3 pb-4">
                     <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-white/[0.06] border border-white/[0.06]">

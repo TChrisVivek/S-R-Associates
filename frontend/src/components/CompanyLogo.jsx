@@ -19,10 +19,10 @@ const CompanyLogo = ({ className, defaultLogoType = 'auto' }) => {
             try {
                 // If it's already in localStorage, we can still fetch to keep it fresh 
                 // but we don't delay the initial render.
-                const response = await api.get('/settings');
+                const response = await api.get('/settings/logo');
                 if (!isMounted) return;
 
-                const url = response.data?.companyInfo?.logoUrl;
+                const url = response.data?.logoUrl;
                 if (url) {
                     setLogoUrl(url);
                     localStorage.setItem('companyLogoUrl', url);

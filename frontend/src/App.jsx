@@ -28,10 +28,10 @@ function App() {
         <Route path="/profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
         <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
         <Route path="/projects/:id" element={<ProtectedRoute><ProjectDetail /></ProtectedRoute>} />
-        <Route path="/personnel" element={<ProtectedRoute><Personnel /></ProtectedRoute>} />
-        <Route path="/budget" element={<ProtectedRoute><Budget /></ProtectedRoute>} />
-        <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+        <Route path="/personnel" element={<ProtectedRoute allowedRoles={['Admin', 'Site Manager']}><Personnel /></ProtectedRoute>} />
+        <Route path="/budget" element={<ProtectedRoute allowedRoles={['Admin']}><Budget /></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute allowedRoles={['Admin', 'Site Manager', 'Client']}><Reports /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute allowedRoles={['Admin', 'Site Manager']}><SettingsPage /></ProtectedRoute>} />
         <Route path="/plan-manager" element={<ProtectedRoute><ProjectPlanManager /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>

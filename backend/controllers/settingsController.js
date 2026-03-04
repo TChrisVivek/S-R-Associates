@@ -1,5 +1,15 @@
 const Settings = require('../models/Settings');
 
+exports.getLogo = async (req, res) => {
+    try {
+        const settings = await Settings.findOne();
+        res.status(200).json({ logoUrl: settings?.companyInfo?.logoUrl || null });
+    } catch (error) {
+        console.error("Get Logo Error:", error);
+        res.status(500).json({ message: "Error fetching logo", error: error.message });
+    }
+};
+
 exports.getSettings = async (req, res) => {
     try {
         let settings = await Settings.findOne();

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 
 import GlobalLoader from './GlobalLoader';
 
-const ProtectedRoute = ({ children, requireRole = null }) => {
+const ProtectedRoute = ({ children, requireRole = null, allowedRoles = null }) => {
     const { user, token, loading } = useAuth();
 
     if (loading) {
@@ -17,6 +17,10 @@ const ProtectedRoute = ({ children, requireRole = null }) => {
 
     if (user.role === 'Pending' && requireRole !== 'Pending') {
         return <Navigate to="/pending-approval" replace />;
+    }
+
+    if (allowedRoles && !allowedRoles.includes(user.role)) {
+        return <Navigate to="/" replace />; // Redirect to dashboard if not allowed
     }
 
     return children;
