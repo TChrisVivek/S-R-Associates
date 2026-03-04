@@ -78,8 +78,11 @@ const logDelivery = async (req, res) => {
         const parsedQuantity = parseFloat(quantity);
         const parsedTotalCost = parseFloat(totalCost);
 
+        // Escape special characters in material name for regex matching (like parentheses)
+        const escapedMaterialName = materialName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+
         // Try to find material by exact name or create new
-        let material = await Material.findOne({ project_id: projectId, name: new RegExp('^' + materialName + '$', 'i') });
+        let material = await Material.findOne({ project_id: projectId, name: new RegExp('^' + escapedMaterialName + '$', 'i') });
 
         if (!material) {
             material = new Material({
