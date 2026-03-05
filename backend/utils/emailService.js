@@ -1,4 +1,8 @@
 const nodemailer = require('nodemailer');
+const dns = require('dns');
+
+// Force Node.js to prefer IPv4 (Render doesn't support outbound IPv6)
+dns.setDefaultResultOrder('ipv4first');
 
 // Create a fresh transporter each time to avoid stale connections on cloud platforms (Render, etc.)
 const getTransporter = () => {
