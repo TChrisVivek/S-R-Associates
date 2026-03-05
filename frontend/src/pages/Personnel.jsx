@@ -2,13 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import CompanyLogo from '../components/CompanyLogo';
 import {
     LayoutDashboard, FolderOpen, Users, FileText, Settings, Plus,
-    Search, MapPin, Trash2, Edit2, X, ChevronRight, BarChart3, Mail, Phone
+    Search, MapPin, Trash2, Edit2, X, ChevronRight, BarChart3, Mail, Phone, Calendar
 } from 'lucide-react';
 import api from '../api/axios';
 import { useToast } from '../components/Toast';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import GlobalLoader from '../components/GlobalLoader';
+import StatusPopover from '../components/StatusPopover';
 
 const Personnel = () => {
     const navigate = useNavigate();
@@ -22,7 +23,7 @@ const Personnel = () => {
     const [companyInitial, setCompanyInitial] = useState('B');
     const [deleteId, setDeleteId] = useState(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [newMember, setNewMember] = useState({ name: '', role: '', email: '', phone: '+91 ', site: '', status: 'On Site' });
+    const [newMember, setNewMember] = useState({ name: '', role: '', email: '', phone: '+91 ', site: '', status: 'On Site', leaveEndDate: '' });
     const [fieldErrors, setFieldErrors] = useState({});
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editMember, setEditMember] = useState(null);
@@ -80,7 +81,7 @@ const Personnel = () => {
             if (response.status === 201) {
                 setPersonnel([response.data, ...personnel]);
                 setIsAddModalOpen(false);
-                setNewMember({ name: '', role: '', email: '', phone: '+91 ', site: '', status: 'On Site' });
+                setNewMember({ name: '', role: '', email: '', phone: '+91 ', site: '', status: 'On Site', leaveEndDate: '' });
                 showToast("Team member added successfully!", "success");
             }
         } catch (error) {
@@ -153,6 +154,7 @@ const Personnel = () => {
         onSite: personnel.filter(p => p.status === 'On Site').length,
         remote: personnel.filter(p => p.status === 'Remote').length,
         offDuty: personnel.filter(p => p.status === 'Off Duty').length,
+        onLeave: personnel.filter(p => p.status === 'On Leave').length,
     }), [personnel]);
 
     return (
@@ -216,15 +218,16 @@ const Personnel = () => {
 
                 <div className="px-8 py-6 space-y-6">
                     {/* Quick Stats */}
-                    <div className="grid grid-cols-4 gap-4">
+                    <div className="grid grid-cols-5 gap-4">
                         <MiniStat label="Total" value={stats.total} color="violet" />
                         <MiniStat label="On Site" value={stats.onSite} color="emerald" />
                         <MiniStat label="Remote" value={stats.remote} color="blue" />
                         <MiniStat label="Off Duty" value={stats.offDuty} color="gray" />
+                        <MiniStat label="On Leave" value={stats.onLeave} color="amber" />
                     </div>
 
                     {/* Data Table */}
-                    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                    <div className="bg-white rounded-2xl border border-gray-100 overflow-visible">
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="border-b border-gray-50">
@@ -257,7 +260,27 @@ const Personnel = () => {
                                             <td className="py-3.5 px-6">
                                                 <span className="text-xs text-gray-500 flex items-center gap-1.5"><MapPin size={12} className="text-gray-300" /> {person.site}</span>
                                             </td>
-                                            <td className="py-3.5 px-6"><StatusPill status={person.status} /></td>
+                                            <td className="py-3.5 px-6">
+                                                <StatusPopover
+                                                    currentStatus={person.status}
+                                                    returnDate={person.leaveEndDate}
+                                                    onStatusChange={async (newStatus, returnDate) => {
+                                                        try {
+                                                            const response = await api.patch(`/personnel/${person._id}/status`, {
+                                                                status: newStatus,
+                                                                leaveEndDate: returnDate
+                                                            });
+                                                            if (response.status === 200) {
+                                                                setPersonnel(prev => prev.map(p => p._id === person._id ? { ...p, status: newStatus, leaveEndDate: returnDate } : p));
+                                                                showToast("Status updated successfully", "success");
+                                                            }
+                                                        } catch (error) {
+                                                            console.error("Failed to update status", error);
+                                                            showToast("Failed to update status", "error");
+                                                        }
+                                                    }}
+                                                />
+                                            </td>
                                             <td className="py-3.5 px-6 text-right">
                                                 <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <button onClick={() => openEditModal(person)} className="text-gray-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-50 transition-colors" title="Edit">
@@ -303,9 +326,17 @@ const Personnel = () => {
                                         <option value="On Site">On Site</option>
                                         <option value="Remote">Remote</option>
                                         <option value="Off Duty">Off Duty</option>
+                                        <option value="On Leave">On Leave</option>
                                     </select>
                                 </div>
                             </div>
+                            {newMember.status === 'On Leave' && (
+                                <div className="animate-in fade-in zoom-in-95 duration-200">
+                                    <label className="block text-xs font-bold text-amber-600 uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Calendar size={12} /> Expected Return Date</label>
+                                    <input type="date" value={newMember.leaveEndDate || ''} onChange={e => setNewMember({ ...newMember, leaveEndDate: e.target.value })}
+                                        className="w-full bg-amber-50/50 border border-amber-200 px-3 py-2.5 rounded-lg focus:ring-1 focus:ring-amber-400 outline-none text-sm text-amber-900 placeholder-amber-300" />
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Role</label>
                                 <select value={newMember.role} onChange={e => { setNewMember({ ...newMember, role: e.target.value }); setFieldErrors(prev => ({ ...prev, role: false })); }}
@@ -356,9 +387,17 @@ const Personnel = () => {
                                         <option value="On Site">On Site</option>
                                         <option value="Remote">Remote</option>
                                         <option value="Off Duty">Off Duty</option>
+                                        <option value="On Leave">On Leave</option>
                                     </select>
                                 </div>
                             </div>
+                            {editMember.status === 'On Leave' && (
+                                <div className="animate-in fade-in zoom-in-95 duration-200">
+                                    <label className="block text-xs font-bold text-amber-600 uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Calendar size={12} /> Expected Return Date</label>
+                                    <input type="date" value={editMember.leaveEndDate ? editMember.leaveEndDate.substring(0, 10) : ''} onChange={e => setEditMember({ ...editMember, leaveEndDate: e.target.value })}
+                                        className="w-full bg-amber-50/50 border border-amber-200 px-3 py-2.5 rounded-lg focus:ring-1 focus:ring-amber-400 outline-none text-sm text-amber-900 placeholder-amber-300" />
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Role</label>
                                 <select value={editMember.role} onChange={e => { setEditMember({ ...editMember, role: e.target.value }); setFieldErrors(prev => ({ ...prev, role: false })); }}
@@ -411,7 +450,7 @@ const NavItem = ({ icon, text, active, href }) => (
 const MiniStat = ({ label, value, color }) => {
     const colors = {
         violet: 'bg-violet-50 text-violet-600', emerald: 'bg-emerald-50 text-emerald-600',
-        blue: 'bg-violet-50 text-violet-500', gray: 'bg-gray-100 text-gray-500',
+        blue: 'bg-violet-50 text-violet-500', gray: 'bg-gray-100 text-gray-500', amber: 'bg-amber-50 text-amber-500'
     };
     return (
         <div className="bg-white border border-gray-100 rounded-xl px-5 py-4">
@@ -424,15 +463,25 @@ const MiniStat = ({ label, value, color }) => {
     );
 };
 
-const StatusPill = ({ status }) => {
+const StatusPill = ({ status, person = {} }) => {
+    if (status === 'On Leave' && person.leaveEndDate) {
+        const returnDate = new Date(person.leaveEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+        return (
+            <span className="px-2 pr-2.5 py-1 bg-amber-50 text-amber-600 rounded-full text-[10px] font-bold border border-amber-100 flex items-center gap-1.5 w-max">
+                <Calendar size={11} className="opacity-70" /> On Leave till {returnDate}
+            </span>
+        );
+    }
+
     const s = {
         'On Site': { bg: 'bg-emerald-50', text: 'text-emerald-600', dot: 'bg-emerald-500' },
         'Remote': { bg: 'bg-violet-50', text: 'text-violet-500', dot: 'bg-violet-500' },
         'Off Duty': { bg: 'bg-gray-100', text: 'text-gray-500', dot: 'bg-gray-400' },
+        'On Leave': { bg: 'bg-amber-50', text: 'text-amber-500', dot: 'bg-amber-400' }
     };
     const c = s[status] || s['Off Duty'];
     return (
-        <span className={`${c.bg} ${c.text} text-[10px] font-semibold pl-2 pr-2.5 py-0.5 rounded-full flex items-center gap-1.5 w-fit`}>
+        <span className={`${c.bg} ${c.text} text-[10px] font-bold pl-2 pr-2.5 py-1 rounded-full flex items-center gap-1.5 w-fit border border-black/5`}>
             <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`}></span>
             {status}
         </span>

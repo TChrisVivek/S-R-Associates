@@ -28,8 +28,12 @@ const personnelSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['On Site', 'Remote', 'Off Duty'],
+        enum: ['On Site', 'Remote', 'Off Duty', 'On Leave'],
         default: 'On Site'
+    },
+    leaveEndDate: {
+        type: Date,
+        default: null
     },
     avatar: String
 }, {

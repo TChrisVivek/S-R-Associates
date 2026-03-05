@@ -50,4 +50,8 @@ app.use('/api/personnel', personnelRoutes);
 app.use('/api/budget', budgetRoutes);
 app.use('/api/settings', settingsRoutes); // Added route
 
+// Initialize Background Jobs
+const { initCronJobs } = require('./utils/cronJobs');
+initCronJobs();
+
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

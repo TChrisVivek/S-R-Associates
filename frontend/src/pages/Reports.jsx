@@ -48,6 +48,13 @@ const Reports = () => {
     // Financial picker
     const [showFinPicker, setShowFinPicker] = useState(false);
     const [finSelectedProject, setFinSelectedProject] = useState('');
+    // Attendance picker
+    const [showAttPicker, setShowAttPicker] = useState(false);
+    const [showGlobalAttPicker, setShowGlobalAttPicker] = useState(false);
+    const [attType, setAttType] = useState('monthly'); // 'monthly' or 'yearly'
+    const [attSelectedProject, setAttSelectedProject] = useState('');
+    const [attMonth, setAttMonth] = useState(new Date().getMonth() + 1);
+    const [attYear, setAttYear] = useState(new Date().getFullYear());
     // Upload modal
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [uploadProject, setUploadProject] = useState('');
@@ -759,6 +766,185 @@ const Reports = () => {
         finally { setGenerating(null); }
     };
 
+    // ─── ATTENDANCE REPORT GENERATION ───
+    const generateAttendanceReport = async () => {
+        if (!attSelectedProject || !attYear || (attType === 'monthly' && !attMonth)) return;
+        setShowAttPicker(false);
+        setGenerating('attendance');
+        try {
+            const project = projects.find(p => p._id === attSelectedProject);
+            const res = await api.get(`/personnel/attendance-report`, {
+                params: { projectId: attSelectedProject, month: attType === 'monthly' ? attMonth : 'all', year: attYear }
+            });
+            const data = res.data || [];
+
+            const doc = new jsPDF();
+            const periodStr = attType === 'monthly' ? `${new Date(attYear, attMonth - 1).toLocaleString('en-US', { month: 'long' })} ${attYear}` : `${attYear}`;
+            let y = addPdfHeader(doc, `Attendance Report: ${periodStr}`);
+
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(26, 29, 46);
+            doc.text(`Project: ${project?.title || 'Unknown'}`, 14, y);
+            y += 8;
+
+            if (data.length === 0) {
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'italic');
+                doc.setTextColor(150, 150, 150);
+                doc.text(`No attendance logs found for this project in the selected ${attType === 'monthly' ? 'month' : 'year'}.`, 14, y);
+            } else {
+                const tableData = data.map(person => [
+                    person.name,
+                    person.role || 'Personnel',
+                    String(person['On Site'] || 0),
+                    String(person['Remote'] || 0),
+                    String(person['On Leave'] || 0),
+                    String(person['Off Duty'] || 0),
+                    String(person.totalDays || 0)
+                ]);
+
+                autoTable(doc, {
+                    startY: y,
+                    head: [['Name', 'Role', 'On Site Days', 'Remote Days', 'Leave Days', 'Off Duty', 'Total Recorded']],
+                    body: tableData,
+                    theme: 'grid',
+                    headStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
+                    bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
+                    alternateRowStyles: { fillColor: [250, 250, 252] },
+                    margin: { left: 14, right: 14 },
+                    styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
+                    columnStyles: {
+                        0: { fontStyle: 'bold', textColor: [26, 29, 46] },
+                        2: { halign: 'center', fontStyle: 'bold', textColor: [22, 163, 74] }, // On Site is green
+                        3: { halign: 'center' },
+                        4: { halign: 'center', textColor: [234, 138, 0] }, // Leave is amber
+                        5: { halign: 'center' },
+                        6: { halign: 'center', fontStyle: 'bold' }
+                    }
+                });
+            }
+
+            addPdfFooter(doc);
+            doc.save(`Attendance_${(project?.title || 'Report').replace(/\s+/g, '_')}_${periodStr.replace(/\s+/g, '_')}.pdf`);
+
+            const newReport = {
+                id: Date.now().toString(),
+                name: `Attendance: ${periodStr}`,
+                project: project?.title || 'Project',
+                date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+                status: 'Ready',
+                size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
+                dataUri: doc.output('datauristring')
+            };
+            setSystemReports(prev => [newReport, ...prev]);
+
+        } catch (error) {
+            console.error('Failed to generate attendance report:', error);
+            showToast('Failed to generate attendance report', 'error');
+        } finally {
+            setGenerating(null);
+        }
+    };
+
+    // ─── GLOBAL ATTENDANCE REPORT GENERATION ───
+    const generateGlobalAttendanceReport = async () => {
+        if (!attYear || (attType === 'monthly' && !attMonth)) return;
+        setShowGlobalAttPicker(false);
+        setGenerating('attendance');
+        try {
+            const doc = new jsPDF();
+            const periodStr = attType === 'monthly' ? `${new Date(attYear, attMonth - 1).toLocaleString('en-US', { month: 'long' })} ${attYear}` : `${attYear}`;
+            let y = addPdfHeader(doc, `Global Attendance Report: ${periodStr}`);
+
+            // Fetch attendance for each active project
+            for (const p of projects) {
+                if (['Completed', 'On Hold'].includes(p.status)) continue;
+
+                if (y > 240) { doc.addPage(); y = 20; }
+
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(26, 29, 46);
+                doc.text(p.title || 'Untitled', 14, y);
+                y += 6;
+
+                try {
+                    const res = await api.get(`/personnel/attendance-report`, {
+                        params: { projectId: p._id, month: attType === 'monthly' ? attMonth : 'all', year: attYear }
+                    });
+                    const data = res.data || [];
+
+                    if (data.length === 0) {
+                        doc.setFontSize(9);
+                        doc.setFont('helvetica', 'italic');
+                        doc.setTextColor(150, 150, 150);
+                        doc.text('No attendance logs found for this project.', 14, y);
+                        y += 10;
+                    } else {
+                        const tableData = data.map(person => [
+                            person.name,
+                            person.role || 'Personnel',
+                            String(person['On Site'] || 0),
+                            String(person['Remote'] || 0),
+                            String(person['On Leave'] || 0),
+                            String(person['Off Duty'] || 0),
+                            String(person.totalDays || 0)
+                        ]);
+
+                        autoTable(doc, {
+                            startY: y,
+                            head: [['Name', 'Role', 'On Site Days', 'Remote Days', 'Leave Days', 'Off Duty', 'Total Recorded']],
+                            body: tableData,
+                            theme: 'grid',
+                            headStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
+                            bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
+                            alternateRowStyles: { fillColor: [250, 250, 252] },
+                            margin: { left: 14, right: 14 },
+                            styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
+                            columnStyles: {
+                                0: { fontStyle: 'bold', textColor: [26, 29, 46] },
+                                2: { halign: 'center', fontStyle: 'bold', textColor: [22, 163, 74] },
+                                3: { halign: 'center' },
+                                4: { halign: 'center', textColor: [234, 138, 0] },
+                                5: { halign: 'center' },
+                                6: { halign: 'center', fontStyle: 'bold' }
+                            }
+                        });
+                        y = doc.lastAutoTable.finalY + 10;
+                    }
+                } catch (e) {
+                    doc.setFontSize(9);
+                    doc.setFont('helvetica', 'italic');
+                    doc.setTextColor(150, 150, 150);
+                    doc.text('Error fetching data for this project.', 14, y);
+                    doc.setTextColor(0, 0, 0);
+                    y += 10;
+                }
+            }
+
+            addPdfFooter(doc);
+            doc.save(`Global_Attendance_${periodStr.replace(/\s+/g, '_')}.pdf`);
+
+            const newReport = {
+                id: Date.now().toString(),
+                name: `Global Attendance: ${periodStr}`,
+                project: `All Active Projects`,
+                date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+                status: 'Ready',
+                size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
+                dataUri: doc.output('datauristring')
+            };
+            setSystemReports(prev => [newReport, ...prev]);
+
+        } catch (error) {
+            console.error('Failed to generate global attendance report:', error);
+            showToast('Failed to generate global attendance report', 'error');
+        } finally {
+            setGenerating(null);
+        }
+    };
+
     // ─── FINANCIAL PICKER ───
     const openFinancialPicker = () => {
         setFinSelectedProject('');
@@ -1056,6 +1242,14 @@ const Reports = () => {
                                             loading={generating === 'financial'}
                                         />
                                     )}
+                                    <GeneratorCard
+                                        title="Personnel Attendance" desc="Monthly aggregate of workforce presence on site."
+                                        icon={<Users size={16} className="text-blue-500" />}
+                                        showGenerateAll={['Admin'].includes(currentUser?.role)}
+                                        onGenerate={() => setShowGlobalAttPicker(true)}
+                                        onDownload={() => { setAttSelectedProject(''); setShowAttPicker(true); }}
+                                        loading={generating === 'attendance'}
+                                    />
                                 </div>
 
                                 {/* History Table */}
@@ -1404,6 +1598,129 @@ const Reports = () => {
                                 >
                                     <Download size={12} /> Download PDF
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* ─── ATTENDANCE PICKER MODAL ─── */}
+            {
+                showAttPicker && (
+                    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
+                        <div className="absolute inset-0" onClick={() => setShowAttPicker(false)}></div>
+                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 flex flex-col">
+                            <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50 shrink-0">
+                                <div>
+                                    <h3 className="font-semibold text-base text-gray-900">Personnel Attendance</h3>
+                                    <p className="text-xs text-gray-400 mt-0.5">Generate aggregate attendance report</p>
+                                </div>
+                                <button onClick={() => setShowAttPicker(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                <div className="mb-1 flex gap-2 w-full p-1 bg-gray-50 rounded-xl border border-gray-100">
+                                    <button onClick={() => setAttType('monthly')} className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${attType === 'monthly' ? 'bg-white shadow-sm text-gray-900 border border-gray-200' : 'text-gray-500 hover:text-gray-700'}`}>Monthly</button>
+                                    <button onClick={() => setAttType('yearly')} className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${attType === 'yearly' ? 'bg-white shadow-sm text-gray-900 border border-gray-200' : 'text-gray-500 hover:text-gray-700'}`}>Yearly</button>
+                                </div>
+                                <div className="mt-2">
+                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Site / Project</label>
+                                    <select
+                                        value={attSelectedProject}
+                                        onChange={e => setAttSelectedProject(e.target.value)}
+                                        className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300"
+                                    >
+                                        <option value="">Select a project...</option>
+                                        {projects.map(p => <option key={p._id} value={p._id}>{p.title}</option>)}
+                                    </select>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 mt-3">
+                                    {attType === 'monthly' && (
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-500 mb-1.5">Month</label>
+                                            <select value={attMonth} onChange={e => setAttMonth(Number(e.target.value))}
+                                                className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
+                                                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                                    <option key={m} value={m}>{new Date(2000, m - 1).toLocaleString('en-US', { month: 'long' })}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                    <div className={attType === 'yearly' ? 'col-span-2' : ''}>
+                                        <label className="block text-xs font-medium text-gray-500 mb-1.5">Year</label>
+                                        <select value={attYear} onChange={e => setAttYear(Number(e.target.value))}
+                                            className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
+                                            {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                                                <option key={y} value={y}>{y}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="pt-2 flex justify-end gap-2 border-t border-gray-50 mt-4">
+                                    <button onClick={() => setShowAttPicker(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">Cancel</button>
+                                    <button
+                                        onClick={generateAttendanceReport}
+                                        disabled={!attSelectedProject || generating === 'attendance'}
+                                        className="px-4 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40 flex items-center gap-1.5"
+                                    >
+                                        {generating === 'attendance' ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Download PDF
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* ─── GLOBAL ATTENDANCE PICKER MODAL ─── */}
+            {
+                showGlobalAttPicker && (
+                    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
+                        <div className="absolute inset-0" onClick={() => setShowGlobalAttPicker(false)}></div>
+                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 flex flex-col">
+                            <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50 shrink-0">
+                                <div>
+                                    <h3 className="font-semibold text-base text-gray-900">Global Personnel Attendance</h3>
+                                    <p className="text-xs text-gray-400 mt-0.5">Generate aggregate attendance for all projects</p>
+                                </div>
+                                <button onClick={() => setShowGlobalAttPicker(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                <div className="mb-1 flex gap-2 w-full p-1 bg-gray-50 rounded-xl border border-gray-100">
+                                    <button onClick={() => setAttType('monthly')} className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${attType === 'monthly' ? 'bg-white shadow-sm text-gray-900 border border-gray-200' : 'text-gray-500 hover:text-gray-700'}`}>Monthly</button>
+                                    <button onClick={() => setAttType('yearly')} className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${attType === 'yearly' ? 'bg-white shadow-sm text-gray-900 border border-gray-200' : 'text-gray-500 hover:text-gray-700'}`}>Yearly</button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 mt-3">
+                                    {attType === 'monthly' && (
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-500 mb-1.5">Month</label>
+                                            <select value={attMonth} onChange={e => setAttMonth(Number(e.target.value))}
+                                                className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
+                                                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                                                    <option key={m} value={m}>{new Date(2000, m - 1).toLocaleString('en-US', { month: 'long' })}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                    <div className={attType === 'yearly' ? 'col-span-2' : ''}>
+                                        <label className="block text-xs font-medium text-gray-500 mb-1.5">Year</label>
+                                        <select value={attYear} onChange={e => setAttYear(Number(e.target.value))}
+                                            className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
+                                            {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                                                <option key={y} value={y}>{y}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="pt-2 flex justify-end gap-2 border-t border-gray-50 mt-4">
+                                    <button onClick={() => setShowGlobalAttPicker(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">Cancel</button>
+                                    <button
+                                        onClick={generateGlobalAttendanceReport}
+                                        disabled={generating === 'attendance'}
+                                        className="px-4 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40 flex items-center gap-1.5"
+                                    >
+                                        {generating === 'attendance' ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Download PDF
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
