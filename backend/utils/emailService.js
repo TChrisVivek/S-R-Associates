@@ -1,20 +1,20 @@
 const nodemailer = require('nodemailer');
 
-// Create transporter lazily so env vars are always read at call time (important for hosted platforms like Render)
-let _transporter = null;
+// Create a fresh transporter each time to avoid stale connections on cloud platforms (Render, etc.)
 const getTransporter = () => {
-    if (!_transporter || !_transporter._auth) {
-        _transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || 'smtp.gmail.com',
-            port: process.env.SMTP_PORT || 587,
-            secure: process.env.SMTP_SECURE === 'true',
-            auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS,
-            },
-        });
-    }
-    return _transporter;
+    const smtpPort = parseInt(process.env.SMTP_PORT || '465');
+    return nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        port: smtpPort,
+        secure: smtpPort === 465, // true for 465 (direct SSL), false for 587 (STARTTLS)
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+        },
+        connectionTimeout: 10000,  // 10s to establish connection
+        greetingTimeout: 10000,    // 10s for server greeting
+        socketTimeout: 15000,      // 15s for socket inactivity
+    });
 };
 
 /**
@@ -140,11 +140,20 @@ const sendClientInviteEmail = async (toEmail, projectName, companyLogoUrl = null
             return true;
         }
 
-        const info = await getTransporter().sendMail(mailOptions);
-        console.log("Email sent: %s", info.messageId);
+        const transport = getTransporter();
+
+        // Verify SMTP connection before sending
+        console.log(`[Email] Verifying SMTP connection to ${process.env.SMTP_HOST || 'smtp.gmail.com'}:${process.env.SMTP_PORT || 465}...`);
+        await transport.verify();
+        console.log('[Email] SMTP connection verified successfully');
+
+        console.log('[Email] Sending email...');
+        const info = await transport.sendMail(mailOptions);
+        console.log("[Email] Email sent successfully: %s", info.messageId);
         return true;
     } catch (error) {
-        console.error("Error sending invite email: ", error);
+        console.error("[Email] Error sending invite email:", error.message);
+        console.error("[Email] Full error:", error);
         return false;
     }
 };
