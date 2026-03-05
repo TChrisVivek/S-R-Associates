@@ -86,9 +86,8 @@ const Reports = () => {
         try {
             const response = await api.get('/projects');
             let projectsData = response.data || [];
-            if (currentUser?.role === 'Site Manager') {
-                projectsData = projectsData.filter(p => p.manager === currentUser.username);
-            }
+
+            // Site managers should select individual projects rather than being completely blocked from seeing them
             setProjects(projectsData);
             const docs = [];
             projectsData.forEach(project => {
@@ -983,13 +982,13 @@ const Reports = () => {
                         {['Admin'].includes(currentUser?.role) && <NavItem icon={<BarChart3 size={17} />} text="Budget" href="/budget" />}
                         {['Admin', 'Site Manager', 'Client'].includes(currentUser?.role) && <NavItem icon={<FileText size={17} />} text="Reports" active href="/reports" />}
                         {['Admin', 'Site Manager'].includes(currentUser?.role) && (
-                        <>
-                            <div className="px-3 mt-6 mb-3">
-                                <p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">System</p>
-                            </div>
-                            <NavItem icon={<Settings size={17} />} text="Settings" href="/settings" />
-                        </>
-                    )}
+                            <>
+                                <div className="px-3 mt-6 mb-3">
+                                    <p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">System</p>
+                                </div>
+                                <NavItem icon={<Settings size={17} />} text="Settings" href="/settings" />
+                            </>
+                        )}
                     </nav>
                     <div className="px-3 pb-4">
                         <div onClick={() => navigate('/profile')} className="flex items-center gap-3 px-3 py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.04] transition-all cursor-pointer group">
@@ -1036,6 +1035,7 @@ const Reports = () => {
                                         title="Daily Progress" desc="Site activities, manpower usage, and milestone completions."
                                         icon={<Calendar size={16} className="text-violet-500" />}
                                         onGenerate={openDatePicker}
+                                        showGenerateAll={['Admin'].includes(currentUser?.role)}
                                         onDownload={() => setShowDailyPicker(true)}
                                         loading={generating === 'daily'}
                                     />
@@ -1043,6 +1043,7 @@ const Reports = () => {
                                         title="Inventory Report" desc="Stock levels, consumption rates, and procurement needs."
                                         icon={<Box size={16} className="text-emerald-500" />}
                                         onGenerate={() => generateInventoryReport(false)}
+                                        showGenerateAll={['Admin'].includes(currentUser?.role)}
                                         onDownload={openInventoryPicker}
                                         loading={generating === 'inventory'}
                                     />
@@ -1533,17 +1534,19 @@ const NavItem = ({ icon, text, active, href }) => (
     </a>
 );
 
-const GeneratorCard = ({ title, desc, icon, onGenerate, onDownload, loading }) => (
+const GeneratorCard = ({ title, desc, icon, onGenerate, onDownload, loading, showGenerateAll }) => (
     <div className="bg-white rounded-2xl border border-gray-100 p-5 flex flex-col hover:border-gray-200 transition-colors">
         <div className="w-9 h-9 bg-gray-50 rounded-lg flex items-center justify-center mb-3">{icon}</div>
         <h3 className="text-sm font-semibold text-gray-900 mb-1">{title}</h3>
         <p className="text-xs text-gray-400 leading-relaxed mb-4 flex-1">{desc}</p>
         <div className="space-y-2">
-            <button onClick={onGenerate} disabled={loading} className="w-full bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5">
-                {loading ? <><Loader2 size={12} className="animate-spin" /> Generating...</> : 'Generate'}
-            </button>
-            <button onClick={onDownload} disabled={loading} className="w-full bg-gray-50 text-gray-600 text-xs font-medium py-2 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50">
-                <Download size={12} /> Download PDF
+            {showGenerateAll !== false && (
+                <button onClick={onGenerate} disabled={loading} className="w-full bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5">
+                    {loading ? <><Loader2 size={12} className="animate-spin" /> Generating...</> : 'Generate All Files'}
+                </button>
+            )}
+            <button onClick={onDownload} disabled={loading} className={`w-full text-xs font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 ${showGenerateAll === false ? 'bg-[#1a1d2e] text-white hover:bg-[#252840]' : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
+                <Download size={12} /> Specific Project Report
             </button>
         </div>
     </div>

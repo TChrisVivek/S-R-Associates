@@ -87,7 +87,7 @@ const SettingsPage = () => {
         try {
             await api.put(`/users/${userId}/role`, { role: newRole });
             showToast("User role updated successfully", "success");
-            fetchUsers();
+            setUsers(prevUsers => prevUsers.map(u => u._id === userId ? { ...u, role: newRole } : u));
         } catch (error) { console.error("Failed to update role", error); showToast("Failed to update user role", "error"); }
     };
 
@@ -246,22 +246,25 @@ const SettingsPage = () => {
                                                     </div>
                                                 </td>
                                                 <td className="py-3 px-6">
-                                                    {member.role === 'Pending' ? (
-                                                        <select className="text-xs border border-amber-200 rounded-md py-1 px-2 bg-amber-50 text-amber-700 font-medium outline-none"
-                                                            onChange={(e) => handleRoleUpdate(member._id, e.target.value)} defaultValue="">
-                                                            <option value="" disabled>Assign Role...</option>
-                                                            <option value="Admin">Admin</option>
-                                                            <option value="Site Manager">Site Manager</option>
-                                                            <option value="Contractor">Contractor</option>
-                                                            <option value="Client">Client</option>
-                                                        </select>
-                                                    ) : (
-                                                        <span className="text-xs text-gray-500 font-medium">{member.role}</span>
-                                                    )}
+                                                    <select
+                                                        className={`text-xs border rounded-md py-1.5 px-2 font-medium outline-none focus:ring-1 focus:ring-violet-500 transition-shadow disabled:opacity-50 disabled:bg-gray-50 disabled:cursor-not-allowed ${member.role === 'Pending' ? 'border-amber-200 bg-amber-50 text-amber-700' : member.role === 'Blocked' ? 'border-red-200 bg-red-50 text-red-700' : 'border-gray-200 bg-white text-gray-700'}`}
+                                                        onChange={(e) => handleRoleUpdate(member._id, e.target.value)}
+                                                        defaultValue={member.role}
+                                                        disabled={member.username === currentUser?.username}
+                                                    >
+                                                        {member.role === 'Pending' && <option value="Pending" disabled>Assign Role...</option>}
+                                                        <option value="Admin">Admin</option>
+                                                        <option value="Site Manager">Site Manager</option>
+                                                        <option value="Contractor">Contractor</option>
+                                                        <option value="Client">Client</option>
+                                                        <option value="Blocked" className="text-red-600 font-semibold">Block Access</option>
+                                                    </select>
                                                 </td>
                                                 <td className="py-3 px-6">
                                                     {member.role === 'Pending' ? (
                                                         <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Needs Approval</span>
+                                                    ) : member.role === 'Blocked' ? (
+                                                        <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Restricted</span>
                                                     ) : (
                                                         <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Active</span>
                                                     )}

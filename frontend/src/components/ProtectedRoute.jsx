@@ -19,6 +19,10 @@ const ProtectedRoute = ({ children, requireRole = null, allowedRoles = null }) =
         return <Navigate to="/pending-approval" replace />;
     }
 
+    if (user.role === 'Blocked' && requireRole !== 'Blocked') {
+        return <Navigate to="/blocked" replace />;
+    }
+
     if (allowedRoles && !allowedRoles.includes(user.role)) {
         return <Navigate to="/" replace />; // Redirect to dashboard if not allowed
     }

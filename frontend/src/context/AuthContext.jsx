@@ -29,6 +29,27 @@ export const AuthProvider = ({ children }) => {
         initAuth();
     }, [token]);
 
+    // Global listener to detect unexpected role changes (e.g., getting Blocked or Demoted)
+    useEffect(() => {
+        let interval;
+        if (user && user.role !== 'Pending' && user.role !== 'Blocked') {
+            interval = setInterval(async () => {
+                try {
+                    const res = await api.get('/auth/me');
+                    if (res.data && res.data.role !== user.role) {
+                        setUser(res.data);
+                    }
+                } catch (err) {
+                    console.error("Silent auth check failed", err);
+                    if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+                        logout();
+                    }
+                }
+            }, 5000); // Check every 5 seconds
+        }
+        return () => clearInterval(interval);
+    }, [user]);
+
     const login = (newToken, userData) => {
         localStorage.setItem('token', newToken);
         setToken(newToken);

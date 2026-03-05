@@ -1,10 +1,32 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Clock, LogOut, ShieldAlert } from 'lucide-react';
 import CompanyLogo from '../components/CompanyLogo';
+import api from '../api/axios';
+import { useNavigate } from 'react-router-dom';
 
 const PendingApproval = () => {
-    const { logout } = useAuth();
+    const { logout, setUser, user } = useAuth();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        let interval;
+        if (user?.role === 'Pending') {
+            // Poll the server every 5 seconds to check if the role has been updated
+            interval = setInterval(async () => {
+                try {
+                    const res = await api.get('/auth/me');
+                    if (res.data && res.data.role !== 'Pending') {
+                        setUser(res.data);
+                        navigate('/');
+                    }
+                } catch (err) {
+                    console.error("Failed to verify account status", err);
+                }
+            }, 5000);
+        }
+        return () => clearInterval(interval);
+    }, [user, setUser, navigate]);
 
     return (
         <div className="flex h-screen items-center justify-center bg-[#0f1117] p-4 font-sans relative overflow-hidden">

@@ -12,6 +12,7 @@ import Login from './pages/Login';
 import PendingApproval from './pages/PendingApproval';
 import ProtectedRoute from './components/ProtectedRoute';
 import UserProfile from './pages/UserProfile';
+import BlockedAccess from './pages/BlockedAccess';
 import './index.css';
 
 function App() {
@@ -22,8 +23,9 @@ function App() {
 
         {/* Protected 'Pending' route (only accessible if logged in, but not necessarily approved) */}
         <Route path="/pending-approval" element={<ProtectedRoute requireRole="Pending"><PendingApproval /></ProtectedRoute>} />
+        <Route path="/blocked" element={<ProtectedRoute requireRole="Blocked"><BlockedAccess /></ProtectedRoute>} />
 
-        {/* Protected Application Routes (must not be pending) */}
+        {/* Protected Application Routes (must not be pending or blocked) */}
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
         <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
