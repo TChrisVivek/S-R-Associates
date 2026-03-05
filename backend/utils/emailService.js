@@ -5,12 +5,12 @@ const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 
 // Create a fresh transporter each time to avoid stale connections on cloud platforms (Render, etc.)
+// IMPORTANT: Use port 465 + SSL — Render blocks port 587 (STARTTLS) outbound connections
 const getTransporter = () => {
-    const smtpPort = parseInt(process.env.SMTP_PORT || '465');
     return nodemailer.createTransport({
         host: process.env.SMTP_HOST || 'smtp.gmail.com',
-        port: smtpPort,
-        secure: smtpPort === 465, // true for 465 (direct SSL), false for 587 (STARTTLS)
+        port: 465,
+        secure: true, // direct SSL — works on all cloud providers including Render
         auth: {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS,
