@@ -392,12 +392,16 @@ const ProjectDetail = () => {
                             <span className="text-gray-900 font-bold">{project.title}</span>
                         </div>
                         <div className="flex gap-3 items-center">
-                            <button onClick={() => setIsPersonnelModalOpen(true)} className="bg-[#1a1d2e] hover:bg-[#252840] text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center gap-2">
-                                <UserPlus size={18} /> Add Personnel
-                            </button>
-                            <button onClick={() => setIsSettingsModalOpen(true)} className="bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all border border-gray-700">
-                                Project Settings
-                            </button>
+                            {currentUser?.role !== 'Client' && (
+                                <>
+                                    <button onClick={() => setIsPersonnelModalOpen(true)} className="bg-[#1a1d2e] hover:bg-[#252840] text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center gap-2">
+                                        <UserPlus size={18} /> Add Personnel
+                                    </button>
+                                    <button onClick={() => setIsSettingsModalOpen(true)} className="bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all border border-gray-700">
+                                        Project Settings
+                                    </button>
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -488,9 +492,11 @@ const ProjectDetail = () => {
                                     <p className="text-xs text-gray-500 mb-4 font-medium">Auto-calculated from material deliveries</p>
                                     <CustomDonut percentage={project.stats.budgetSpent} color="#6366f1" label="SPENT" />
                                 </div>
-                                <button onClick={() => setIsStatsModalOpen(true)} className="w-full py-3.5 bg-violet-50 text-violet-500 hover:bg-[#1a1d2e] hover:text-white rounded-2xl font-medium tracking-wide transition-all shadow-sm">
-                                    Update Metrics
-                                </button>
+                                {currentUser?.role !== 'Client' && (
+                                    <button onClick={() => setIsStatsModalOpen(true)} className="w-full py-3.5 bg-violet-50 text-violet-500 hover:bg-[#1a1d2e] hover:text-white rounded-2xl font-medium tracking-wide transition-all shadow-sm">
+                                        Update Metrics
+                                    </button>
+                                )}
                             </div>
 
                             {/* Right Column (Span 2): Feeds and Tasks */}
@@ -503,9 +509,11 @@ const ProjectDetail = () => {
                                             <h3 className="font-semibold text-xl text-gray-900">Live Site Feed</h3>
                                             <p className="text-sm text-gray-500 font-medium">Latest photos directly from the ground.</p>
                                         </div>
-                                        <button onClick={() => setIsFeedModalOpen(true)} className="text-sm font-medium text-white hover:bg-[#252840] bg-[#1a1d2e] px-4 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-sm">
-                                            <Upload size={16} /> Add Photo
-                                        </button>
+                                        {currentUser?.role !== 'Client' && (
+                                            <button onClick={() => setIsFeedModalOpen(true)} className="text-sm font-medium text-white hover:bg-[#252840] bg-[#1a1d2e] px-4 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-sm">
+                                                <Upload size={16} /> Add Photo
+                                            </button>
+                                        )}
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {project.liveFeed.map(feed => (
@@ -560,21 +568,25 @@ const ProjectDetail = () => {
                                                             <div className="w-8 h-8 rounded-full bg-gray-300 border-2 border-white shadow-sm"></div>
                                                         </div>
                                                     )}
-                                                    <button
-                                                        onClick={() => handleDeleteTask(task.id)}
-                                                        disabled={actionLoading}
-                                                        className="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
-                                                        title="Delete Task"
-                                                    >
-                                                        <Trash2 size={18} />
-                                                    </button>
+                                                    {currentUser?.role !== 'Client' && (
+                                                        <button
+                                                            onClick={() => handleDeleteTask(task.id)}
+                                                            disabled={actionLoading}
+                                                            className="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                                                            title="Delete Task"
+                                                        >
+                                                            <Trash2 size={18} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
-                                    <button onClick={() => setIsTaskModalOpen(true)} disabled={actionLoading} className="w-full mt-4 py-3 border-2 border-dashed border-gray-200 rounded-2xl text-gray-500 font-bold text-sm hover:border-violet-300 hover:text-violet-500 hover:bg-violet-50/50 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                                        <Plus size={18} /> Add Urgent Task
-                                    </button>
+                                    {currentUser?.role !== 'Client' && (
+                                        <button onClick={() => setIsTaskModalOpen(true)} disabled={actionLoading} className="w-full mt-4 py-3 border-2 border-dashed border-gray-200 rounded-2xl text-gray-500 font-bold text-sm hover:border-violet-300 hover:text-violet-500 hover:bg-violet-50/50 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                                            <Plus size={18} /> Add Urgent Task
+                                        </button>
+                                    )}
                                 </div>
 
                             </div>

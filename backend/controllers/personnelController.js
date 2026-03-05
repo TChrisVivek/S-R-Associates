@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Personnel = require('../models/Personnel');
 const Vendor = require('../models/Vendor');
+const logActivity = require('../utils/activityLogger');
 
 // 1. GET: Fetch all personnel
 exports.getPersonnel = async (req, res) => {
@@ -34,6 +35,11 @@ exports.addPersonnel = async (req, res) => {
 
         const newMember = new Personnel(req.body);
         await newMember.save();
+
+        if (req.user && req.user._id) {
+            logActivity(req.user._id, 'ADDED_PERSONNEL', 'Personnel', `Added new personnel: ${newMember.name} (${newMember.role || 'No role'})`, newMember._id);
+        }
+
         res.status(201).json(newMember);
     } catch (error) {
         res.status(400).json({ message: "Failed to add member", error: error.message });
@@ -44,7 +50,25 @@ exports.addPersonnel = async (req, res) => {
 exports.deletePersonnel = async (req, res) => {
     try {
         const { id } = req.params;
-        await Personnel.findByIdAndDelete(id);
+        const member = await Personnel.findByIdAndDelete(id);
+
+        if (member) {
+            // Clear the personnel's name from any project's manager/contractor field
+            const Project = require('../models/Project');
+            await Project.updateMany(
+                { manager: member.name },
+                { $set: { manager: 'Unassigned' } }
+            );
+            await Project.updateMany(
+                { contractor: member.name },
+                { $set: { contractor: 'Unassigned' } }
+            );
+
+            if (req.user && req.user._id) {
+                logActivity(req.user._id, 'DELETED_PERSONNEL', 'Personnel', `Removed personnel: ${member.name}`, id);
+            }
+        }
+
         res.json({ message: "Member removed" });
     } catch (error) {
         res.status(500).json({ message: "Failed to delete", error: error.message });
@@ -57,6 +81,11 @@ exports.updatePersonnel = async (req, res) => {
         const { id } = req.params;
         const updatedMember = await Personnel.findByIdAndUpdate(id, req.body, { new: true });
         if (!updatedMember) return res.status(404).json({ message: "Member not found" });
+
+        if (req.user && req.user._id) {
+            logActivity(req.user._id, 'UPDATED_PERSONNEL', 'Personnel', `Updated personnel: ${updatedMember.name}`, updatedMember._id);
+        }
+
         res.json(updatedMember);
     } catch (error) {
         res.status(400).json({ message: "Failed to update member", error: error.message });
@@ -78,6 +107,11 @@ exports.updatePersonnelStatus = async (req, res) => {
 
         const updatedMember = await Personnel.findByIdAndUpdate(id, updateData, { new: true });
         if (!updatedMember) return res.status(404).json({ message: "Member not found" });
+
+        if (req.user && req.user._id) {
+            logActivity(req.user._id, 'CHANGED_STATUS', 'Personnel', `Changed status of ${updatedMember.name} to "${status}"`, updatedMember._id);
+        }
+
         res.json(updatedMember);
     } catch (error) {
         console.error("Error updating status:", error);

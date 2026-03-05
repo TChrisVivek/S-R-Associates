@@ -6,6 +6,7 @@ const projectSchema = new mongoose.Schema({
         required: true
     },
     client: String,
+    clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
     address: String,
     siteSize: Number,
     floors: Number,

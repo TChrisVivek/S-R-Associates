@@ -133,12 +133,14 @@ const Projects = () => {
                                 className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300 w-56 text-sm text-gray-600 placeholder-gray-300"
                             />
                         </div>
-                        <button
-                            onClick={() => setIsCreateModalOpen(true)}
-                            className="bg-[#1a1d2e] hover:bg-[#252840] text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
-                        >
-                            <Plus size={16} strokeWidth={2.5} /> New Project
-                        </button>
+                        {currentUser?.role !== 'Client' && (
+                            <button
+                                onClick={() => setIsCreateModalOpen(true)}
+                                className="bg-[#1a1d2e] hover:bg-[#252840] text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors"
+                            >
+                                <Plus size={16} strokeWidth={2.5} /> New Project
+                            </button>
+                        )}
                     </div>
                 </header>
 

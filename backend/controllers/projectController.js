@@ -3,6 +3,7 @@ const fs = require('fs-extra');
 const Project = require('../models/Project');
 const Material = require('../models/Material');
 const Personnel = require('../models/Personnel');
+const logActivity = require('../utils/activityLogger');
 
 exports.uploadBlueprint = async (req, res) => {
     try {
@@ -44,6 +45,17 @@ exports.createProject = async (req, res) => {
 
         const project = new Project(req.body);
         await project.save();
+
+        if (req.user && req.user._id) {
+            logActivity(
+                req.user._id,
+                'CREATED_PROJECT',
+                'Project',
+                `Created new project: ${project.title}`,
+                project._id
+            );
+        }
+
         res.status(201).json(project);
     } catch (error) {
         console.error("Create Project Error:", error);
@@ -53,7 +65,14 @@ exports.createProject = async (req, res) => {
 
 exports.getAllProjects = async (req, res) => {
     try {
-        const projects = await Project.find().sort({ createdAt: -1 });
+        let query = {};
+
+        // Resource-level filtering: Clients only see their assigned projects
+        if (req.user && req.user.role === 'Client') {
+            query.clientId = req.user._id;
+        }
+
+        const projects = await Project.find(query).sort({ createdAt: -1 });
         let hasUpdates = false;
 
         // Auto-update status to "Delayed" if time remaining is 0 or negative
@@ -94,6 +113,16 @@ exports.deleteProject = async (req, res) => {
         // Optional: you could delete related material, daily logs, and pins here.
         // For now, we will just unassign personnel and delete the project.
 
+        if (req.user && req.user._id) {
+            logActivity(
+                req.user._id,
+                'DELETED_PROJECT',
+                'Project',
+                `Deleted project: ${project.title}`,
+                projectId
+            );
+        }
+
         res.json({ message: "Project deleted successfully" });
     } catch (error) {
         console.error("Error deleting project:", error);
@@ -109,6 +138,12 @@ exports.getProjectById = async (req, res) => {
 
         if (!project) {
             return res.status(404).json({ message: "Project not found" });
+        }
+
+        // Resource-level check: Clients can only view their own projects
+        if (req.user && req.user.role === 'Client' &&
+            (!project.clientId || project.clientId.toString() !== req.user._id.toString())) {
+            return res.status(403).json({ message: "You do not have access to this project" });
         }
 
         // Format Date logic
@@ -279,6 +314,17 @@ exports.updateProjectSettings = async (req, res) => {
         if (image !== undefined) project.image = image;
 
         await project.save();
+
+        if (req.user && req.user._id) {
+            logActivity(
+                req.user._id,
+                'UPDATED_PROJECT',
+                'Project',
+                `Updated project settings for: ${project.title}`,
+                project._id
+            );
+        }
+
         res.status(200).json({ message: "Project settings updated successfully", project });
     } catch (error) {
         console.error("Update Project Settings Error:", error);
@@ -296,6 +342,11 @@ exports.addCriticalTask = async (req, res) => {
         project.criticalTasks.push(newTask);
 
         await project.save();
+
+        if (req.user && req.user._id) {
+            logActivity(req.user._id, 'ADDED_TASK', 'Project', `Added critical task "${title}" to project: ${project.title}`, project._id);
+        }
+
         res.status(201).json(project.criticalTasks[project.criticalTasks.length - 1]);
     } catch (error) {
         console.error("Add Critical Task Error:", error);
@@ -311,6 +362,10 @@ exports.deleteCriticalTask = async (req, res) => {
 
         project.criticalTasks = project.criticalTasks.filter(task => task._id.toString() !== taskId);
         await project.save();
+
+        if (req.user && req.user._id) {
+            logActivity(req.user._id, 'DELETED_TASK', 'Project', `Deleted a critical task from project: ${project.title}`, project._id);
+        }
 
         res.status(200).json({ message: "Task deleted successfully" });
     } catch (error) {
@@ -340,6 +395,10 @@ exports.addLiveFeedRecord = async (req, res) => {
 
         project.liveFeed.push(...newFeeds);
         await project.save();
+
+        if (req.user && req.user._id) {
+            logActivity(req.user._id, 'ADDED_LIVE_FEED', 'Project', `Added ${newFeeds.length} live feed image(s) to project: ${project.title}`, project._id);
+        }
 
         res.status(201).json(project.liveFeed.slice(-newFeeds.length));
     } catch (error) {
@@ -387,6 +446,7 @@ exports.getBlueprintAndTasks = async (req, res) => {
                 assignee: "Unassigned",
                 x: pin.x_cord,
                 y: pin.y_cord,
+                page: pin.page || 1,
                 color: color
             };
         });
@@ -404,7 +464,7 @@ exports.getBlueprintAndTasks = async (req, res) => {
 
 exports.addBlueprintTask = async (req, res) => {
     const { id: projectId } = req.params;
-    const { title, x, y, status, blueprint_id } = req.body;
+    const { title, x, y, status, blueprint_id, page } = req.body;
 
     try {
         const project = await Project.findById(projectId);
@@ -420,10 +480,15 @@ exports.addBlueprintTask = async (req, res) => {
             title: title || "New Task",
             x_cord: x,
             y_cord: y,
-            status: dbStatus
+            status: dbStatus,
+            page: page || 1
         });
 
         await newPin.save();
+
+        if (req.user && req.user._id) {
+            logActivity(req.user._id, 'ADDED_BLUEPRINT_TASK', 'Project', `Added blueprint task "${newPin.title}" to project`, project._id);
+        }
 
         res.status(201).json({
             id: newPin._id.toString(),
@@ -433,6 +498,7 @@ exports.addBlueprintTask = async (req, res) => {
             assignee: "Unassigned",
             x: newPin.x_cord,
             y: newPin.y_cord,
+            page: newPin.page,
             color: "#f59e0b"
         });
     } catch (error) {
@@ -447,6 +513,10 @@ exports.deleteBlueprintTask = async (req, res) => {
         const result = await Pin.findByIdAndDelete(taskId);
 
         if (!result) return res.status(404).json({ message: "Task not found" });
+
+        if (req.user && req.user._id) {
+            logActivity(req.user._id, 'DELETED_BLUEPRINT_TASK', 'Project', `Deleted a blueprint task from project`, projectId);
+        }
 
         res.status(200).json({ message: "Task deleted successfully", id: taskId });
     } catch (error) {
@@ -485,6 +555,10 @@ exports.uploadProjectBlueprint = async (req, res) => {
         project.blueprints.push(...uploadedFiles);
         await project.save();
 
+        if (req.user && req.user._id) {
+            logActivity(req.user._id, 'UPLOADED_BLUEPRINT', 'Project', `Uploaded ${uploadedFiles.length} blueprint(s) to project: ${project.title}`, project._id);
+        }
+
         res.status(200).json({
             message: "Upload Successful",
             blueprints: project.blueprints
@@ -505,6 +579,10 @@ exports.deleteProjectBlueprint = async (req, res) => {
         // Remove blueprint by its subdocument ID
         project.blueprints = project.blueprints.filter(bp => bp._id.toString() !== blueprintId);
         await project.save();
+
+        if (req.user && req.user._id) {
+            logActivity(req.user._id, 'DELETED_BLUEPRINT', 'Project', `Deleted a blueprint from project: ${project.title}`, project._id);
+        }
 
         res.status(200).json({ message: "Blueprint deleted successfully" });
     } catch (error) {

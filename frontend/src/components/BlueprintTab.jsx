@@ -9,6 +9,7 @@ import api from '../api/axios';
 import { useToast } from './Toast';
 import GlobalLoader from './GlobalLoader';
 import { uploadToCloudinary } from '../utils/cloudinaryUpload';
+import { useAuth } from '../context/AuthContext';
 
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -23,6 +24,8 @@ const BlueprintTab = ({ projectId }) => {
     const [uploading, setUploading] = useState(false);
     const [isSheetSelectorOpen, setIsSheetSelectorOpen] = useState(false);
     const { showToast, ToastComponent } = useToast();
+    const { user: currentUser } = useAuth();
+    const isClient = currentUser?.role === 'Client';
 
     // Custom Prompt State
     const [isPromptOpen, setIsPromptOpen] = useState(false);
@@ -45,6 +48,8 @@ const BlueprintTab = ({ projectId }) => {
     // PDF rendering state
     const [pdfPageLoading, setPdfPageLoading] = useState(false);
     const [containerWidth, setContainerWidth] = useState(800);
+    const [numPages, setNumPages] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
 
     // Current active blueprint
     const blueprintData = allBlueprints.length > 0 ? allBlueprints[activeBlueprintIndex] : null;
@@ -101,10 +106,55 @@ const BlueprintTab = ({ projectId }) => {
     const switchSheet = (index) => {
         setActiveBlueprintIndex(index);
         setIsSheetSelectorOpen(false);
-        // Reset zoom/pan when switching
+        // Reset zoom/pan/page when switching
         setScale(1);
         setPosition({ x: 0, y: 0 });
+        setCurrentPage(1);
+        setNumPages(null);
     };
+
+    // Trigger loading spinner when page changes
+    useEffect(() => {
+        setPdfPageLoading(true);
+    }, [currentPage]);
+
+    // Discover total number of pages for Cloudinary PDFs by probing page images
+    useEffect(() => {
+        if (!blueprintData?.imageUrl) return;
+        const url = blueprintData.imageUrl;
+        const isCloudinary = url.includes('cloudinary.com');
+        const isPdf = url.toLowerCase().split('?')[0].endsWith('.pdf');
+
+        if (!isCloudinary || !isPdf) {
+            setNumPages(1);
+            return;
+        }
+
+        let cancelled = false;
+
+        const probePages = async () => {
+            let lastValid = 1; // Page 1 always exists
+            for (let page = 2; page <= 50; page++) {
+                const testUrl = url.replace('/upload/', `/upload/pg_${page},w_1,q_1/`).replace(/\.pdf$/i, '.jpg');
+                try {
+                    const res = await fetch(testUrl, { method: 'HEAD' });
+                    if (res.ok) {
+                        lastValid = page;
+                    } else {
+                        break;
+                    }
+                } catch {
+                    break;
+                }
+            }
+            if (!cancelled) {
+                setNumPages(lastValid);
+            }
+        };
+
+        probePages();
+        return () => { cancelled = true; };
+    }, [blueprintData]);
 
     // Navigate sheets with arrows
     const prevSheet = () => {
@@ -136,6 +186,7 @@ const BlueprintTab = ({ projectId }) => {
             status: "PENDING",
             x: tempClickData.xPercent,
             y: tempClickData.yPercent,
+            page: currentPage,
             blueprint_id: blueprintData?.id || blueprintData?._id
         };
 
@@ -309,7 +360,7 @@ const BlueprintTab = ({ projectId }) => {
 
                 <button
                     onClick={handleUploadClick}
-                    disabled={uploading}
+                    disabled={uploading || isClient}
                     className="bg-[#1a1d2e] hover:bg-[#252840] text-white px-8 py-3.5 rounded-xl font-medium shadow-sm transition-all flex items-center gap-2 disabled:opacity-50"
                 >
                     {uploading ? (
@@ -410,21 +461,25 @@ const BlueprintTab = ({ projectId }) => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <input
-                        type="file"
-                        accept="application/pdf"
-                        ref={fileInputRef}
-                        onChange={handleFileChange}
-                        className="hidden"
-                    />
-                    <button
-                        onClick={handleUploadClick}
-                        disabled={uploading}
-                        className="flex items-center gap-2 text-sm font-medium text-white bg-[#1a1d2e] hover:bg-[#252840] px-4 py-2 rounded-lg transition shadow-sm disabled:opacity-50"
-                    >
-                        {uploading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                        {uploading ? 'Processing...' : 'Upload Sheet'}
-                    </button>
+                    {!isClient && (
+                        <>
+                            <input
+                                type="file"
+                                accept="application/pdf"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                className="hidden"
+                            />
+                            <button
+                                onClick={handleUploadClick}
+                                disabled={uploading}
+                                className="flex items-center gap-2 text-sm font-medium text-white bg-[#1a1d2e] hover:bg-[#252840] px-4 py-2 rounded-lg transition shadow-sm disabled:opacity-50"
+                            >
+                                {uploading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                                {uploading ? 'Processing...' : 'Upload Sheet'}
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -474,57 +529,60 @@ const BlueprintTab = ({ projectId }) => {
                                 const url = blueprintData.imageUrl;
                                 if (!url) return null;
 
-                                const isCloudinaryPdf = url.includes('cloudinary.com') && url.toLowerCase().split('?')[0].endsWith('.pdf');
-                                const displayUrl = isCloudinaryPdf ? url.replace(/\.pdf$/i, '.jpg') : url;
-                                const needsReactPdf = !isCloudinaryPdf && displayUrl.toLowerCase().split('?')[0].endsWith('.pdf');
+                                const isCloudinary = url.includes('cloudinary.com');
+                                const isPdf = url.toLowerCase().split('?')[0].endsWith('.pdf');
 
-                                if (needsReactPdf) {
-                                    return (
-                                        <div className="relative">
-                                            {pdfPageLoading && (
-                                                <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
-                                                    <Loader2 className="animate-spin text-violet-500" size={28} />
-                                                </div>
-                                            )}
-                                            <Document
-                                                file={displayUrl}
-                                                loading={null}
-                                                onLoadError={(err) => console.error('PDF load error:', err)}
-                                            >
-                                                <Page
-                                                    pageNumber={1}
-                                                    width={Math.min(containerWidth, 900)}
-                                                    renderTextLayer={false}
-                                                    renderAnnotationLayer={false}
-                                                    onRenderSuccess={() => setPdfPageLoading(false)}
-                                                    onLoadStart={() => setPdfPageLoading(true)}
-                                                    loading={null}
-                                                    className="pointer-events-none"
-                                                />
-                                            </Document>
-                                        </div>
-                                    );
-                                } else {
-                                    return (
+                                // Cloudinary page-specific URL:
+                                // Changes .../upload/v123/... to .../upload/pg_2/v123/...
+                                let displayUrl = url;
+                                if (isCloudinary && isPdf) {
+                                    displayUrl = url.replace('/upload/', `/upload/pg_${currentPage}/`).replace(/\.pdf$/i, '.jpg');
+                                }
+
+                                return (
+                                    <div className="relative">
+                                        {/* Visible Image Layer */}
                                         <img
                                             ref={imageRef}
                                             src={displayUrl}
-                                            alt="Project Blueprint"
+                                            alt={`Project Blueprint Page ${currentPage}`}
                                             className="w-full h-auto block pointer-events-none"
+                                            onLoad={() => setPdfPageLoading(false)}
+                                            onError={(e) => {
+                                                console.error("Failed to load blueprint page image");
+                                                // If a page fails to load, go back to previous page
+                                                if (currentPage > 1) {
+                                                    setNumPages(currentPage - 1);
+                                                    setCurrentPage(prev => prev - 1);
+                                                }
+                                                setPdfPageLoading(false);
+                                            }}
                                         />
-                                    );
-                                }
+
+                                        {/* Loading Overlay */}
+                                        {pdfPageLoading && (
+                                            <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10 backdrop-blur-sm">
+                                                <div className="flex flex-col items-center">
+                                                    <Loader2 className="animate-spin text-violet-500 mb-2" size={32} />
+                                                    <span className="text-sm font-medium text-gray-500">Loading Blueprint...</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
                             })()}
 
                             {/* Event Capture Layer for Pin Dropping */}
-                            <div
-                                className="absolute inset-0 z-10"
-                                onClick={handleImageClick}
-                            />
+                            {!isClient && (
+                                <div
+                                    className="absolute inset-0 z-10"
+                                    onClick={handleImageClick}
+                                />
+                            )}
 
                             {/* Render Pins */}
                             {tasks
-                                .filter(t => t.x != null && t.y != null && (!t.blueprint_id || t.blueprint_id === blueprintData?.id || t.blueprint_id === blueprintData?._id))
+                                .filter(t => t.x != null && t.y != null && (!t.blueprint_id || t.blueprint_id === blueprintData?.id || t.blueprint_id === blueprintData?._id) && (!t.page || t.page === currentPage))
                                 .map(task => (
                                     <div
                                         key={task.id}
@@ -542,6 +600,31 @@ const BlueprintTab = ({ projectId }) => {
                                     </div>
                                 ))}
                         </div>
+
+                        {/* Pagination Controls (Floating Bottom Center) */}
+                        {numPages > 1 && (
+                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 bg-white/90 backdrop-blur-md border border-gray-200 shadow-xl rounded-full px-4 py-2 flex items-center gap-4">
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.max(prev - 1, 1)); }}
+                                    disabled={currentPage <= 1}
+                                    className="p-1.5 rounded-full hover:bg-gray-100 text-gray-700 disabled:text-gray-300 disabled:hover:bg-transparent transition"
+                                >
+                                    <ChevronLeft size={20} />
+                                </button>
+
+                                <span className="text-sm font-semibold text-gray-700 select-none">
+                                    Page {currentPage} of {numPages}
+                                </span>
+
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.min(prev + 1, numPages)); }}
+                                    disabled={currentPage >= numPages}
+                                    className="p-1.5 rounded-full hover:bg-gray-100 text-gray-700 disabled:text-gray-300 disabled:hover:bg-transparent transition"
+                                >
+                                    <ChevronRight size={20} />
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -550,16 +633,16 @@ const BlueprintTab = ({ projectId }) => {
 
                     {/* Task List Header */}
                     <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-white z-10">
-                        <h3 className="font-medium text-gray-900 text-sm">Active Tasks</h3>
+                        <h3 className="font-medium text-gray-900 text-sm">Active Tasks {numPages > 1 ? `(Page ${currentPage})` : ''}</h3>
                         <span className="text-[10px] font-semibold text-violet-500 bg-violet-50 px-2 py-1 rounded-md">
-                            {tasks.filter(t => !t.blueprint_id || t.blueprint_id === blueprintData?.id || t.blueprint_id === blueprintData?._id).length} PINS
+                            {tasks.filter(t => (!t.blueprint_id || t.blueprint_id === blueprintData?.id || t.blueprint_id === blueprintData?._id) && (!t.page || t.page === currentPage)).length} PINS
                         </span>
                     </div>
 
                     {/* Scrollable Task List */}
                     <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50/50">
                         {tasks
-                            .filter(t => !t.blueprint_id || t.blueprint_id === blueprintData?.id || t.blueprint_id === blueprintData?._id)
+                            .filter(t => (!t.blueprint_id || t.blueprint_id === blueprintData?.id || t.blueprint_id === blueprintData?._id) && (!t.page || t.page === currentPage))
                             .map(task => (
                                 <div
                                     key={task.id}
@@ -588,18 +671,20 @@ const BlueprintTab = ({ projectId }) => {
                                             <button className={`p-1 rounded-full transition ${task.x ? 'text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50' : 'text-gray-300'}`}>
                                                 {task.status === 'DONE' ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Target size={16} />}
                                             </button>
-                                            <button
-                                                onClick={(e) => handleDeleteTask(task.id, e)}
-                                                className="p-1 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 transition"
-                                                title="Delete Pin"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
+                                            {!isClient && (
+                                                <button
+                                                    onClick={(e) => handleDeleteTask(task.id, e)}
+                                                    className="p-1 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 transition"
+                                                    title="Delete Pin"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
                             ))}
-                        {tasks.filter(t => !t.blueprint_id || t.blueprint_id === blueprintData?.id || t.blueprint_id === blueprintData?._id).length === 0 && (
+                        {tasks.filter(t => (!t.blueprint_id || t.blueprint_id === blueprintData?.id || t.blueprint_id === blueprintData?._id) && (!t.page || t.page === currentPage)).length === 0 && (
                             <div className="text-center p-8 text-gray-400 text-sm">
                                 <Target size={24} className="mx-auto mb-3 text-gray-300" />
                                 <p className="font-medium text-gray-500 mb-1">No tasks yet</p>

@@ -18,7 +18,7 @@ const verifyToken = async (req, res, next) => {
             return res.status(401).json({ message: 'Unauthorized: User not found' });
         }
 
-        req.user = { ...decoded, role: user.role };
+        req.user = { ...decoded, role: user.role, _id: user._id };
         next();
     } catch (error) {
         return res.status(401).json({ message: 'Unauthorized: Invalid or expired token' });

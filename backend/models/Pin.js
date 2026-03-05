@@ -19,6 +19,10 @@ const pinSchema = new mongoose.Schema({
         enum: ['Open', 'In Progress', 'Ready for Inspection', 'Closed'],
         default: 'Open'
     },
+    page: {
+        type: Number,
+        default: 1
+    },
     x_cord: {
         type: Number,
         required: true

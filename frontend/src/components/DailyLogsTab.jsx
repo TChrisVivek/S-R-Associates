@@ -7,6 +7,7 @@ import api from '../api/axios';
 import { useToast } from './Toast';
 import GlobalLoader from './GlobalLoader';
 import { uploadMultipleToCloudinary } from '../utils/cloudinaryUpload';
+import { useAuth } from '../context/AuthContext';
 
 const DailyLogsTab = ({ projectId }) => {
     const [logData, setLogData] = useState(null);
@@ -15,6 +16,7 @@ const DailyLogsTab = ({ projectId }) => {
     const [actionLoading, setActionLoading] = useState(false);
     const [galleryFiles, setGalleryFiles] = useState([]);
     const { showToast, ToastComponent } = useToast();
+    const { user: currentUser } = useAuth();
 
     // Auto-calculating date
     const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -118,9 +120,11 @@ const DailyLogsTab = ({ projectId }) => {
                     </div>
                 </div>
                 <div className="flex gap-3">
-                    <button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2 bg-[#1a1d2e] text-white px-5 py-2 rounded-xl text-sm font-medium hover:bg-[#252840] transition-all shadow-sm">
-                        <Plus size={18} /> Create Log
-                    </button>
+                    {currentUser?.role !== 'Client' && (
+                        <button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2 bg-[#1a1d2e] text-white px-5 py-2 rounded-xl text-sm font-medium hover:bg-[#252840] transition-all shadow-sm">
+                            <Plus size={18} /> Create Log
+                        </button>
+                    )}
                 </div>
             </div>
 

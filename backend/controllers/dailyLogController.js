@@ -1,5 +1,6 @@
 const DailyLog = require('../models/DailyLog');
 const Project = require('../models/Project');
+const logActivity = require('../utils/activityLogger');
 
 const getProjectDailyLogs = async (req, res) => {
     const { id: projectId } = req.params;
@@ -50,6 +51,10 @@ const createDailyLog = async (req, res) => {
         });
 
         await newLog.save();
+
+        if (req.user && req.user._id) {
+            logActivity(req.user._id, 'CREATED_DAILY_LOG', 'DailyLog', `Created daily log for ${day || 'a day'} in project`, projectId);
+        }
 
         res.status(201).json({ message: 'Daily log created successfully', log: newLog });
     } catch (error) {

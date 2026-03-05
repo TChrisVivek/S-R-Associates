@@ -8,11 +8,13 @@ import api from '../api/axios';
 import { useToast } from './Toast';
 import GlobalLoader from './GlobalLoader';
 import { uploadToCloudinary } from '../utils/cloudinaryUpload';
+import { useAuth } from '../context/AuthContext';
 
 const MaterialInventoryTab = ({ projectId }) => {
     const [inventoryData, setInventoryData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const { user: currentUser } = useAuth();
 
     // Modal States
     const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
@@ -80,6 +82,7 @@ const MaterialInventoryTab = ({ projectId }) => {
             if (unit === 'METRIC TONS') iconType = 'grid';
             if (unit === 'CUBIC FT') iconType = 'layers';
             if (unit === 'UNITS') iconType = 'brick';
+            if (unit === 'NUMBERS') iconType = 'box';
             payload.iconType = iconType;
 
             await api.post(`/projects/${projectId}/materials/delivery`, payload);
@@ -166,12 +169,16 @@ const MaterialInventoryTab = ({ projectId }) => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <button onClick={() => setIsDeliveryModalOpen(true)} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg text-sm font-medium shadow-sm shadow-emerald-500/30 transition-all">
-                        <Truck size={18} /> Log Delivery
-                    </button>
-                    <button onClick={() => setIsUsageModalOpen(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-medium shadow-sm shadow-indigo-500/30 transition-all">
-                        <BarChart2 size={18} /> Log Usage
-                    </button>
+                    {currentUser?.role !== 'Client' && (
+                        <>
+                            <button onClick={() => setIsDeliveryModalOpen(true)} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg text-sm font-medium shadow-sm shadow-emerald-500/30 transition-all">
+                                <Truck size={18} /> Log Delivery
+                            </button>
+                            <button onClick={() => setIsUsageModalOpen(true)} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-medium shadow-sm shadow-indigo-500/30 transition-all">
+                                <BarChart2 size={18} /> Log Usage
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -310,6 +317,7 @@ const MaterialInventoryTab = ({ projectId }) => {
                                             <option value="METRIC TONS">Tons</option>
                                             <option value="CUBIC FT">Cu Ft</option>
                                             <option value="UNITS">Units</option>
+                                            <option value="NUMBERS">Numbers</option>
                                         </select>
                                     </div>
                                 </div>

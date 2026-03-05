@@ -196,12 +196,14 @@ const Dashboard = () => {
                                         className="pl-9 pr-4 py-2 bg-white/[0.06] border border-white/[0.1] rounded-lg focus:outline-none focus:bg-white/[0.12] focus:border-white/[0.2] focus:ring-2 focus:ring-violet-500/30 w-52 text-sm !text-white placeholder-white/40 transition-all shadow-inner font-medium"
                                     />
                                 </div>
-                                <button
-                                    onClick={() => setIsCreateModalOpen(true)}
-                                    className="bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all shadow-lg shadow-violet-500/15 hover:shadow-violet-500/25"
-                                >
-                                    <Plus size={16} strokeWidth={2.5} /> New Project
-                                </button>
+                                {currentUser?.role !== 'Client' && (
+                                    <button
+                                        onClick={() => setIsCreateModalOpen(true)}
+                                        className="bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all shadow-lg shadow-violet-500/15 hover:shadow-violet-500/25"
+                                    >
+                                        <Plus size={16} strokeWidth={2.5} /> New Project
+                                    </button>
+                                )}
                             </div>
                         </div>
 

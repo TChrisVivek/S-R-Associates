@@ -1,4 +1,5 @@
 const Settings = require('../models/Settings');
+const logActivity = require('../utils/activityLogger');
 
 exports.getLogo = async (req, res) => {
     try {
@@ -41,6 +42,10 @@ exports.updateSettings = async (req, res) => {
         settings.updatedAt = Date.now();
 
         await settings.save();
+
+        if (req.user && req.user._id) {
+            logActivity(req.user._id, 'UPDATED_SETTINGS', 'Settings', 'Updated company settings');
+        }
 
         res.status(200).json({ message: "Settings updated successfully", settings });
     } catch (error) {

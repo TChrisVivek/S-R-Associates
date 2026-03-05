@@ -2,6 +2,7 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
+const logActivity = require('../utils/activityLogger');
 
 // A placeholder or real Client ID should be set in .env
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || 'dummy-client-id');
@@ -86,6 +87,16 @@ exports.googleAuth = async (req, res) => {
                 profile_image: user.profile_image
             }
         });
+
+        // Log the login activity
+        if (user && user._id) {
+            logActivity(
+                user._id,
+                'LOGGED_IN',
+                'System',
+                `User authenticated via Google`
+            );
+        }
 
     } catch (error) {
         console.error('Google Auth Error:', error);

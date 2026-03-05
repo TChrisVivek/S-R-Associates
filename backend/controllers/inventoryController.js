@@ -1,5 +1,6 @@
 const Material = require('../models/Material');
 const Project = require('../models/Project');
+const logActivity = require('../utils/activityLogger');
 
 const getProjectInventory = async (req, res) => {
     const { id: projectId } = req.params;
@@ -113,6 +114,17 @@ const logDelivery = async (req, res) => {
         });
 
         await material.save();
+
+        if (req.user && req.user._id) {
+            logActivity(
+                req.user._id,
+                'LOGGED_DELIVERY',
+                'Material',
+                `Logged delivery of ${parsedQuantity} ${unit} of ${materialName}`,
+                material._id
+            );
+        }
+
         res.status(200).json(material);
 
     } catch (error) {
@@ -145,6 +157,17 @@ const logUsage = async (req, res) => {
         });
 
         await material.save();
+
+        if (req.user && req.user._id) {
+            logActivity(
+                req.user._id,
+                'LOGGED_USAGE',
+                'Material',
+                `Logged usage of ${parsedQuantity} ${material.unit} of ${material.name}`,
+                material._id
+            );
+        }
+
         res.status(200).json(material);
 
     } catch (error) {
