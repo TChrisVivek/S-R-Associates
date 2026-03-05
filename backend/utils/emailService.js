@@ -1,15 +1,21 @@
 const nodemailer = require('nodemailer');
 
-// Create a reusable transporter object using the default SMTP transport
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: process.env.SMTP_PORT || 587,
-    secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-    },
-});
+// Create transporter lazily so env vars are always read at call time (important for hosted platforms like Render)
+let _transporter = null;
+const getTransporter = () => {
+    if (!_transporter || !_transporter._auth) {
+        _transporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST || 'smtp.gmail.com',
+            port: process.env.SMTP_PORT || 587,
+            secure: process.env.SMTP_SECURE === 'true',
+            auth: {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS,
+            },
+        });
+    }
+    return _transporter;
+};
 
 /**
  * Send an email invitation to a new client
@@ -134,7 +140,7 @@ const sendClientInviteEmail = async (toEmail, projectName, companyLogoUrl = null
             return true;
         }
 
-        const info = await transporter.sendMail(mailOptions);
+        const info = await getTransporter().sendMail(mailOptions);
         console.log("Email sent: %s", info.messageId);
         return true;
     } catch (error) {

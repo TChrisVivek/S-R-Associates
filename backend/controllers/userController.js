@@ -150,7 +150,12 @@ exports.inviteClient = async (req, res) => {
             name: settings?.companyInfo?.name || 'S-R Associates',
             address: settings?.companyInfo?.address || '342, Nijalingappa Layout, Davanagere, Karnataka 577004'
         };
-        await sendClientInviteEmail(email, project.title, companyLogoUrl, projectImageUrl, companyInfo);
+        console.log(`[Email] Attempting to send invite to ${email} for project "${project.title}"`);
+        console.log(`[Email] SMTP_USER configured: ${!!process.env.SMTP_USER}, SMTP_PASS configured: ${!!process.env.SMTP_PASS}`);
+        const emailSent = await sendClientInviteEmail(email, project.title, companyLogoUrl, projectImageUrl, companyInfo);
+        if (!emailSent) {
+            console.warn(`[Email] Failed to send invite email to ${email}`);
+        }
 
         if (req.user && req.user._id) {
             logActivity(
