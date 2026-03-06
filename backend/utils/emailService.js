@@ -1,42 +1,12 @@
 const nodemailer = require('nodemailer');
-const dns = require('dns');
-const { promisify } = require('util');
 
-const resolve4 = promisify(dns.resolve4);
-
-// Manually resolve SMTP host to IPv4 to avoid Render's IPv6 issue
-// Render doesn't support outbound IPv6, and dns.setDefaultResultOrder doesn't work on all Node versions
-const getTransporter = async () => {
-    const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
-
-    // Resolve hostname to IPv4 address explicitly
-    let resolvedHost = smtpHost;
-    try {
-        const addresses = await resolve4(smtpHost);
-        if (addresses && addresses.length > 0) {
-            resolvedHost = addresses[0];
-            console.log(`[Email] Resolved ${smtpHost} to IPv4: ${resolvedHost}`);
-        }
-    } catch (e) {
-        console.warn(`[Email] Could not resolve ${smtpHost} to IPv4, using hostname directly:`, e.message);
-    }
-
-    return nodemailer.createTransport({
-        host: resolvedHost,
-        port: 465,
-        secure: true,
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-        },
-        tls: {
-            servername: smtpHost, // Use original hostname for SSL certificate validation
-        },
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 15000,
-    });
-};
+/**
+ * Send email using either Resend HTTP API (for deployed environments where SMTP is blocked)
+ * or nodemailer SMTP (for localhost development).
+ *
+ * Set RESEND_API_KEY env var on Render to use Resend.
+ * If not set, falls back to SMTP (works on localhost).
+ */
 
 /**
  * Send an email invitation to a new client
@@ -74,11 +44,7 @@ const sendClientInviteEmail = async (toEmail, projectName, companyLogoUrl = null
                 </div>
             `;
 
-        const mailOptions = {
-            from: `"${companyName} Portal" <${process.env.SMTP_USER || 'no-reply@sr-associates.com'}>`, // sender address
-            to: toEmail, // list of receivers
-            subject: `Welcome to ${projectName} — ${companyName}`, // Subject line
-            html: `
+        const htmlBody = `
             <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f9fafb; padding: 40px 0; min-height: 100vh;">
                 <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
                     
@@ -148,30 +114,68 @@ const sendClientInviteEmail = async (toEmail, projectName, companyLogoUrl = null
                     <p style="color: #d1d5db; font-size: 10px; margin-top: 24px;">© ${new Date().getFullYear()} ${companyName}. All rights reserved.</p>
                 </div>
             </div>
-            `,
-        };
+            `;
 
-        // Don't attempt to send if credentials aren't configured yet
-        if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-            console.warn('⚠️ SMTP credentials not found in .env. Email invitation was NOT sent, but user was created.');
-            console.log('--- EMAIL MOCK ---');
-            console.log(`To: ${toEmail}`);
-            console.log(`Project: ${projectName}`);
-            console.log('------------------');
+        const subject = `Welcome to ${projectName} — ${companyName}`;
+        const fromName = `${companyName} Portal`;
+        const fromEmail = process.env.SMTP_USER || 'no-reply@sr-associates.com';
+
+        // ── METHOD 1: Resend HTTP API (works on Render / all cloud platforms) ──
+        if (process.env.RESEND_API_KEY) {
+            console.log('[Email] Using Resend HTTP API...');
+
+            const response = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    from: `${fromName} <${process.env.RESEND_FROM || 'onboarding@resend.dev'}>`,
+                    to: [toEmail],
+                    subject: subject,
+                    html: htmlBody,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error('[Email] Resend API error:', result);
+                return false;
+            }
+
+            console.log('[Email] Email sent via Resend:', result.id);
             return true;
         }
 
-        const transport = await getTransporter();
+        // ── METHOD 2: SMTP via Nodemailer (works on localhost) ──
+        if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+            console.warn('⚠️ No email credentials configured (RESEND_API_KEY or SMTP_USER/SMTP_PASS). Email NOT sent.');
+            return true;
+        }
 
-        // Verify SMTP connection before sending
-        console.log(`[Email] Verifying SMTP connection (IPv4)...`);
-        await transport.verify();
-        console.log('[Email] SMTP connection verified successfully');
+        console.log('[Email] Using SMTP (localhost mode)...');
+        const transporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST || 'smtp.gmail.com',
+            port: parseInt(process.env.SMTP_PORT || '587'),
+            secure: process.env.SMTP_PORT === '465',
+            auth: {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS,
+            },
+        });
 
-        console.log('[Email] Sending email...');
-        const info = await transport.sendMail(mailOptions);
-        console.log("[Email] Email sent successfully: %s", info.messageId);
+        const info = await transporter.sendMail({
+            from: `"${fromName}" <${fromEmail}>`,
+            to: toEmail,
+            subject: subject,
+            html: htmlBody,
+        });
+
+        console.log("[Email] Email sent via SMTP:", info.messageId);
         return true;
+
     } catch (error) {
         console.error("[Email] Error sending invite email:", error.message);
         console.error("[Email] Full error:", error);
