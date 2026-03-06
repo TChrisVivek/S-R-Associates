@@ -149,39 +149,83 @@ const sendClientInviteEmail = async (toEmail, projectName, companyLogoUrl = null
             return true;
         }
 
-        // ── METHOD 2: SMTP via Nodemailer (works on localhost, or via OAuth2 on Render) ──
-        if (!process.env.SMTP_USER) {
-            console.warn('⚠️ No email credentials configured (RESEND_API_KEY or SMTP_USER/SMTP_PASS). Email NOT sent.');
+        // ── METHOD 2: Gmail REST API via OAuth2 (works on Render, bypasses SMTP ports!) ──
+        if (process.env.OAUTH_CLIENT_ID && process.env.OAUTH_CLIENT_SECRET && process.env.OAUTH_REFRESH_TOKEN) {
+            console.log('[Email] Using Gmail REST API (HTTPS/443)...');
+
+            // 1. Get fresh Access Token using Refresh Token
+            console.log('[Email] Getting OAuth Access Token...');
+            const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    client_id: process.env.OAUTH_CLIENT_ID,
+                    client_secret: process.env.OAUTH_CLIENT_SECRET,
+                    refresh_token: process.env.OAUTH_REFRESH_TOKEN,
+                    grant_type: 'refresh_token'
+                })
+            });
+            const tokenData = await tokenResponse.json();
+            if (!tokenData.access_token) {
+                console.error('[Email] Failed to get OAuth Access Token:', tokenData);
+                return false;
+            }
+
+            // 2. Construct Raw MIME Email
+            const rawEmail = [
+                `From: ${fromName} <${process.env.SMTP_USER}>`,
+                `To: ${toEmail}`,
+                `Subject: =?utf-8?B?${Buffer.from(subject).toString('base64')}?=`,
+                `Content-Type: text/html; charset=utf-8`,
+                `MIME-Version: 1.0`,
+                ``,
+                htmlBody
+            ].join('\r\n');
+
+            // Encode Base64URL
+            const encodedMessage = Buffer.from(rawEmail)
+                .toString('base64')
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+
+            // 3. Send Email via Gmail API
+            console.log('[Email] Sending email payload to Gmail API...');
+            const sendResponse = await fetch('https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${tokenData.access_token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ raw: encodedMessage })
+            });
+
+            const sendData = await sendResponse.json();
+            if (!sendResponse.ok) {
+                console.error('[Email] Gmail API error:', sendData);
+                return false;
+            }
+
+            console.log('[Email] Email sent successfully via Gmail HTTP API:', sendData.id);
             return true;
         }
 
-        console.log('[Email] Using Nodemailer...');
-        let transportOptions = {
+        // ── METHOD 3: Standard SMTP via Nodemailer (works on localhost) ──
+        if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+            console.warn('⚠️ No email credentials configured. Email NOT sent.');
+            return true;
+        }
+
+        console.log('[Email] Authenticating via standard SMTP (requires unblocked ports)...');
+        const transporter = nodemailer.createTransport({
             host: process.env.SMTP_HOST || 'smtp.gmail.com',
             port: parseInt(process.env.SMTP_PORT || '587'),
             secure: process.env.SMTP_PORT === '465',
-        };
-
-        // Use OAuth2 if credentials are provided (bypasses Render SMTP blocks)
-        if (process.env.OAUTH_CLIENT_ID && process.env.OAUTH_CLIENT_SECRET && process.env.OAUTH_REFRESH_TOKEN) {
-            console.log('[Email] Authenticating via Google OAuth2...');
-            transportOptions.auth = {
-                type: 'OAuth2',
-                user: process.env.SMTP_USER,
-                clientId: process.env.OAUTH_CLIENT_ID,
-                clientSecret: process.env.OAUTH_CLIENT_SECRET,
-                refreshToken: process.env.OAUTH_REFRESH_TOKEN,
-            };
-        } else {
-            console.log('[Email] Authenticating via standard SMTP (requires unblocked ports)...');
-            // Fallback to standard SMTP password auth (works locally)
-            transportOptions.auth = {
+            auth: {
                 user: process.env.SMTP_USER,
                 pass: process.env.SMTP_PASS,
-            };
-        }
-
-        const transporter = nodemailer.createTransport(transportOptions);
+            },
+        });
 
         const info = await transporter.sendMail({
             from: `"${fromName}" <${fromEmail}>`,
@@ -190,7 +234,7 @@ const sendClientInviteEmail = async (toEmail, projectName, companyLogoUrl = null
             html: htmlBody,
         });
 
-        console.log("[Email] Email sent via SMTP:", info.messageId);
+        console.log("[Email] Email sent successfully via SMTP:", info.messageId);
         return true;
 
     } catch (error) {
