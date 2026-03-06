@@ -1,23 +1,40 @@
 const nodemailer = require('nodemailer');
 const dns = require('dns');
+const { promisify } = require('util');
 
-// Force Node.js to prefer IPv4 (Render doesn't support outbound IPv6)
-dns.setDefaultResultOrder('ipv4first');
+const resolve4 = promisify(dns.resolve4);
 
-// Create a fresh transporter each time to avoid stale connections on cloud platforms (Render, etc.)
-// IMPORTANT: Use port 465 + SSL — Render blocks port 587 (STARTTLS) outbound connections
-const getTransporter = () => {
+// Manually resolve SMTP host to IPv4 to avoid Render's IPv6 issue
+// Render doesn't support outbound IPv6, and dns.setDefaultResultOrder doesn't work on all Node versions
+const getTransporter = async () => {
+    const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
+
+    // Resolve hostname to IPv4 address explicitly
+    let resolvedHost = smtpHost;
+    try {
+        const addresses = await resolve4(smtpHost);
+        if (addresses && addresses.length > 0) {
+            resolvedHost = addresses[0];
+            console.log(`[Email] Resolved ${smtpHost} to IPv4: ${resolvedHost}`);
+        }
+    } catch (e) {
+        console.warn(`[Email] Could not resolve ${smtpHost} to IPv4, using hostname directly:`, e.message);
+    }
+
     return nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        host: resolvedHost,
         port: 465,
-        secure: true, // direct SSL — works on all cloud providers including Render
+        secure: true,
         auth: {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS,
         },
-        connectionTimeout: 10000,  // 10s to establish connection
-        greetingTimeout: 10000,    // 10s for server greeting
-        socketTimeout: 15000,      // 15s for socket inactivity
+        tls: {
+            servername: smtpHost, // Use original hostname for SSL certificate validation
+        },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
     });
 };
 
@@ -144,10 +161,10 @@ const sendClientInviteEmail = async (toEmail, projectName, companyLogoUrl = null
             return true;
         }
 
-        const transport = getTransporter();
+        const transport = await getTransporter();
 
         // Verify SMTP connection before sending
-        console.log(`[Email] Verifying SMTP connection to ${process.env.SMTP_HOST || 'smtp.gmail.com'}:${process.env.SMTP_PORT || 465}...`);
+        console.log(`[Email] Verifying SMTP connection (IPv4)...`);
         await transport.verify();
         console.log('[Email] SMTP connection verified successfully');
 
