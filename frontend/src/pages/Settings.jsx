@@ -300,17 +300,17 @@ const SettingsPage = () => {
 
                             {/* User Management */}
                             {activeSection === 'users' && (
-                                <div id="users" className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                                    <div className="px-6 py-4 border-b border-gray-50 flex justify-between items-center">
+                                <div id="users" className="bg-white rounded-[20px] shadow-sm border border-gray-200 overflow-hidden">
+                                    <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-white">
                                         <div>
-                                            <h2 className="text-sm font-semibold text-gray-900">User Management</h2>
-                                            <p className="text-xs text-gray-400 mt-0.5">Manage team access levels</p>
+                                            <h2 className="text-base font-semibold text-gray-900">User Management</h2>
+                                            <p className="text-xs text-gray-500 mt-1">Manage team access and assigned roles</p>
                                         </div>
                                         <button
                                             onClick={() => setIsInviteModalOpen(true)}
-                                            className="text-xs font-medium text-violet-600 hover:bg-violet-50 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                                            className="text-xs font-semibold text-white bg-[#1a1d2e] hover:bg-[#252840] hover:shadow-md px-4 py-2.5 rounded-xl transition-all flex items-center gap-2"
                                         >
-                                            <UserPlus size={12} /> Invite Client
+                                            <UserPlus size={14} /> Invite Client
                                         </button>
                                     </div>
                                     {currentUser?.role !== 'Admin' ? (
@@ -318,32 +318,39 @@ const SettingsPage = () => {
                                     ) : isUsersLoading ? (
                                         <div className="flex justify-center py-12"><Loader2 className="animate-spin text-gray-300" size={24} /></div>
                                     ) : (
-                                        <table className="w-full text-left text-sm">
-                                            <thead>
-                                                <tr className="border-b border-gray-50">
-                                                    <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">User</th>
-                                                    <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Role</th>
-                                                    <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Status</th>
-                                                    <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Actions</th>
+                                        <table className="w-full text-left text-sm border-collapse">
+                                            <thead className="bg-gray-50/80">
+                                                <tr className="border-b border-gray-200">
+                                                    <th className="py-3 px-6 text-[10px] font-bold text-gray-500 uppercase tracking-wider">User</th>
+                                                    <th className="py-3 px-6 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Role</th>
+                                                    <th className="py-3 px-6 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                                                    <th className="py-3 px-6 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-gray-50">
+                                            <tbody className="divide-y divide-gray-100">
                                                 {users.map(member => (
-                                                    <tr key={member._id} className="hover:bg-gray-50/50 transition-colors">
-                                                        <td className="py-3 px-6">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center text-xs font-semibold text-violet-600">
-                                                                    {member.username?.split(' ').map(n => n[0]).join('')}
-                                                                </div>
-                                                                <div>
-                                                                    <p className="text-sm font-medium text-gray-900">{member.username}</p>
-                                                                    <p className="text-[11px] text-gray-300">{member.email}</p>
+                                                    <tr key={member._id} className="hover:bg-gray-50/50 transition-colors group">
+                                                        <td className="py-4 px-6">
+                                                            <div className="flex items-center gap-3.5">
+                                                                {member.profile_image ? (
+                                                                    <img src={member.profile_image} alt={member.username} className="w-9 h-9 rounded-full object-cover border border-gray-200 shadow-sm shrink-0 bg-white" />
+                                                                ) : (
+                                                                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-100 to-indigo-100 border border-violet-200/50 flex items-center justify-center text-xs font-bold text-violet-700 shadow-sm shrink-0">
+                                                                        {member.username?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                                                                    </div>
+                                                                )}
+                                                                <div className="flex flex-col">
+                                                                    <p className="text-[13px] font-semibold text-gray-900 leading-tight">{member.username}</p>
+                                                                    <p className="text-[11px] font-medium text-gray-500 mt-0.5">{member.email}</p>
                                                                 </div>
                                                             </div>
                                                         </td>
-                                                        <td className="py-3 px-6">
+                                                        <td className="py-4 px-6">
                                                             <select
-                                                                className={`text-xs border rounded-md py-1.5 px-2 font-medium outline-none focus:ring-1 focus:ring-violet-500 transition-shadow disabled:opacity-50 disabled:bg-gray-50 disabled:cursor-not-allowed ${member.role === 'Pending' ? 'border-amber-200 bg-amber-50 text-amber-700' : member.role === 'Blocked' ? 'border-red-200 bg-red-50 text-red-700' : 'border-gray-200 bg-white text-gray-700'}`}
+                                                                className={`text-xs border rounded-lg py-1.5 px-3 font-semibold outline-none focus:ring-2 focus:ring-violet-500/20 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed
+                                                                    ${member.role === 'Pending' ? 'border-amber-200 bg-amber-50 text-amber-700 hover:border-amber-300'
+                                                                        : member.role === 'Blocked' ? 'border-red-200 bg-red-50 text-red-700 hover:border-red-300'
+                                                                            : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-white hover:border-gray-300 shadow-sm'}`}
                                                                 onChange={(e) => handleRoleUpdate(member._id, e.target.value)}
                                                                 defaultValue={member.role}
                                                                 disabled={member.username === currentUser?.username}
@@ -356,23 +363,23 @@ const SettingsPage = () => {
                                                                 <option value="Blocked" className="text-red-600 font-semibold">Block Access</option>
                                                             </select>
                                                         </td>
-                                                        <td className="py-3 px-6">
+                                                        <td className="py-4 px-6">
                                                             {member.role === 'Pending' ? (
-                                                                <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Needs Approval</span>
+                                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-amber-700 border border-amber-200 bg-amber-50 px-2.5 py-1 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Needs Approval</span>
                                                             ) : member.role === 'Blocked' ? (
-                                                                <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Restricted</span>
+                                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-red-700 border border-red-200 bg-red-50 px-2.5 py-1 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>Restricted</span>
                                                             ) : (
-                                                                <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Active</span>
+                                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 px-2.5 py-1 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Active</span>
                                                             )}
                                                         </td>
-                                                        <td className="py-3 px-6 text-right">
-                                                            <div className="flex items-center justify-end gap-1">
+                                                        <td className="py-4 px-6 text-right">
+                                                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                                                 <button
                                                                     onClick={() => fetchUserActivities(member)}
-                                                                    className="text-gray-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors"
+                                                                    className="text-gray-400 hover:text-indigo-600 p-2 rounded-lg hover:bg-indigo-50 border border-transparent hover:border-indigo-100 transition-all bg-white shadow-sm"
                                                                     title="View Activity Logs"
                                                                 >
-                                                                    <History size={16} />
+                                                                    <History size={15} />
                                                                 </button>
                                                                 {member.username !== currentUser?.username && (
                                                                     <button
@@ -381,10 +388,10 @@ const SettingsPage = () => {
                                                                             setDeleteConfirmationEmail('');
                                                                             setIsDeleteModalOpen(true);
                                                                         }}
-                                                                        className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                                                                        className="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 border border-transparent hover:border-red-100 transition-all bg-white shadow-sm"
                                                                         title="Delete User"
                                                                     >
-                                                                        <Trash2 size={16} />
+                                                                        <Trash2 size={15} />
                                                                     </button>
                                                                 )}
                                                             </div>

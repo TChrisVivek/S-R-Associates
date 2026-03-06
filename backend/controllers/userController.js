@@ -14,7 +14,7 @@ exports.getUsers = async (req, res) => {
             query.role = role;
         }
 
-        const users = await User.find(query).select('username email role _id');
+        const users = await User.find(query).select('username email role _id profile_image');
         res.status(200).json(users);
     } catch (error) {
         res.status(500).json({ message: 'Server error fetching users', error: error.message });
