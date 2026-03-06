@@ -176,3 +176,45 @@ exports.inviteClient = async (req, res) => {
         res.status(500).json({ message: 'Server error inviting client', error: error.message });
     }
 };
+
+exports.deleteUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Prevent deleting oneself
+        if (req.user && req.user._id.toString() === id) {
+            return res.status(403).json({ message: 'You cannot delete your own account.' });
+        }
+
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Optional: Remove user from any assigned projects (unlinking)
+        if (user.assigned_projects && user.assigned_projects.length > 0) {
+            await Project.updateMany(
+                { _id: { $in: user.assigned_projects } },
+                { $pull: { personnel: id } }
+            );
+        }
+
+        const userEmail = user.email;
+        await User.findByIdAndDelete(id);
+
+        if (req.user && req.user._id) {
+            logActivity(
+                req.user._id,
+                'DELETED_USER',
+                'User',
+                `Permanently deleted user: ${userEmail}`,
+                null
+            );
+        }
+
+        res.status(200).json({ message: `User ${userEmail} deleted successfully` });
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        res.status(500).json({ message: 'Server error deleting user', error: error.message });
+    }
+};

@@ -19,4 +19,7 @@ router.get('/:id/activities', userController.getActivities);
 // POST /api/users/invite-client (Admin only)
 router.post('/invite-client', verifyToken, checkRole('Admin'), userController.inviteClient);
 
+// DELETE /api/users/:id (Admin only)
+router.delete('/:id', verifyToken, checkRole('Admin'), userController.deleteUser);
+
 module.exports = router;

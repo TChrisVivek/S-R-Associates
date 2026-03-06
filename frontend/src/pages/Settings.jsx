@@ -4,7 +4,7 @@ import {
     LayoutDashboard, FolderOpen, Users, FileText, Settings,
     Save, CreditCard, CloudLightning, Slack, FileJson,
     UserPlus, Loader2, ChevronRight, BarChart3, ImagePlus,
-    Activity, History, X
+    Activity, History, X, Trash2, AlertTriangle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
@@ -135,6 +135,35 @@ const SettingsPage = () => {
         }
     };
 
+    // User Deletion State
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [userToDelete, setUserToDelete] = useState(null);
+    const [deleteConfirmationEmail, setDeleteConfirmationEmail] = useState('');
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const handleDeleteUser = async () => {
+        if (deleteConfirmationEmail !== userToDelete.email) {
+            showToast('Email does not match. Deletion aborted.', 'warning');
+            return;
+        }
+
+        setIsDeleting(true);
+        try {
+            const res = await api.delete(`/users/${userToDelete._id}`);
+            showToast(res.data.message || 'User deleted permanently.', 'success');
+            setIsDeleteModalOpen(false);
+            setUserToDelete(null);
+            setDeleteConfirmationEmail('');
+            // Refresh users
+            fetchUsers();
+        } catch (error) {
+            console.error('Failed to delete user:', error);
+            showToast(error.response?.data?.message || 'Could not delete user.', 'error');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const handleCompanyChange = (e) => setCompanyInfo({ ...companyInfo, [e.target.name]: e.target.value });
     const toggleNotification = (key) => setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
 
@@ -213,7 +242,7 @@ const SettingsPage = () => {
                         <div className="w-48 flex-shrink-0">
                             <div className="sticky top-24 space-y-0.5">
                                 {sections.map(s => (
-                                    <button key={s.id} onClick={() => { setActiveSection(s.id); document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth' }); }}
+                                    <button key={s.id} onClick={() => setActiveSection(s.id)}
                                         className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-all ${activeSection === s.id ? 'bg-[#1a1d2e] text-white' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`}>
                                         {s.label}
                                     </button>
@@ -222,156 +251,179 @@ const SettingsPage = () => {
                         </div>
 
                         {/* Settings Content */}
-                        <div className="flex-1 space-y-6 pb-24">
+                        <div className="flex-1 pb-24">
                             {/* Company Profile */}
-                            <div id="company" className="bg-white rounded-2xl border border-gray-100 p-6 scroll-mt-24">
-                                <h2 className="text-sm font-semibold text-gray-900 mb-1">Company Profile</h2>
-                                <p className="text-xs text-gray-400 mb-5">Public information about your firm</p>
+                            {activeSection === 'company' && (
+                                <div id="company" className="bg-white rounded-2xl border border-gray-100 p-6">
+                                    <h2 className="text-sm font-semibold text-gray-900 mb-1">Company Profile</h2>
+                                    <p className="text-xs text-gray-400 mb-5">Public information about your firm</p>
 
-                                <div className="mb-6 flex items-center gap-6">
-                                    <div className="w-20 h-20 bg-[#0f1117] rounded-xl flex items-center justify-center overflow-hidden shrink-0">
-                                        {isUploadingLogo ? (
-                                            <Loader2 className="animate-spin text-gray-400" size={24} />
-                                        ) : companyInfo.logoUrl ? (
-                                            <img src={companyInfo.logoUrl} alt="Logo Preview" className="w-full h-full object-contain p-2" />
-                                        ) : (
-                                            <CompanyLogo className="w-full h-full object-contain p-2" defaultLogoType="dark" />
-                                        )}
-                                    </div>
-                                    <div>
-                                        <h3 className="text-sm font-medium text-gray-900 mb-1">Company Logo</h3>
-                                        <p className="text-[11px] text-gray-400 max-w-sm mb-3">
-                                            Upload a high-resolution logo. This will be displayed on reports, login screens, and the sidebar.
-                                        </p>
-                                        <div className="inline-block relative">
-                                            <input type="file" id="logoUpload" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleLogoUpload} disabled={isUploadingLogo} />
-                                            <label htmlFor="logoUpload" className={`cursor-pointer bg-white border border-gray-200 text-gray-700 text-xs font-medium py-1.5 px-3 rounded-lg transition-colors flex items-center gap-2 ${isUploadingLogo ? 'opacity-50 pointer-events-none' : 'hover:bg-gray-50'}`}>
-                                                <ImagePlus size={14} />
-                                                <span>{isUploadingLogo ? 'Uploading...' : 'Select Image'}</span>
-                                            </label>
+                                    <div className="mb-6 flex items-center gap-6">
+                                        <div className="w-20 h-20 bg-[#0f1117] rounded-xl flex items-center justify-center overflow-hidden shrink-0">
+                                            {isUploadingLogo ? (
+                                                <Loader2 className="animate-spin text-gray-400" size={24} />
+                                            ) : companyInfo.logoUrl ? (
+                                                <img src={companyInfo.logoUrl} alt="Logo Preview" className="w-full h-full object-contain p-2" />
+                                            ) : (
+                                                <CompanyLogo className="w-full h-full object-contain p-2" defaultLogoType="dark" />
+                                            )}
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-medium text-gray-900 mb-1">Company Logo</h3>
+                                            <p className="text-[11px] text-gray-400 max-w-sm mb-3">
+                                                Upload a high-resolution logo. This will be displayed on reports, login screens, and the sidebar.
+                                            </p>
+                                            <div className="inline-block relative">
+                                                <input type="file" id="logoUpload" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleLogoUpload} disabled={isUploadingLogo} />
+                                                <label htmlFor="logoUpload" className={`cursor-pointer bg-white border border-gray-200 text-gray-700 text-xs font-medium py-1.5 px-3 rounded-lg transition-colors flex items-center gap-2 ${isUploadingLogo ? 'opacity-50 pointer-events-none' : 'hover:bg-gray-50'}`}>
+                                                    <ImagePlus size={14} />
+                                                    <span>{isUploadingLogo ? 'Uploading...' : 'Select Image'}</span>
+                                                </label>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div className="grid grid-cols-2 gap-4 mb-4">
-                                    <FormField label="Company Name" name="name" value={companyInfo.name || ''} onChange={handleCompanyChange} />
-                                    <FormField label="License Number" name="license" value={companyInfo.license || ''} onChange={handleCompanyChange} />
+                                    <div className="grid grid-cols-2 gap-4 mb-4">
+                                        <FormField label="Company Name" name="name" value={companyInfo.name || ''} onChange={handleCompanyChange} />
+                                        <FormField label="License Number" name="license" value={companyInfo.license || ''} onChange={handleCompanyChange} />
+                                    </div>
+                                    <FormField label="Headquarters Address" name="address" value={companyInfo.address} onChange={handleCompanyChange} />
+                                    <div className="flex justify-end mt-5">
+                                        <button onClick={handleSave} disabled={isSaving || isLoading}
+                                            className="bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium py-2 px-4 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50">
+                                            {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                                            {isSaving ? "Saving..." : "Save Changes"}
+                                        </button>
+                                    </div>
                                 </div>
-                                <FormField label="Headquarters Address" name="address" value={companyInfo.address} onChange={handleCompanyChange} />
-                                <div className="flex justify-end mt-5">
-                                    <button onClick={handleSave} disabled={isSaving || isLoading}
-                                        className="bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium py-2 px-4 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50">
-                                        {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
-                                        {isSaving ? "Saving..." : "Save Changes"}
-                                    </button>
-                                </div>
-                            </div>
+                            )}
 
                             {/* User Management */}
-                            <div id="users" className="bg-white rounded-2xl border border-gray-100 overflow-hidden scroll-mt-24">
-                                <div className="px-6 py-4 border-b border-gray-50 flex justify-between items-center">
-                                    <div>
-                                        <h2 className="text-sm font-semibold text-gray-900">User Management</h2>
-                                        <p className="text-xs text-gray-400 mt-0.5">Manage team access levels</p>
+                            {activeSection === 'users' && (
+                                <div id="users" className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                                    <div className="px-6 py-4 border-b border-gray-50 flex justify-between items-center">
+                                        <div>
+                                            <h2 className="text-sm font-semibold text-gray-900">User Management</h2>
+                                            <p className="text-xs text-gray-400 mt-0.5">Manage team access levels</p>
+                                        </div>
+                                        <button
+                                            onClick={() => setIsInviteModalOpen(true)}
+                                            className="text-xs font-medium text-violet-600 hover:bg-violet-50 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                                        >
+                                            <UserPlus size={12} /> Invite Client
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={() => setIsInviteModalOpen(true)}
-                                        className="text-xs font-medium text-violet-600 hover:bg-violet-50 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-                                    >
-                                        <UserPlus size={12} /> Invite Client
-                                    </button>
-                                </div>
-                                {currentUser?.role !== 'Admin' ? (
-                                    <div className="px-6 py-12 text-center text-gray-300 text-sm">Admin access required</div>
-                                ) : isUsersLoading ? (
-                                    <div className="flex justify-center py-12"><Loader2 className="animate-spin text-gray-300" size={24} /></div>
-                                ) : (
-                                    <table className="w-full text-left text-sm">
-                                        <thead>
-                                            <tr className="border-b border-gray-50">
-                                                <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">User</th>
-                                                <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Role</th>
-                                                <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Status</th>
-                                                <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-50">
-                                            {users.map(member => (
-                                                <tr key={member._id} className="hover:bg-gray-50/50 transition-colors">
-                                                    <td className="py-3 px-6">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center text-xs font-semibold text-violet-600">
-                                                                {member.username?.split(' ').map(n => n[0]).join('')}
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-sm font-medium text-gray-900">{member.username}</p>
-                                                                <p className="text-[11px] text-gray-300">{member.email}</p>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-3 px-6">
-                                                        <select
-                                                            className={`text-xs border rounded-md py-1.5 px-2 font-medium outline-none focus:ring-1 focus:ring-violet-500 transition-shadow disabled:opacity-50 disabled:bg-gray-50 disabled:cursor-not-allowed ${member.role === 'Pending' ? 'border-amber-200 bg-amber-50 text-amber-700' : member.role === 'Blocked' ? 'border-red-200 bg-red-50 text-red-700' : 'border-gray-200 bg-white text-gray-700'}`}
-                                                            onChange={(e) => handleRoleUpdate(member._id, e.target.value)}
-                                                            defaultValue={member.role}
-                                                            disabled={member.username === currentUser?.username}
-                                                        >
-                                                            {member.role === 'Pending' && <option value="Pending" disabled>Assign Role...</option>}
-                                                            <option value="Admin">Admin</option>
-                                                            <option value="Site Manager">Site Manager</option>
-                                                            <option value="Contractor">Contractor</option>
-                                                            <option value="Client">Client</option>
-                                                            <option value="Blocked" className="text-red-600 font-semibold">Block Access</option>
-                                                        </select>
-                                                    </td>
-                                                    <td className="py-3 px-6">
-                                                        {member.role === 'Pending' ? (
-                                                            <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Needs Approval</span>
-                                                        ) : member.role === 'Blocked' ? (
-                                                            <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Restricted</span>
-                                                        ) : (
-                                                            <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Active</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="py-3 px-6 text-right">
-                                                        <button
-                                                            onClick={() => fetchUserActivities(member)}
-                                                            className="text-gray-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors"
-                                                            title="View Activity Logs"
-                                                        >
-                                                            <History size={16} />
-                                                        </button>
-                                                    </td>
+                                    {currentUser?.role !== 'Admin' ? (
+                                        <div className="px-6 py-12 text-center text-gray-300 text-sm">Admin access required</div>
+                                    ) : isUsersLoading ? (
+                                        <div className="flex justify-center py-12"><Loader2 className="animate-spin text-gray-300" size={24} /></div>
+                                    ) : (
+                                        <table className="w-full text-left text-sm">
+                                            <thead>
+                                                <tr className="border-b border-gray-50">
+                                                    <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">User</th>
+                                                    <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Role</th>
+                                                    <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                                                    <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Actions</th>
                                                 </tr>
-                                            ))}
-                                            {users.length === 0 && <tr><td colSpan="3" className="py-12 text-center text-gray-300 text-sm">No users found</td></tr>}
-                                        </tbody>
-                                    </table>
-                                )}
-                            </div>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-50">
+                                                {users.map(member => (
+                                                    <tr key={member._id} className="hover:bg-gray-50/50 transition-colors">
+                                                        <td className="py-3 px-6">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center text-xs font-semibold text-violet-600">
+                                                                    {member.username?.split(' ').map(n => n[0]).join('')}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-sm font-medium text-gray-900">{member.username}</p>
+                                                                    <p className="text-[11px] text-gray-300">{member.email}</p>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-3 px-6">
+                                                            <select
+                                                                className={`text-xs border rounded-md py-1.5 px-2 font-medium outline-none focus:ring-1 focus:ring-violet-500 transition-shadow disabled:opacity-50 disabled:bg-gray-50 disabled:cursor-not-allowed ${member.role === 'Pending' ? 'border-amber-200 bg-amber-50 text-amber-700' : member.role === 'Blocked' ? 'border-red-200 bg-red-50 text-red-700' : 'border-gray-200 bg-white text-gray-700'}`}
+                                                                onChange={(e) => handleRoleUpdate(member._id, e.target.value)}
+                                                                defaultValue={member.role}
+                                                                disabled={member.username === currentUser?.username}
+                                                            >
+                                                                {member.role === 'Pending' && <option value="Pending" disabled>Assign Role...</option>}
+                                                                <option value="Admin">Admin</option>
+                                                                <option value="Site Manager">Site Manager</option>
+                                                                <option value="Contractor">Contractor</option>
+                                                                <option value="Client">Client</option>
+                                                                <option value="Blocked" className="text-red-600 font-semibold">Block Access</option>
+                                                            </select>
+                                                        </td>
+                                                        <td className="py-3 px-6">
+                                                            {member.role === 'Pending' ? (
+                                                                <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Needs Approval</span>
+                                                            ) : member.role === 'Blocked' ? (
+                                                                <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Restricted</span>
+                                                            ) : (
+                                                                <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Active</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="py-3 px-6 text-right">
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                <button
+                                                                    onClick={() => fetchUserActivities(member)}
+                                                                    className="text-gray-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors"
+                                                                    title="View Activity Logs"
+                                                                >
+                                                                    <History size={16} />
+                                                                </button>
+                                                                {member.username !== currentUser?.username && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setUserToDelete(member);
+                                                                            setDeleteConfirmationEmail('');
+                                                                            setIsDeleteModalOpen(true);
+                                                                        }}
+                                                                        className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                                                                        title="Delete User"
+                                                                    >
+                                                                        <Trash2 size={16} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {users.length === 0 && <tr><td colSpan="3" className="py-12 text-center text-gray-300 text-sm">No users found</td></tr>}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Notifications */}
-                            <div id="notifications" className="bg-white rounded-2xl border border-gray-100 p-6 scroll-mt-24">
-                                <h2 className="text-sm font-semibold text-gray-900 mb-1">Notification Preferences</h2>
-                                <p className="text-xs text-gray-400 mb-5">Configure alerts and warnings</p>
-                                <div className="space-y-5">
-                                    <ToggleRow title="Low Stock Alerts" desc="Notify when materials drop below 15%." enabled={notifications.lowStock} onToggle={() => toggleNotification('lowStock')} />
-                                    <ToggleRow title="Budget Overrun Warnings" desc="Alert if a project exceeds weekly budget." enabled={notifications.budgetOverrun} onToggle={() => toggleNotification('budgetOverrun')} />
-                                    <ToggleRow title="Compliance Notifications" desc="30-day advance notice for expiring certifications." enabled={notifications.compliance} onToggle={() => toggleNotification('compliance')} />
+                            {activeSection === 'notifications' && (
+                                <div id="notifications" className="bg-white rounded-2xl border border-gray-100 p-6">
+                                    <h2 className="text-sm font-semibold text-gray-900 mb-1">Notification Preferences</h2>
+                                    <p className="text-xs text-gray-400 mb-5">Configure alerts and warnings</p>
+                                    <div className="space-y-5">
+                                        <ToggleRow title="Low Stock Alerts" desc="Notify when materials drop below 15%." enabled={notifications.lowStock} onToggle={() => toggleNotification('lowStock')} />
+                                        <ToggleRow title="Budget Overrun Warnings" desc="Alert if a project exceeds weekly budget." enabled={notifications.budgetOverrun} onToggle={() => toggleNotification('budgetOverrun')} />
+                                        <ToggleRow title="Compliance Notifications" desc="30-day advance notice for expiring certifications." enabled={notifications.compliance} onToggle={() => toggleNotification('compliance')} />
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Integrations */}
-                            <div id="integrations" className="bg-white rounded-2xl border border-gray-100 p-6 scroll-mt-24">
-                                <h2 className="text-sm font-semibold text-gray-900 mb-1">App Integrations</h2>
-                                <p className="text-xs text-gray-400 mb-5">Connect with your tools</p>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <IntegrationCard name="QuickBooks" desc="Accounting & Payroll" icon={<CreditCard size={16} className="text-emerald-500" />} status="Connected" color="bg-emerald-50" />
-                                    <IntegrationCard name="Procore" desc="Project Management" icon={<CloudLightning size={16} className="text-amber-500" />} status="Connect" color="bg-amber-50" />
-                                    <IntegrationCard name="Slack" desc="Communication" icon={<Slack size={16} className="text-violet-500" />} status="Connect" color="bg-violet-50" />
-                                    <IntegrationCard name="Bluebeam" desc="PDF Markup" icon={<FileJson size={16} className="text-red-500" />} status="Connect" color="bg-red-50" />
+                            {activeSection === 'integrations' && (
+                                <div id="integrations" className="bg-white rounded-2xl border border-gray-100 p-6">
+                                    <h2 className="text-sm font-semibold text-gray-900 mb-1">App Integrations</h2>
+                                    <p className="text-xs text-gray-400 mb-5">Connect with your tools</p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <IntegrationCard name="QuickBooks" desc="Accounting & Payroll" icon={<CreditCard size={16} className="text-emerald-500" />} status="Connected" color="bg-emerald-50" />
+                                        <IntegrationCard name="Procore" desc="Project Management" icon={<CloudLightning size={16} className="text-amber-500" />} status="Connect" color="bg-amber-50" />
+                                        <IntegrationCard name="Slack" desc="Communication" icon={<Slack size={16} className="text-violet-500" />} status="Connect" color="bg-violet-50" />
+                                        <IntegrationCard name="Bluebeam" desc="PDF Markup" icon={<FileJson size={16} className="text-red-500" />} status="Connect" color="bg-red-50" />
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </div>
                 </main>
@@ -454,7 +506,7 @@ const SettingsPage = () => {
 
             {/* Invite Client Modal */}
             {isInviteModalOpen && (
-                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm">
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm lg:pl-64">
                     <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
                         <div className="px-8 py-6 flex items-center justify-between border-b border-gray-100">
                             <div>
@@ -504,6 +556,61 @@ const SettingsPage = () => {
                             >
                                 {isInviting ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
                                 {isInviting ? 'Inviting...' : 'Send Invite'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* GitHub Style Absolute Delete Confirmation Modal */}
+            {isDeleteModalOpen && userToDelete && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 lg:pl-64">
+                    <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setIsDeleteModalOpen(false)} />
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200 relative border border-gray-100">
+                        {/* Header */}
+                        <div className="px-6 py-5 border-b border-gray-100 flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+                                <AlertTriangle className="w-5 h-5 text-red-600" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-900">Delete User Account</h3>
+                        </div>
+
+                        {/* Body - The "Github" text verification */}
+                        <div className="p-6">
+                            <div className="bg-amber-50 border border-amber-200/60 rounded-xl p-4 mb-6">
+                                <p className="text-sm text-amber-800 leading-relaxed">
+                                    Unexpected bad things will happen if you don't read this! This action <strong>cannot</strong> be undone.
+                                    This will permanently delete the user <strong className="font-semibold">{userToDelete.username}</strong> and remove all associated data and project access.
+                                </p>
+                            </div>
+
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Please type <strong className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">{userToDelete.email}</strong> to confirm.
+                            </label>
+                            <input
+                                type="text"
+                                value={deleteConfirmationEmail}
+                                onChange={(e) => setDeleteConfirmationEmail(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition-all text-sm font-mono shadow-sm"
+                                autoFocus
+                            />
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-6 py-4 bg-gray-50 flex items-center justify-end gap-3 border-t border-gray-100">
+                            <button
+                                onClick={() => setIsDeleteModalOpen(false)}
+                                className="px-5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors shadow-sm"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteUser}
+                                disabled={isDeleting || deleteConfirmationEmail !== userToDelete.email}
+                                className="px-5 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border border-red-600"
+                            >
+                                {isDeleting && <Loader2 size={16} className="animate-spin" />}
+                                <span>{isDeleting ? 'Deleting...' : 'I understand the consequences, delete user'}</span>
                             </button>
                         </div>
                     </div>
