@@ -1,6 +1,6 @@
 # S-R-Associates Construction Management Dashboard
 
-A comprehensive, real-time command center for managing architecture and construction projects. Built with a modern, high-performance tech stack, this application allows project managers and stakeholders to oversee everything from material inventory and daily site logs to workforce allocation and dynamic budget calculations.
+A comprehensive, real-time command center for managing architecture and construction projects. Built with a modern, high-performance tech stack, this application allows project managers and stakeholders to oversee everything from material inventory and daily site logs to workforce allocation, dynamic budget calculations, and automated reporting.
 
 ---
 
@@ -8,32 +8,34 @@ A comprehensive, real-time command center for managing architecture and construc
 
 ### 1. Dashboard & Core Navigation
 *   **Real-time Metrics:** Overview of task completion, budget burn rates, client info, and project specs.
-*   **Live Site Feed:** A photo gallery simulating instantaneous uploads from the ground to track visual progress.
-*   **Critical Tasks:** A dynamic list of urgent items requiring immediate attention with real-time counters.
-*   **Project Settings Modal:** Modify core project data, scope, and scheduling timelines.
+*   **Live Site Feed:** A photo gallery simulating instantaneous uploads from the ground to track visual progress, powered by Cloudinary.
+*   **Client Management:** Invite clients via email to view their project boards.
+*   **Company Settings:** Dynamically update company logos, branding, and addresses across the entire dashboard and generated reports.
 
-### 2. Blueprints & Diagrams Module
-*   **PDF to Image Conversion:** Automatically converts uploaded architectural PDFs into high-quality image thumbnails using `pdf-poppler`.
-*   **Revision History:** Upload new versions of floor plans with incrementing revision numbers (R1, R2, etc.).
+### 2. Authentication & Authorization
+*   **Google SSO:** Secure login and user authentication using Google OAuth2.
+*   **Role-Based Access:** Differential access for Admins/Contractors vs Clients viewing their own projects.
+*   **Email Invitations:** Automated email invites to clients using a native Gmail REST API integration (bypasses standard cloud SMTP outbound port restrictions) with OAuth2.
+
+### 3. Blueprints & Annotations Module
 *   **Visual Grid:** View all blueprints, schematics, and structural elevations in an organized masonry layout.
+*   **Interactive Annotations:** Drop interactive "Pins" directly onto blueprint images to mark tasks, snags, or notes with specific coordinates and statuses (Open/Resolved).
 *   **File Downloads:** Securely download the original uploaded blueprint files.
 
-### 3. Material Inventory & Supply Chain
+### 4. Material Inventory & Supply Chain
 *   **Stock Tracking:** Monitor "Inflow", "Outflow", and current "Balance" of construction materials (e.g., Cement, Steel, Bricks).
-*   **Delivery Logging (Multipart Form Data):** Log new material deliveries, complete with supplier info, cost, and uploads for delivery challans and stack verification photos.
-*   **Usage Tracking:** Document material consumption tied to specific site locations or purposes.
+*   **Delivery Logging:** Log new material deliveries, complete with supplier info, cost, and Cloudinary image uploads for delivery challans and stack verification photos.
 *   **Dynamic Budget Calculation:** Material delivery costs are automatically aggregated and reflect in real-time on the project dashboard's Budget Burn Rate ring graph.
 
-### 4. Daily Site Logs
-*   **Weather Integration:** Tracks the weather conditions during the logged day.
+### 5. Daily Site Logs & Reports
+*   **Weather Integration:** Automatically fetches and tracks weather conditions for the logged day.
 *   **Workforce Headcounts:** Daily records of supervisors, skilled, and unskilled laborers on site.
-*   **Activity Logging:** Detailed notes on work accomplished, roadblocks, and next priorities.
+*   **PDF Report Generation:** Generate and download beautifully formatted, branded PDF reports for materials, daily logs, and comprehensive project summaries.
 
-### 5. Personnel & Vendor Management
-*   **Team Directory:** A searchable roster of internal staff (Project Managers, Architects, Site Engineers) assigned to a project.
-*   **Real-time Allocation:** Click "Add Personnel" to register a new team member and immediately see the UI update without a page refresh.
+### 6. Personnel & Vendor Management
+*   **Team Directory:** A searchable roster of internal staff (Project Managers, Architects, Site Engineers).
+*   **Global Database:** Add personnel globally and assign them dynamically to multiple projects.
 *   **External Vendors:** Track third-party contractors and specialized trade agencies.
-*   **Analytics Bar:** View real-time statistics of total assigned staff, currently on-site headcount, and vendor counts.
 
 ---
 
@@ -43,14 +45,16 @@ A comprehensive, real-time command center for managing architecture and construc
 *   **React (Vite):** Blazing fast development and optimized build processes.
 *   **Tailwind CSS:** Modern, utility-first styling for a sleek, premium, and responsive UI.
 *   **Lucide React:** Beautiful, consistent icon set.
-*   **React Router:** Fluid client-side navigation between projects and dashboards.
-*   **Axios:** Configured API instance for backend communication.
+*   **React Router:** Fluid client-side navigation.
+*   **Zustand:** Lightweight global state management.
+*   **Recharts:** Interactive data visualization and charts.
 
 **Backend**
 *   **Node.js & Express:** Robust backend server for API endpoints and business logic.
-*   **MongoDB & Mongoose:** NoSQL database schemas built for complex relationships (Projects, Inventory, Logs, Personnel).
-*   **Multer:** Middleware for handling `multipart/form-data`, primarily used for uploading blueprints, live feed photos, and delivery documents.
-*   **pdf-poppler:** Native PDF processing to generate image thumbnails for blueprint previews.
+*   **MongoDB & Mongoose:** NoSQL database schemas built for complex relationships (Projects, Inventory, Logs, Personnel, Users).
+*   **Cloudinary:** Enterprise-grade cloud storage and delivery for images and documents.
+*   **Google OAuth2 & Gmail API:** Secure authentication and robust, non-SMTP email delivery over HTTPS.
+*   **Puppeteer/jsPDF:** Server-side and client-side PDF generation natively from HTML.
 
 ---
 
@@ -59,7 +63,8 @@ A comprehensive, real-time command center for managing architecture and construc
 ### Prerequisites
 *   Node.js (v18+ recommended)
 *   MongoDB Instance (Local or Atlas)
-*   Poppler (Required for PDF to Image conversion)
+*   Google Cloud Console Project (for OAuth2 & Gmail API)
+*   Cloudinary Account (for image hosting)
 
 ### Installation
 
@@ -69,44 +74,58 @@ A comprehensive, real-time command center for managing architecture and construc
     cd S-R-Associates
     ```
 
-2.  **Setup Backend**
+2.  **Environment Variables (`backend/.env`)**
+    Create a `.env` file in the `backend` directory:
+    ```env
+    PORT=3000
+    MONGO_URI=your_mongodb_connection_string
+    CLIENT_URL=http://localhost:5173
+    JWT_SECRET=your_jwt_secret
+
+    # Cloudinary Config
+    CLOUDINARY_CLOUD_NAME=your_cloud_name
+    CLOUDINARY_API_KEY=your_api_key
+    CLOUDINARY_API_SECRET=your_api_secret
+
+    # Google OAuth (For SSO Login)
+    GOOGLE_CLIENT_ID=your_google_client_id
+    GOOGLE_CLIENT_SECRET=your_google_client_secret
+
+    # Email Settings (Gmail API - Bypasses SMTP ports on Render/Vercel)
+    SMTP_USER=your_verified_gmail_address
+    OAUTH_CLIENT_ID=your_oauth_client_id
+    OAUTH_CLIENT_SECRET=your_oauth_client_secret
+    OAUTH_REFRESH_TOKEN=your_oauth_refresh_token
+    ```
+
+3.  **Environment Variables (`frontend/.env`)**
+    Create a `.env` file in the `frontend` directory:
+    ```env
+    VITE_BACKEND_URL=http://localhost:3000
+    VITE_GOOGLE_CLIENT_ID=your_google_client_id
+    ```
+
+4.  **Setup & Run Backend**
     ```sh
     cd backend
     npm install
-    # Ensure MongoDB is running and your connection string in config/database.js is correct
     npm run dev
     ```
 
-3.  **Setup Frontend**
+5.  **Setup & Run Frontend**
     ```sh
     cd ../frontend
     npm install
     npm run dev
     ```
 
-4.  **Access the Application**
-    Open your browser to `http://localhost:5173` (or the port Vite provides) to view the dashboard.
+6.  **Access the Application**
+    Open your browser to `http://localhost:5173` to view the dashboard.
 
 ---
 
-## 📁 Project Structure
+## 🌐 Deployment Configuration
 
-```text
-S-R-Associates/
-├── backend/
-│   ├── config/             # Database connection setup
-│   ├── controllers/        # Business logic for API endpoints
-│   ├── models/             # Mongoose schemas (Project, Material, Personnel, etc.)
-│   ├── routes/             # Express API route mapping
-│   ├── uploads/            # Local storage for documents and images
-│   └── server.js           # Main Express server entry point
-│
-└── frontend/
-    ├── src/
-    │   ├── api/            # Axios instance and configurations
-    │   ├── components/     # Reusable React components (Tabs, Modals)
-    │   ├── pages/          # Main page views (ProjectDetail, Dashboard)
-    │   ├── App.jsx         # Root component & Routing
-    │   └── index.css       # Global Tailwind directives
-    └── vite.config.js      # Vite build configuration
-```
+This application is configured for modern cloud deployment:
+*   **Frontend (Vercel):** Seamless continuous deployment. Ensure `VITE_BACKEND_URL` is set to your deployed backend URL.
+*   **Backend (Render/Railway):** Express API. Uses Google's Gmail REST API (HTTPS Port 443) for email invites, successfully bypassing the strict outbound SMTP port blocks (Ports 587/465/25) enforced by Render's free tier. 
