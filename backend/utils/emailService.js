@@ -149,22 +149,39 @@ const sendClientInviteEmail = async (toEmail, projectName, companyLogoUrl = null
             return true;
         }
 
-        // ── METHOD 2: SMTP via Nodemailer (works on localhost) ──
-        if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        // ── METHOD 2: SMTP via Nodemailer (works on localhost, or via OAuth2 on Render) ──
+        if (!process.env.SMTP_USER) {
             console.warn('⚠️ No email credentials configured (RESEND_API_KEY or SMTP_USER/SMTP_PASS). Email NOT sent.');
             return true;
         }
 
-        console.log('[Email] Using SMTP (localhost mode)...');
-        const transporter = nodemailer.createTransport({
+        console.log('[Email] Using Nodemailer...');
+        let transportOptions = {
             host: process.env.SMTP_HOST || 'smtp.gmail.com',
             port: parseInt(process.env.SMTP_PORT || '587'),
             secure: process.env.SMTP_PORT === '465',
-            auth: {
+        };
+
+        // Use OAuth2 if credentials are provided (bypasses Render SMTP blocks)
+        if (process.env.OAUTH_CLIENT_ID && process.env.OAUTH_CLIENT_SECRET && process.env.OAUTH_REFRESH_TOKEN) {
+            console.log('[Email] Authenticating via Google OAuth2...');
+            transportOptions.auth = {
+                type: 'OAuth2',
+                user: process.env.SMTP_USER,
+                clientId: process.env.OAUTH_CLIENT_ID,
+                clientSecret: process.env.OAUTH_CLIENT_SECRET,
+                refreshToken: process.env.OAUTH_REFRESH_TOKEN,
+            };
+        } else {
+            console.log('[Email] Authenticating via standard SMTP (requires unblocked ports)...');
+            // Fallback to standard SMTP password auth (works locally)
+            transportOptions.auth = {
                 user: process.env.SMTP_USER,
                 pass: process.env.SMTP_PASS,
-            },
-        });
+            };
+        }
+
+        const transporter = nodemailer.createTransport(transportOptions);
 
         const info = await transporter.sendMail({
             from: `"${fromName}" <${fromEmail}>`,
