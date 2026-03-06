@@ -67,6 +67,10 @@ exports.googleAuth = async (req, res) => {
                 role: 'Pending' // Explicitly set, even though it's default
                 // Password is left empty as it's not required for Google users
             });
+        } else if (!user.profile_image && picture) {
+            // Retroactively add the profile image if an existing user didn't have one
+            user.profile_image = picture;
+            await user.save();
         }
 
         // Generate our own session JWT
