@@ -191,7 +191,7 @@ const sendClientInviteEmail = async (toEmail, projectName, companyLogoUrl = null
 
             // 3. Send Email via Gmail API
             console.log('[Email] Sending email payload to Gmail API...');
-            const sendResponse = await fetch('https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send', {
+            const sendResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${tokenData.access_token}`,
