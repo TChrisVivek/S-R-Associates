@@ -35,7 +35,9 @@ app.use(express.urlencoded({ extended: true })); // Added for Form URL encoded l
 const projectRoutes = require('./routes/projectRoutes');
 const userRoutes = require('./routes/userRoutes');
 const personnelRoutes = require('./routes/personnelRoutes');
+// const activityLogRoutes = require('./routes/activityLogRoutes'); // Commented out as module is missing
 const budgetRoutes = require('./routes/budgetRoutes');
+const expenseRoutes = require('./routes/expenseRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 
 // Serve uploaded files statically
@@ -47,7 +49,9 @@ app.use('/api/pins', pinRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/personnel', personnelRoutes);
+// app.use('/api/activities', activityLogRoutes); // Commented out as module is missing
 app.use('/api/budget', budgetRoutes);
+app.use('/api/expenses', expenseRoutes);
 app.use('/api/settings', settingsRoutes); // Added route
 
 // Initialize Background Jobs

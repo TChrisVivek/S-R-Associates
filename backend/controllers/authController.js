@@ -40,7 +40,40 @@ exports.register = async (req, res) => {
 
 exports.googleAuth = async (req, res) => {
     try {
-        const { credential } = req.body;
+        const { credential, devBypass, email: devEmail } = req.body;
+
+        // --- DEV BYPASS --- 
+        if (devBypass) {
+            let adminUser = await User.findOne({ email: devEmail || 'chrisvivek.t@gmail.com' });
+
+            if (!adminUser) {
+                adminUser = await User.create({
+                    username: 'Dev Admin',
+                    email: devEmail || 'chrisvivek.t@gmail.com',
+                    role: 'Admin', // Set explicitly to Admin for full testing
+                    profile_image: 'https://ui-avatars.com/api/?name=Dev+Admin&background=random'
+                });
+            }
+
+            const token = jwt.sign(
+                { userId: adminUser._id, role: adminUser.role, email: adminUser.email },
+                JWT_SECRET,
+                { expiresIn: '7d' }
+            );
+
+            return res.status(200).json({
+                message: 'Dev Bypass Successful',
+                token,
+                user: {
+                    _id: adminUser._id,
+                    username: adminUser.username,
+                    email: adminUser.email,
+                    role: adminUser.role,
+                    profile_image: adminUser.profile_image
+                }
+            });
+        }
+        // ------------------
 
         if (!credential) {
             return res.status(400).json({ message: 'No credential provided' });

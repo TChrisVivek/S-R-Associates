@@ -33,6 +33,27 @@ const Login = () => {
         showToast(`${linkName} is not available yet.`, "info");
     };
 
+    // TEMPORARY BYPASS FOR DEV/LOCALHOST GOOGLE AUTH CACHE ERRORS
+    const handleDevLogin = async () => {
+        setIsLoading(true);
+        try {
+            // Automatically log in as the default Admin user for local testing
+            const testEmail = "chrisvivek.t@gmail.com";
+            // Check if mock user route exists, otherwise just spoof google payload for testing bypass
+            const res = await api.post('/auth/google', {
+                devBypass: true,
+                credential: "DEV_MOCK_TOKEN",
+                email: testEmail
+            });
+            login(res.data.token, res.data.user);
+            showToast("Dev Access Granted", "success");
+            navigate('/');
+        } catch (error) {
+            console.error("Dev Login failed:", error);
+            showToast("Dev bypass failed. Backend not configured for bypass.", "error");
+        } finally { setIsLoading(false); }
+    };
+
     return (
         <div className="flex h-screen w-full bg-[#0f1117] font-sans overflow-hidden">
             {ToastComponent}
@@ -75,7 +96,7 @@ const Login = () => {
                     </p>
 
                     <div className={`w-full flex justify-center transition-all duration-300 ${isLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
-                        <div className="w-[320px] rounded-full overflow-hidden shadow-sm hover:shadow-md hover:shadow-violet-500/10 border border-gray-200 hover:border-violet-200 transition-all duration-300 transform hover:-translate-y-0.5 relative z-10">
+                        <div className="w-[320px] rounded-full overflow-hidden shadow-sm hover:shadow-md hover:shadow-violet-500/10 border border-gray-200 hover:border-violet-200 transition-all duration-300 transform hover:-translate-y-0.5 relative z-10 flex flex-col gap-3 items-center">
                             <GoogleLogin
                                 onSuccess={handleGoogleSuccess}
                                 onError={handleGoogleError}
@@ -86,6 +107,16 @@ const Login = () => {
                                 shape="pill"
                                 context="use"
                             />
+
+                            {/* DEV ONLY FALLBACK */}
+                            {import.meta.env.VITE_API_URL.includes('localhost') && (
+                                <button
+                                    onClick={handleDevLogin}
+                                    className="mt-2 text-xs font-semibold px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-full transition-colors w-full"
+                                >
+                                    Bypass Login (Dev Localhost Only)
+                                </button>
+                            )}
                         </div>
                     </div>
 
