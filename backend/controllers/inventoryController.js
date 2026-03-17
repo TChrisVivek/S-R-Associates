@@ -1,5 +1,6 @@
 const Material = require('../models/Material');
 const Project = require('../models/Project');
+const Expense = require('../models/Expense');
 const logActivity = require('../utils/activityLogger');
 
 const getProjectInventory = async (req, res) => {
@@ -123,6 +124,26 @@ const logDelivery = async (req, res) => {
                 `Logged delivery of ${parsedQuantity} ${unit} of ${materialName}`,
                 material._id
             );
+        }
+
+        // --- AUTOMATIC EXPENSE CREATION ---
+        // If the delivery has a cost, automatically log it as an approved business expense
+        if (parsedTotalCost > 0 && req.user && req.user._id) {
+            try {
+                const newExpense = new Expense({
+                    title: `Material Delivery: ${materialName}`,
+                    description: `Automated entry: Delivery of ${parsedQuantity} ${unit} from ${supplier || 'supplier'}`,
+                    amount: parsedTotalCost,
+                    category: 'Material',
+                    project: projectId,
+                    submittedBy: req.user._id,
+                    status: 'Approved' // Auto-approved because it's already delivered
+                });
+                await newExpense.save();
+            } catch (expenseErr) {
+                console.error("Failed to auto-create expense from material delivery:", expenseErr);
+                // Do not throw; we still want the material delivery to succeed even if the financial log fails
+            }
         }
 
         res.status(200).json(material);
