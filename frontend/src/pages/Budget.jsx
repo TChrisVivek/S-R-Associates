@@ -403,7 +403,20 @@ function OverviewTab({ data }) {
 function ProjectsTab({ data, onAddExpense, isAdmin, canAdd, onDelete, cache, setCache, confirmDel }) {
     const [expanded, setExpanded] = useState(null);
     const [loading,  setLoading]  = useState(null);
-    const projects = data.projectSummaryList || [];
+    // Fallback: if productionSummaryList missing (older backend), build it from projectUtilization
+    const projects = (() => {
+        const list = data.projectSummaryList || [];
+        if (list.length > 0) return list;
+        // Map from projectUtilization (always present — used by Overview tab)
+        return (data.projectUtilization || []).map(p => ({
+            id: p.id,
+            name: p.name,
+            status: p.status,
+            budgetFormatted: p.budgetFormatted,
+            spentFormatted: p.spentFormatted,
+            percentage: p.percentage
+        }));
+    })();
 
     const toggle = async (pid) => {
         const key = pid?.toString();
