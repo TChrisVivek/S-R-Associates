@@ -132,10 +132,9 @@ const getBudgetDashboard = async (req, res) => {
             }
         };
 
-        // ── 9. Recent Transactions ──
+        // ── 9. Recent Transactions (all — no arbitrary cap) ──
         const recentTransactions = allExpenses
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-            .slice(0, 20)
+            .sort((a, b) => new Date(b.expenseDate || b.createdAt) - new Date(a.expenseDate || a.createdAt))
             .map(e => ({
                 id: e._id,
                 description: e.title,
