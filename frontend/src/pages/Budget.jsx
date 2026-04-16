@@ -43,6 +43,7 @@ export default function Budget() {
     const [loading,       setLoading]       = useState(true);
     const [activeTab,     setActiveTab]     = useState('Overview');
     const [projectCache,  setProjectCache]  = useState({});   // shared with ProjectsTab
+    const [confirmDel,    setConfirmDel]    = useState(null); // id awaiting confirm
 
     /* modal */
     const [modalOpen,        setModalOpen]        = useState(false);
@@ -79,11 +80,17 @@ export default function Budget() {
         } catch { showToast('Action failed', 'error'); }
     };
     const handleDelete = async (id, projectId = null) => {
-        if (!window.confirm('Permanently delete this expense?')) return;
+        // Two-click confirm: first click arms it, second click fires
+        if (confirmDel !== id) {
+            setConfirmDel(id);
+            // Auto-disarm after 3 seconds
+            setTimeout(() => setConfirmDel(prev => prev === id ? null : prev), 3000);
+            return;
+        }
+        setConfirmDel(null);
         try {
             await api.delete(`/expenses/${id}`);
             showToast('Expense deleted', 'success');
-            // If deleted from a project accordion, bust that project's cache so it re-fetches
             if (projectId) {
                 setProjectCache(prev => {
                     const updated = { ...prev };
@@ -92,7 +99,10 @@ export default function Budget() {
                 });
             }
             fetchData();
-        } catch { showToast('Failed to delete', 'error'); }
+        } catch (err) {
+            console.error('Delete error:', err);
+            showToast('Failed to delete — ' + (err.response?.data?.message || 'Server error'), 'error');
+        }
     };
 
     /* modal */
@@ -220,8 +230,8 @@ export default function Budget() {
                 {/* Tab content */}
                 <div className="flex-1 overflow-y-auto">
                     {activeTab === 'Overview'  && <OverviewTab  data={data} />}
-                    {activeTab === 'Projects'  && <ProjectsTab  data={data} onAddExpense={openCreate} isAdmin={isAdmin} canAdd={canAdd} onDelete={handleDelete} cache={projectCache} setCache={setProjectCache} />}
-                    {activeTab === 'Expenses'  && <ExpensesTab  data={data} isAdmin={isAdmin} onDelete={handleDelete} />}
+                    {activeTab === 'Projects'  && <ProjectsTab  data={data} onAddExpense={openCreate} isAdmin={isAdmin} canAdd={canAdd} onDelete={handleDelete} cache={projectCache} setCache={setProjectCache} confirmDel={confirmDel} />}
+                    {activeTab === 'Expenses'  && <ExpensesTab  data={data} isAdmin={isAdmin} onDelete={handleDelete} confirmDel={confirmDel} />}
                     {activeTab === 'Approvals' && <ApprovalsTab data={data} onApprove={handleApproval} onEdit={openEdit} />}
                 </div>
             </div>
@@ -390,7 +400,7 @@ function OverviewTab({ data }) {
 /* ═══════════════════════════════════════════════════════════
    PROJECTS TAB
    ═══════════════════════════════════════════════════════════ */
-function ProjectsTab({ data, onAddExpense, isAdmin, canAdd, onDelete, cache, setCache }) {
+function ProjectsTab({ data, onAddExpense, isAdmin, canAdd, onDelete, cache, setCache, confirmDel }) {
     const [expanded, setExpanded] = useState(null);
     const [loading,  setLoading]  = useState(null);
     const projects = data.projectSummaryList || [];
@@ -501,9 +511,15 @@ function ProjectsTab({ data, onAddExpense, isAdmin, canAdd, onDelete, cache, set
                                                                 {isAdmin && <td className="py-3 pr-3">
                                                                     <button
                                                                         onClick={() => onDelete(ex._id, p.id)}
-                                                                        className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 flex items-center justify-center transition-all"
-                                                                        title="Delete expense"
-                                                                    ><Trash2 size={10} /></button>
+                                                                        title={confirmDel === ex._id ? 'Click again to confirm delete' : 'Delete expense'}
+                                                                        className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all text-[10px] font-semibold ${
+                                                                            confirmDel === ex._id
+                                                                                ? 'opacity-100 bg-red-500 text-white scale-105 ring-2 ring-red-300'
+                                                                                : 'opacity-0 group-hover:opacity-100 bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600'
+                                                                        }`}
+                                                                    >
+                                                                        {confirmDel === ex._id ? '!' : <Trash2 size={10} />}
+                                                                    </button>
                                                                 </td>}
                                                             </tr>
                                                         );
@@ -524,7 +540,7 @@ function ProjectsTab({ data, onAddExpense, isAdmin, canAdd, onDelete, cache, set
 /* ═══════════════════════════════════════════════════════════
    EXPENSES TAB
    ═══════════════════════════════════════════════════════════ */
-function ExpensesTab({ data, isAdmin, onDelete }) {
+function ExpensesTab({ data, isAdmin, onDelete, confirmDel }) {
     const [search,    setSearch]    = useState('');
     const [statusF,   setStatusF]   = useState('All');
     const [catF,      setCatF]      = useState('All');
@@ -605,7 +621,17 @@ function ExpensesTab({ data, isAdmin, onDelete }) {
                                             <td className="py-3 px-4 text-[12px] text-gray-500 whitespace-nowrap tabular-nums">{dt}</td>
                                             <td className="py-3 pl-4 pr-6 text-right text-[13.5px] font-semibold text-gray-900 tabular-nums whitespace-nowrap">{tx.amount}</td>
                                             {isAdmin && <td className="py-3 pr-3">
-                                                <button onClick={() => onDelete(tx.id)} className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 flex items-center justify-center transition-all"><Trash2 size={10} /></button>
+                                                <button
+                                                    onClick={() => onDelete(tx.id)}
+                                                    title={confirmDel === tx.id ? 'Click again to confirm delete' : 'Delete expense'}
+                                                    className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all text-[10px] font-semibold ${
+                                                        confirmDel === tx.id
+                                                            ? 'opacity-100 bg-red-500 text-white scale-105 ring-2 ring-red-300'
+                                                            : 'opacity-0 group-hover:opacity-100 bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600'
+                                                    }`}
+                                                >
+                                                    {confirmDel === tx.id ? '!' : <Trash2 size={10} />}
+                                                </button>
                                             </td>}
                                         </tr>
                                     );
