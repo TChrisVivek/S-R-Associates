@@ -130,9 +130,27 @@ const editExpense = async (req, res) => {
     }
 };
 
+// @desc    Delete an expense
+// @route   DELETE /api/expenses/:id
+// @access  Private (Admin only)
+const deleteExpense = async (req, res) => {
+    try {
+        const expense = await Expense.findById(req.params.id);
+        if (!expense) {
+            return res.status(404).json({ message: 'Expense not found' });
+        }
+        await expense.deleteOne();
+        res.status(200).json({ message: 'Expense deleted successfully', id: req.params.id });
+    } catch (error) {
+        console.error('Error deleting expense:', error);
+        res.status(500).json({ message: 'Server error deleting expense', error: error.message });
+    }
+};
+
 module.exports = {
     getExpenses,
     createExpense,
     updateExpenseStatus,
-    editExpense
+    editExpense,
+    deleteExpense
 };
