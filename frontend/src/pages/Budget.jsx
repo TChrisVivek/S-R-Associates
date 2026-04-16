@@ -39,9 +39,10 @@ export default function Budget() {
     const navigate = useNavigate();
     const { user: cu } = useAuth();
 
-    const [data,      setData]      = useState(null);
-    const [loading,   setLoading]   = useState(true);
-    const [activeTab, setActiveTab] = useState('Overview');
+    const [data,          setData]          = useState(null);
+    const [loading,       setLoading]       = useState(true);
+    const [activeTab,     setActiveTab]     = useState('Overview');
+    const [projectCache,  setProjectCache]  = useState({});   // shared with ProjectsTab
 
     /* modal */
     const [modalOpen,        setModalOpen]        = useState(false);
@@ -63,10 +64,11 @@ export default function Budget() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try { const r = await api.get('/budget'); setData(r.data); }
-        catch { showToast('Failed to load budget data', 'error'); }
+        catch (err) { console.error(err); showToast('Failed to load budget data', 'error'); }
         finally { setLoading(false); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-    useEffect(() => { fetchData(); }, []);
+    useEffect(() => { fetchData(); }, [fetchData]);
 
     /* actions */
     const handleApproval = async (id, action) => {
@@ -76,10 +78,21 @@ export default function Budget() {
             fetchData();
         } catch { showToast('Action failed', 'error'); }
     };
-    const handleDelete = async (id) => {
+    const handleDelete = async (id, projectId = null) => {
         if (!window.confirm('Permanently delete this expense?')) return;
-        try { await api.delete(`/expenses/${id}`); showToast('Expense deleted', 'success'); fetchData(); }
-        catch { showToast('Failed to delete', 'error'); }
+        try {
+            await api.delete(`/expenses/${id}`);
+            showToast('Expense deleted', 'success');
+            // If deleted from a project accordion, bust that project's cache so it re-fetches
+            if (projectId) {
+                setProjectCache(prev => {
+                    const updated = { ...prev };
+                    delete updated[projectId.toString()];
+                    return updated;
+                });
+            }
+            fetchData();
+        } catch { showToast('Failed to delete', 'error'); }
     };
 
     /* modal */
@@ -207,7 +220,7 @@ export default function Budget() {
                 {/* Tab content */}
                 <div className="flex-1 overflow-y-auto">
                     {activeTab === 'Overview'  && <OverviewTab  data={data} />}
-                    {activeTab === 'Projects'  && <ProjectsTab  data={data} onAddExpense={openCreate} isAdmin={isAdmin} canAdd={canAdd} onDelete={handleDelete} />}
+                    {activeTab === 'Projects'  && <ProjectsTab  data={data} onAddExpense={openCreate} isAdmin={isAdmin} canAdd={canAdd} onDelete={handleDelete} cache={projectCache} setCache={setProjectCache} />}
                     {activeTab === 'Expenses'  && <ExpensesTab  data={data} isAdmin={isAdmin} onDelete={handleDelete} />}
                     {activeTab === 'Approvals' && <ApprovalsTab data={data} onApprove={handleApproval} onEdit={openEdit} />}
                 </div>
@@ -377,17 +390,16 @@ function OverviewTab({ data }) {
 /* ═══════════════════════════════════════════════════════════
    PROJECTS TAB
    ═══════════════════════════════════════════════════════════ */
-function ProjectsTab({ data, onAddExpense, isAdmin, canAdd, onDelete }) {
-    const [expanded, setExpanded]       = useState(null);
-    const [cache,    setCache]          = useState({});
-    const [loading,  setLoading]        = useState(null);
+function ProjectsTab({ data, onAddExpense, isAdmin, canAdd, onDelete, cache, setCache }) {
+    const [expanded, setExpanded] = useState(null);
+    const [loading,  setLoading]  = useState(null);
     const projects = data.projectSummaryList || [];
 
     const toggle = async (pid) => {
         const key = pid?.toString();
         if (expanded === key) { setExpanded(null); return; }
         setExpanded(key);
-        if (cache[key]) return;
+        if (cache[key]) return;   // already fetched — use cached
         try {
             setLoading(key);
             const res = await api.get(`/expenses?project=${pid}`);
@@ -487,7 +499,11 @@ function ProjectsTab({ data, onAddExpense, isAdmin, canAdd, onDelete }) {
                                                                 <td className="py-3 px-4"><StatusChip status={ex.status} /></td>
                                                                 <td className="py-3 pl-4 pr-6 text-right text-[13.5px] font-semibold text-gray-900 tabular-nums">{amt}</td>
                                                                 {isAdmin && <td className="py-3 pr-3">
-                                                                    <button onClick={() => onDelete(ex._id)} className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 flex items-center justify-center transition-all"><Trash2 size={10} /></button>
+                                                                    <button
+                                                                        onClick={() => onDelete(ex._id, p.id)}
+                                                                        className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 flex items-center justify-center transition-all"
+                                                                        title="Delete expense"
+                                                                    ><Trash2 size={10} /></button>
                                                                 </td>}
                                                             </tr>
                                                         );
