@@ -3,6 +3,7 @@ const fs = require('fs-extra');
 const Project = require('../models/Project');
 const Material = require('../models/Material');
 const Personnel = require('../models/Personnel');
+const Expense = require('../models/Expense');
 const logActivity = require('../utils/activityLogger');
 
 exports.uploadBlueprint = async (req, res) => {
@@ -110,8 +111,8 @@ exports.deleteProject = async (req, res) => {
             }
         );
 
-        // Optional: you could delete related material, daily logs, and pins here.
-        // For now, we will just unassign personnel and delete the project.
+        // Delete all expenses linked to this project (prevents ghost entries on Budget page)
+        await Expense.deleteMany({ project: projectId });
 
         if (req.user && req.user._id) {
             logActivity(

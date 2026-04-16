@@ -3,15 +3,13 @@ const Expense = require('../models/Expense');
 
 const getBudgetDashboard = async (req, res) => {
     try {
-        const projects = await Project.find({});
-
         // ── Helper: convert budget to raw rupees ──
         const toRawAmount = (budget, budgetUnit) => {
             let amount = parseFloat(budget) || 0;
             const unit = budgetUnit ? budgetUnit.toLowerCase() : '';
             if (unit.includes('crore')) amount *= 10000000;
             else if (unit.includes('lakh')) amount *= 100000;
-            else if (unit.includes('thousand')) amount *= 1000;
+            else if (unit.includes('thousands')) amount *= 1000;
             return amount;
         };
 
@@ -22,20 +20,28 @@ const getBudgetDashboard = async (req, res) => {
             return `₹${amount.toLocaleString('en-IN')}`;
         };
 
-        // ── 1. Total Budget ──
-        const totalBudget = projects.reduce((sum, p) => sum + toRawAmount(p.budget, p.budgetUnit), 0);
+        const selectedProjectId = req.query.project || null;
 
-        // ── 2. Fetch Expenses (with submittedBy populated!) ──
-        const allExpenses = await Expense.find()
+        // ── 1. Fetch Projects (all or one) ──
+        const projects = selectedProjectId
+            ? await Project.find({ _id: selectedProjectId })
+            : await Project.find({});
+
+        // ── 2. Fetch Expenses ──
+        const expenseQuery = { ...(selectedProjectId ? { project: selectedProjectId } : {}) };
+        const allExpenses = await Expense.find(expenseQuery)
             .populate('project', 'title budget budgetUnit')
             .populate('submittedBy', 'username');
 
         const approvedExpenses = allExpenses.filter(e => e.status === 'Approved');
         const pendingExpenses = allExpenses.filter(e => e.status === 'Pending');
+
+        // ── 3. Total Budget ──
+        const totalBudget = projects.reduce((sum, p) => sum + toRawAmount(p.budget, p.budgetUnit), 0);
         const totalSpent = approvedExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
         const spentPercentage = totalBudget > 0 ? ((totalSpent / totalBudget) * 100).toFixed(1) : 0;
 
-        // ── 3. Daily average spend ──
+        // ── 4. Daily average spend ──
         let dailyAvgSpend = '₹0';
         if (approvedExpenses.length > 0) {
             const dates = approvedExpenses
@@ -48,8 +54,7 @@ const getBudgetDashboard = async (req, res) => {
             }
         }
 
-        // ── 4. Project Budget Utilization ──
-        // First, aggregate spending per project from approved expenses
+        // ── 5. Project Budget Utilization ──
         const spendingByProject = {};
         approvedExpenses.forEach(e => {
             if (e.project) {
@@ -73,9 +78,9 @@ const getBudgetDashboard = async (req, res) => {
                 spentFormatted: formatCurrency(spent),
                 percentage
             };
-        }).sort((a, b) => b.percentage - a.percentage); // highest utilization first
+        }).sort((a, b) => b.percentage - a.percentage);
 
-        // ── 5. Category Breakdown ──
+        // ── 6. Category Breakdown ──
         const categoryTotals = {};
         approvedExpenses.forEach(e => {
             const cat = e.category || 'Miscellaneous';
@@ -87,7 +92,7 @@ const getBudgetDashboard = async (req, res) => {
             value
         })).sort((a, b) => b.value - a.value);
 
-        // ── 6. Overruns ──
+        // ── 7. Overruns ──
         const overrunAlerts = [];
         let totalOverrunAmount = 0;
 
@@ -104,11 +109,13 @@ const getBudgetDashboard = async (req, res) => {
             }
         });
 
-        // ── 7. KPIs ──
+        // ── 8. KPIs ──
         const kpis = {
             totalAllocated: {
                 value: formatCurrency(totalBudget),
-                trend: `${projects.length} active projects`
+                trend: selectedProjectId
+                    ? (projects[0]?.title || 'Project')
+                    : `${projects.length} active projects`
             },
             actualSpent: {
                 value: formatCurrency(totalSpent),
@@ -117,18 +124,18 @@ const getBudgetDashboard = async (req, res) => {
             },
             budgetOverruns: {
                 value: formatCurrency(totalOverrunAmount),
-                subtext: overrunAlerts.length > 0 ? `${overrunAlerts.length} active alerts` : "All projects within limit"
+                subtext: overrunAlerts.length > 0 ? `${overrunAlerts.length} active alerts` : 'All within limit'
             },
             pendingApprovals: {
                 value: pendingExpenses.length.toString(),
-                subtext: pendingExpenses.length > 0 ? "Requires review" : "None requires immediate action"
+                subtext: pendingExpenses.length > 0 ? 'Requires review' : 'None requires immediate action'
             }
         };
 
-        // ── 8. Recent Transactions (enhanced) ──
+        // ── 9. Recent Transactions ──
         const recentTransactions = allExpenses
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-            .slice(0, 8)
+            .slice(0, 20)
             .map(e => ({
                 id: e._id,
                 description: e.title,
@@ -142,7 +149,7 @@ const getBudgetDashboard = async (req, res) => {
                 receipt: e.receipt
             }));
 
-        // ── 9. Pending Requests ──
+        // ── 10. Pending Requests ──
         const pendingRequests = pendingExpenses.map(e => ({
             id: e._id,
             title: e.title,
@@ -160,6 +167,54 @@ const getBudgetDashboard = async (req, res) => {
             }
         }));
 
+        // ── 11. All projects summary (for sidebar) — always global ──
+        const allProjects = selectedProjectId
+            ? await Project.find({})
+            : projects;
+
+        const allSpendingByProject = selectedProjectId ? (() => {
+            // Re-calc globally for the sidebar list
+            const map = {};
+            return map;
+        })() : spendingByProject;
+
+        const projectSummaryList = await (async () => {
+            if (selectedProjectId) {
+                // fetch all projects + all approved expenses to build sidebar
+                const ap = await Project.find({});
+                const ae = await Expense.find({ status: 'Approved' }).select('project amount');
+                const spMap = {};
+                ae.forEach(e => {
+                    if (e.project) {
+                        const pid = e.project.toString();
+                        spMap[pid] = (spMap[pid] || 0) + (parseFloat(e.amount) || 0);
+                    }
+                });
+                return ap.map(p => {
+                    const rawBudget = toRawAmount(p.budget, p.budgetUnit);
+                    const spent = spMap[p._id.toString()] || 0;
+                    const pct = rawBudget > 0 ? parseFloat(((spent / rawBudget) * 100).toFixed(1)) : 0;
+                    return {
+                        id: p._id,
+                        name: p.title,
+                        status: p.status,
+                        budgetFormatted: formatCurrency(rawBudget),
+                        spentFormatted: formatCurrency(spent),
+                        percentage: pct
+                    };
+                }).sort((a, b) => b.percentage - a.percentage);
+            } else {
+                return projectUtilization.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    status: p.status,
+                    budgetFormatted: p.budgetFormatted,
+                    spentFormatted: p.spentFormatted,
+                    percentage: p.percentage
+                }));
+            }
+        })();
+
         // ── Return ──
         res.json({
             kpis,
@@ -167,11 +222,13 @@ const getBudgetDashboard = async (req, res) => {
             categoryBreakdown,
             overrunAlerts,
             recentTransactions,
-            pendingRequests
+            pendingRequests,
+            projectSummaryList,
+            selectedProjectId
         });
     } catch (error) {
-        console.error("Budget Dashboard Error:", error);
-        res.status(500).json({ message: "Server Error" });
+        console.error('Budget Dashboard Error:', error);
+        res.status(500).json({ message: 'Server Error' });
     }
 };
 
