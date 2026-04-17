@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import CompanyLogo from '../components/CompanyLogo';
 import {
-    LayoutDashboard, FolderOpen, Users, PieChart, Settings,
+    LayoutDashboard, FolderOpen, Users, PieChart, FileText, Settings,
     Download, Calendar, Box, Wallet, UploadCloud, File as FilePdf,
     Trash2, Eye, Loader2, X, AlertCircle, FileSpreadsheet, FileDown,
     ClipboardList, TrendingUp, UserCheck, Package, ArrowRight,
-    History, FolderArchive, Zap, ChevronRight
+    History, Archive, Zap, ChevronRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -72,19 +72,15 @@ const filterByDate = (items, dateKey, from, to) => {
     });
 };
 
-const styleExcelSheet = (ws, headerRow) => {
-    // Set column widths roughly
-    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-    const cols = [];
-    for (let c = range.s.c; c <= range.e.c; c++) cols.push({ wch: 20 });
-    ws['!cols'] = cols;
-    return ws;
+// Column letter helper for ExcelJS merge ranges
+const numToCol = (n) => {
+    let s = '';
+    while (n > 0) { n--; s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); }
+    return s;
 };
 
-const downloadXlsx = (wb, filename) => XLSX.writeFile(wb, filename);
-
-const downloadCsvBlob = (csvStr, filename) => {
-    const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
+const downloadBlob = (content, filename, mime) => {
+    const blob = content instanceof Blob ? content : new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = filename; a.click();
@@ -424,7 +420,65 @@ const Reports = () => {
             });
             y = doc.lastAutoTable.finalY + 10;
 
-            // Material costs
+            // ── Expenses (sorted by date desc) ───────────────────────────────
+            try {
+                const expRes   = await api.get('/expenses', { params: { project: p._id } });
+                const expenses = (expRes.data || []).sort((a, b) => new Date(b.expenseDate) - new Date(a.expenseDate));
+                if (expenses.length > 0) {
+                    if (y > 220) { doc.addPage(); y = 20; }
+                    doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 29, 46);
+                    doc.text('Project Expenses', 14, y); y += 6;
+                    const CATEGORY_COLORS = {
+                        Vendor: [37, 99, 235], Labor: [22, 163, 74], Equipment: [217, 119, 6],
+                        Material: [109, 40, 217], Miscellaneous: [107, 114, 128], Extension: [220, 38, 38]
+                    };
+                    let totalApproved = 0;
+                    const expData = expenses.map(e => {
+                        if (e.status === 'Approved') totalApproved += Number(e.amount);
+                        return [
+                            e.expenseDate ? new Date(e.expenseDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '—',
+                            e.title || '—', e.category || '—',
+                            `Rs.${Number(e.amount).toLocaleString('en-IN')}`,
+                            e.invoiceNumber || '—', e.status || '—'
+                        ];
+                    });
+                    autoTable(doc, {
+                        startY: y,
+                        head: [['Date', 'Title', 'Category', 'Amount', 'Invoice #', 'Status']],
+                        body: expData,
+                        theme: 'grid',
+                        headStyles: { fillColor: [26, 29, 46], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
+                        bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
+                        alternateRowStyles: { fillColor: [250, 250, 252] },
+                        margin: { left: 14, right: 14 },
+                        styles: { cellPadding: 3.5, lineColor: [230, 230, 230], lineWidth: 0.1 },
+                        columnStyles: {
+                            0: { cellWidth: 24, halign: 'center' },
+                            2: { cellWidth: 28, halign: 'center' },
+                            3: { cellWidth: 30, halign: 'right', fontStyle: 'bold' },
+                            4: { cellWidth: 28, halign: 'center' },
+                            5: { cellWidth: 22, halign: 'center', fontStyle: 'bold' }
+                        },
+                        didParseCell: (data) => {
+                            if (data.section === 'body' && data.column.index === 2) {
+                                const clr = CATEGORY_COLORS[data.cell.raw] || [107, 114, 128];
+                                data.cell.styles.textColor = clr;
+                            }
+                            if (data.section === 'body' && data.column.index === 5) {
+                                const s = data.cell.raw;
+                                data.cell.styles.textColor = s === 'Approved' ? [22, 163, 74] : s === 'Rejected' ? [220, 38, 38] : [217, 119, 6];
+                            }
+                        }
+                    });
+                    y = doc.lastAutoTable.finalY + 6;
+                    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(26, 29, 46);
+                    doc.text(`Total: ${expenses.length} expense(s)`, 14, y);
+                    doc.text(`Approved Total: Rs.${totalApproved.toLocaleString('en-IN')}`, 196, y, { align: 'right' });
+                    y += 10;
+                }
+            } catch (e) { /* skip */ }
+
+            // ── Material costs ───────────────────────────────────────────────
             try {
                 const invRes    = await api.get(`/projects/${p._id}/inventory`);
                 const materials = invRes.data?.materials || invRes.data || [];
@@ -523,160 +577,378 @@ const Reports = () => {
         addReportToHistory(doc, `Attendance: ${periodStr} — ${label}`, label);
     };
 
-    // ─── EXCEL GENERATORS ─────────────────────────────────────────────────────
+    // ─── EXCEL GENERATOR (ExcelJS — fully styled) ──────────────────────────────
 
     const generateExcelReport = async ({ projectId, dateFrom, dateTo, month, endMonth, year }) => {
-        const wb       = XLSX.utils.book_new();
         const projList = projectId ? projects.filter(p => p._id === projectId) : projects;
         const label    = projectId ? (selectedProject?.title || 'Project') : 'All Projects';
+        const co       = companyName || 'S R Associates';
+        const genDate  = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
 
+        // ── ExcelJS helpers ──────────────────────────────────────────────────
+        const DARK        = '1A1D2E';
+        const VIOLET      = '6D28D9';
+        const VIOLET_LITE = 'EDE9FE';
+        const WHITE       = 'FFFFFF';
+        const GRAY_ROW    = 'F9FAFB';
+        const TEXT_DARK   = '111827';
+        const TEXT_GRAY   = '6B7280';
+        const BORDER_CLR  = 'E5E7EB';
+
+        const wb = new ExcelJS.Workbook();
+        wb.creator = co;
+        wb.created = new Date();
+
+        /**
+         * Add a styled worksheet with branding header + column headers + data rows.
+         */
+        const addSheet = (name, reportTitle, subtitle, headers, rows) => {
+            const ws      = wb.addWorksheet(name);
+            const nCols   = headers.length;
+            const lastCol = numToCol(nCols);
+
+            // ── Row 1: Company banner ────────────────────────────────────────
+            ws.mergeCells(`A1:${lastCol}1`);
+            const bannerCell = ws.getCell('A1');
+            Object.assign(bannerCell, {
+                value: `${co}  —  Engineers & Contractors`,
+                font:  { bold: true, size: 11, color: { argb: WHITE } },
+                fill:  { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK } },
+                alignment: { horizontal: 'left', vertical: 'middle', indent: 1, wrapText: false },
+            });
+            bannerCell.border = { outline: true, top: { style: 'medium', color: { argb: DARK } }, bottom: { style: 'thin', color: { argb: VIOLET } }, left: { style: 'medium', color: { argb: DARK } }, right: { style: 'medium', color: { argb: DARK } } };
+            ws.getRow(1).height = 28;
+
+            // ── Row 2: Report title ──────────────────────────────────────────
+            ws.mergeCells(`A2:${lastCol}2`);
+            const titleCell = ws.getCell('A2');
+            Object.assign(titleCell, {
+                value: reportTitle,
+                font:  { bold: true, size: 13, color: { argb: DARK } },
+                fill:  { type: 'pattern', pattern: 'solid', fgColor: { argb: VIOLET_LITE } },
+                alignment: { horizontal: 'left', vertical: 'middle', indent: 1, wrapText: false },
+            });
+            titleCell.border = { left: { style: 'medium', color: { argb: DARK } }, right: { style: 'medium', color: { argb: DARK } } };
+            ws.getRow(2).height = 26;
+
+            // ── Row 3: Subtitle / generated date ────────────────────────────
+            ws.mergeCells(`A3:${lastCol}3`);
+            const subCell = ws.getCell('A3');
+            Object.assign(subCell, {
+                value: subtitle || `Generated on ${genDate}`,
+                font:  { size: 9, italic: true, color: { argb: TEXT_GRAY } },
+                fill:  { type: 'pattern', pattern: 'solid', fgColor: { argb: VIOLET_LITE } },
+                alignment: { horizontal: 'left', vertical: 'middle', indent: 1, wrapText: false },
+            });
+            subCell.border = { left: { style: 'medium', color: { argb: DARK } }, right: { style: 'medium', color: { argb: DARK } }, bottom: { style: 'thin', color: { argb: 'CCCCCC' } } };
+            ws.getRow(3).height = 18;
+
+            // ── Row 4: Column headers ────────────────────────────────────────
+            const hdrBorder = { style: 'thin', color: { argb: '5B21B6' } };
+            headers.forEach((h, i) => {
+                const cell = ws.getCell(4, i + 1);
+                cell.value = h;
+                cell.font  = { bold: true, size: 10, color: { argb: WHITE } };
+                cell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: VIOLET } };
+                cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: false };
+                cell.border = { top: hdrBorder, bottom: hdrBorder, left: hdrBorder, right: hdrBorder };
+            });
+            ws.getRow(4).height = 22;
+
+            // ── Rows 5+: Data ────────────────────────────────────────────────
+            const dataBorder = { style: 'hair', color: { argb: BORDER_CLR } };
+            const cellBorder = { top: dataBorder, bottom: dataBorder, left: dataBorder, right: dataBorder };
+
+            rows.forEach((row, idx) => {
+                const isEven  = idx % 2 === 0;
+                const wsRow   = ws.getRow(5 + idx);
+                const isSectionHeader = row.length === 1 || (row[1] === '' && row[2] === ''); // project separator rows
+
+                row.forEach((val, c) => {
+                    const cell = wsRow.getCell(c + 1);
+                    cell.value  = val;
+                    cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: isSectionHeader ? VIOLET_LITE : (isEven ? GRAY_ROW : WHITE) } };
+                    cell.font   = { size: 9, bold: (c === 0 || isSectionHeader), color: { argb: isSectionHeader ? VIOLET : TEXT_DARK } };
+                    cell.border = cellBorder;
+                    // All cells: vertically centered, no wrapping
+                    cell.alignment = {
+                        horizontal: typeof val === 'number' ? 'center' : 'center',
+                        vertical: 'middle',
+                        wrapText: false,
+                        indent: c === 0 && !isSectionHeader ? 1 : 0,
+                    };
+                    // Numbers get accounting-style right alignment
+                    if (typeof val === 'number') cell.alignment.horizontal = 'right';
+                });
+                wsRow.height = isSectionHeader ? 18 : 18;
+                // Merge section header across all columns for clean divider look
+                if (isSectionHeader && nCols > 1) {
+                    try { ws.mergeCells(5 + idx, 1, 5 + idx, nCols); } catch {}
+                }
+            });
+
+            // ── Auto column widths ───────────────────────────────────────────
+            headers.forEach((h, i) => {
+                const colVals = rows.map(r => (r[i] ?? '').toString().length);
+                const maxLen  = Math.max(h.toString().length, ...colVals);
+                ws.getColumn(i + 1).width = Math.min(Math.max(maxLen + 4, 12), 55);
+            });
+
+            // ── Freeze top 4 rows ────────────────────────────────────────────
+            ws.views = [{ state: 'frozen', ySplit: 4, xSplit: 0, topLeftCell: 'A5' }];
+
+            // ── Auto-filter on header row ────────────────────────────────────
+            ws.autoFilter = { from: `A4`, to: `${lastCol}4` };
+
+            return ws;
+        };
+
+        // ── Build content per report type ────────────────────────────────────
         if (reportType === 'daily') {
             for (const p of projList) {
                 const res  = await api.get(`/projects/${p._id}/daily-logs`);
                 const logs = filterByDate(res.data?.logs || [], 'date', dateFrom, dateTo)
                     .sort((a, b) => new Date(b.date) - new Date(a.date));
-                const rows = [
-                    ['Date', 'Day', 'Weather', 'Laborers', 'Notes'],
-                    ...logs.map(l => [
-                        new Date(l.date).toLocaleDateString('en-IN'),
-                        l.day || '-', l.weather?.condition || '-',
-                        l.laborers || 0, l.notes || '-'
-                    ])
-                ];
-                const ws = styleExcelSheet(XLSX.utils.aoa_to_sheet(rows));
-                XLSX.utils.book_append_sheet(wb, ws, p.title.slice(0, 31));
+                const rows = logs.map(l => [
+                    new Date(l.date).toLocaleDateString('en-IN'),
+                    l.day || '-', l.weather?.condition || '-',
+                    l.laborers || 0, l.notes || '-'
+                ]);
+                addSheet(
+                    p.title.slice(0, 31),
+                    `Daily Progress Report — ${p.title}`,
+                    `Period: ${dateFrom || 'All dates'} to ${dateTo || 'present'}  |  Generated: ${genDate}`,
+                    ['Date', 'Day', 'Weather', 'Laborers', 'Notes / Activities'],
+                    rows
+                );
             }
-            downloadXlsx(wb, `Daily_Logs_${label.replace(/\s+/g, '_')}.xlsx`);
-
         } else if (reportType === 'inventory') {
             for (const p of projList) {
                 const res       = await api.get(`/projects/${p._id}/inventory`);
                 const materials = res.data?.materials || res.data || [];
-                // Summary sheet
-                const summaryRows = [
+                addSheet(
+                    (p.title.slice(0, 25) + ' — Summary').slice(0, 31),
+                    `Inventory Report — ${p.title}`,
+                    `Generated: ${genDate}  |  Project: ${p.title}`,
                     ['Material', 'Unit', 'Inflow', 'Outflow', 'Balance', 'Status'],
-                    ...materials.map(m => [m.name, m.unit, m.inflow || 0, m.outflow || 0, m.balance || 0, m.status])
-                ];
-                const ws1 = styleExcelSheet(XLSX.utils.aoa_to_sheet(summaryRows));
-                XLSX.utils.book_append_sheet(wb, ws1, (p.title.slice(0, 25) + '-Summary'));
-
-                // Transaction sheet
-                const txRows = [['Date', 'Material', 'Type', 'Quantity', 'Unit', 'Supplier/Purpose', 'Cost']];
-                materials.forEach(m => {
-                    filterByDate(m.logs || [], 'date', dateFrom, dateTo).forEach(log => {
-                        txRows.push([
-                            new Date(log.date).toLocaleDateString('en-IN'),
-                            m.name, log.type === 'delivery' ? 'Delivery' : 'Usage',
-                            log.quantity || 0, m.unit,
-                            log.type === 'delivery' ? (log.supplier || '') : (log.locationPurpose || ''),
-                            log.totalCost || 0
-                        ]);
-                    });
-                });
-                if (txRows.length > 1) {
-                    const ws2 = styleExcelSheet(XLSX.utils.aoa_to_sheet(txRows));
-                    XLSX.utils.book_append_sheet(wb, ws2, (p.title.slice(0, 24) + '-Logs'));
+                    materials.map(m => [m.name, m.unit, m.inflow || 0, m.outflow || 0, m.balance || 0, m.status || '-'])
+                );
+                const txRows = [];
+                materials.forEach(m => filterByDate(m.logs || [], 'date', dateFrom, dateTo).forEach(log => {
+                    txRows.push([
+                        new Date(log.date).toLocaleDateString('en-IN'), m.name,
+                        log.type === 'delivery' ? 'Delivery' : 'Usage',
+                        log.quantity || 0, m.unit,
+                        log.type === 'delivery' ? (log.supplier || '') : (log.locationPurpose || ''),
+                        log.totalCost ? Number(log.totalCost) : 0
+                    ]);
+                }));
+                if (txRows.length > 0) {
+                    addSheet(
+                        (p.title.slice(0, 22) + ' — Logs').slice(0, 31),
+                        `Inventory Transactions — ${p.title}`,
+                        `Period: ${dateFrom || 'All dates'} to ${dateTo || 'present'}`,
+                        ['Date', 'Material', 'Type', 'Qty', 'Unit', 'Supplier/Purpose', 'Cost (Rs)'],
+                        txRows
+                    );
                 }
             }
-            downloadXlsx(wb, `Inventory_${label.replace(/\s+/g, '_')}.xlsx`);
-
         } else if (reportType === 'financial') {
-            const rows = [['Project', 'Client', 'Manager', 'Budget', 'Unit', 'Status', 'Type', 'Site', 'Start Date', 'End Date']];
-            for (const p of projList) {
-                rows.push([
-                    p.title, p.client || '', p.manager || '',
-                    p.budget || 0, p.budgetUnit || 'Lakhs', p.status || '',
-                    p.type || '', p.address || '',
-                    p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN') : '',
-                    p.endDate   ? new Date(p.endDate).toLocaleDateString('en-IN')   : '',
-                ]);
-            }
-            const ws = styleExcelSheet(XLSX.utils.aoa_to_sheet(rows));
-            XLSX.utils.book_append_sheet(wb, ws, 'Financial Summary');
-
-            // Material costs per project
-            const costRows = [['Project', 'Material', 'Unit', 'Inflow', 'Outflow', 'Balance', 'Total Cost (Rs)']];
+            const finRows = projList.map(p => [
+                p.title, p.client || '—', p.manager || '—',
+                p.budget ? Number(p.budget) : 0, p.budgetUnit || 'Lakhs',
+                p.status || '—', p.type || '—',
+                p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN') : '—',
+                p.endDate   ? new Date(p.endDate).toLocaleDateString('en-IN')   : '—',
+            ]);
+            addSheet(
+                'Financial Summary',
+                'Financial Summary Report',
+                `Generated: ${genDate}  |  Scope: ${label}`,
+                ['Project', 'Client', 'Manager', 'Budget', 'Unit', 'Status', 'Type', 'Start Date', 'End Date'],
+                finRows
+            );
+            // Expenses sheet — sorted by date desc
+            const expRows = [];
             for (const p of projList) {
                 try {
-                    const res       = await api.get(`/projects/${p._id}/inventory`);
-                    const materials = res.data?.materials || res.data || [];
-                    materials.forEach(m => {
+                    const res    = await api.get('/expenses', { params: { project: p._id } });
+                    const sorted = (res.data || []).sort((a, b) => new Date(b.expenseDate) - new Date(a.expenseDate));
+                    if (sorted.length > 0) {
+                        expRows.push([p.title, '', '', '', '', '']); // project section header
+                        sorted.forEach(e => expRows.push([
+                            e.expenseDate ? new Date(e.expenseDate).toLocaleDateString('en-IN') : '—',
+                            e.title || '—', e.category || '—',
+                            Number(e.amount) || 0,
+                            e.invoiceNumber || '—', e.status || '—'
+                        ]));
+                    }
+                } catch {}
+            }
+            if (expRows.length > 0) {
+                addSheet(
+                    'Expenses',
+                    'Project Expenses',
+                    `Sorted by date (newest first)  |  Generated: ${genDate}`,
+                    ['Date', 'Title', 'Category', 'Amount (Rs)', 'Invoice #', 'Status'],
+                    expRows
+                );
+            }
+            // Material costs sheet
+            const costRows = [];
+            for (const p of projList) {
+                try {
+                    const res = await api.get(`/projects/${p._id}/inventory`);
+                    (res.data?.materials || res.data || []).forEach(m => {
                         let cost = 0;
                         (m.logs || []).forEach(l => { if (l.type === 'delivery' && l.totalCost) cost += Number(l.totalCost); });
                         costRows.push([p.title, m.name, m.unit, m.inflow || 0, m.outflow || 0, m.balance || 0, cost]);
                     });
                 } catch {}
             }
-            if (costRows.length > 1) {
-                const ws2 = styleExcelSheet(XLSX.utils.aoa_to_sheet(costRows));
-                XLSX.utils.book_append_sheet(wb, ws2, 'Material Costs');
+            if (costRows.length > 0) {
+                addSheet(
+                    'Material Costs',
+                    'Material Cost Breakdown',
+                    `Generated: ${genDate}`,
+                    ['Project', 'Material', 'Unit', 'Inflow', 'Outflow', 'Balance', 'Total Cost (Rs)'],
+                    costRows
+                );
             }
-            downloadXlsx(wb, `Financial_${label.replace(/\s+/g, '_')}.xlsx`);
-
         } else if (reportType === 'personnel') {
             for (let m = month; m <= endMonth; m++) {
                 const mName = new Date(year, m - 1).toLocaleString('en-US', { month: 'long' });
-                const rows  = [['Name', 'Role', 'On Site Days', 'Remote Days', 'Leave Days', 'Off Duty', 'Total Recorded']];
+                const rows  = [];
                 for (const p of projList) {
                     const res  = await api.get('/personnel/attendance-report', { params: { projectId: p._id, month: m, year } });
                     const data = res.data || [];
                     if (data.length > 0) {
-                        rows.push([`-- ${p.title} --`, '', '', '', '', '', '']);
-                        data.forEach(person => rows.push([
-                            person.name, person.role || '',
-                            person['On Site'] || 0, person['Remote'] || 0,
-                            person['On Leave'] || 0, person['Off Duty'] || 0,
-                            person.totalDays || 0
+                        rows.push([`${p.title}`, '', '', '', '', '', '']); // section header
+                        data.forEach(per => rows.push([
+                            per.name, per.role || '—',
+                            per['On Site'] || 0, per['Remote'] || 0,
+                            per['On Leave'] || 0, per['Off Duty'] || 0,
+                            per.totalDays || 0
                         ]));
                     }
                 }
-                const sheetName = `${mName.slice(0, 3)} ${year}`.slice(0, 31);
-                XLSX.utils.book_append_sheet(wb, styleExcelSheet(XLSX.utils.aoa_to_sheet(rows)), sheetName);
+                addSheet(
+                    `${mName.slice(0, 3)} ${year}`.slice(0, 31),
+                    `Personnel Attendance — ${mName} ${year}`,
+                    `Scope: ${label}  |  Generated: ${genDate}`,
+                    ['Name', 'Role', 'On Site Days', 'Remote Days', 'Leave Days', 'Off Duty', 'Total Recorded'],
+                    rows
+                );
             }
-            downloadXlsx(wb, `Attendance_${label.replace(/\s+/g, '_')}_${year}.xlsx`);
         }
+
+        if (wb.worksheets.length === 0) {
+            showToast('No data found for the selected parameters.', 'error');
+            return;
+        }
+
+        const buffer = await wb.xlsx.writeBuffer();
+        downloadBlob(
+            new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+            `${co.replace(/\s+/g, '_')}_${reportType}_${label.replace(/\s+/g, '_')}.xlsx`
+        );
     };
 
-    // ─── CSV GENERATOR ────────────────────────────────────────────────────────
+    // ─── CSV GENERATOR (professional with UTF-8 BOM + metadata) ──────────────────
 
     const generateCsvReport = async ({ projectId, dateFrom, dateTo, month, year }) => {
-        const wb       = XLSX.utils.book_new();
         const projList = projectId ? projects.filter(p => p._id === projectId) : projects;
         const label    = projectId ? (selectedProject?.title || 'Project') : 'All Projects';
+        const co       = companyName || 'S R Associates';
+        const genDate  = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+        const typeLabel = REPORT_TYPES.find(r => r.id === reportType)?.label || reportType;
 
-        // Re-use Excel logic but output as CSV
-        const rows = [];
+        // Helper to escape CSV values
+        const esc = (v) => {
+            const s = (v ?? '').toString();
+            return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+        const toRow = (arr) => arr.map(esc).join(',');
+
+        const lines = [
+            // UTF-8 BOM for Excel auto-detect
+            `\uFEFF`,
+            // Metadata block
+            toRow([`# Company: ${co} — Engineers & Contractors`]),
+            toRow([`# Report Type: ${typeLabel}`]),
+            toRow([`# Project Scope: ${label}`]),
+            toRow([`# Generated: ${genDate}`]),
+            toRow([`# Date Range: ${dateFrom || 'All dates'} to ${dateTo || 'present'}`]),
+            toRow(['']),  // blank separator
+        ];
+
+        const dataRows = [];
 
         if (reportType === 'daily') {
-            rows.push(['Date', 'Day', 'Weather', 'Laborers', 'Notes', 'Project']);
+            dataRows.push(['Date', 'Day', 'Weather', 'Laborers', 'Notes', 'Project']);
             for (const p of projList) {
                 const res  = await api.get(`/projects/${p._id}/daily-logs`);
-                filterByDate(res.data?.logs || [], 'date', dateFrom, dateTo).forEach(l => {
-                    rows.push([new Date(l.date).toLocaleDateString('en-IN'), l.day || '', l.weather?.condition || '', l.laborers || 0, l.notes || '', p.title]);
-                });
+                filterByDate(res.data?.logs || [], 'date', dateFrom, dateTo)
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .forEach(l => dataRows.push([
+                        new Date(l.date).toLocaleDateString('en-IN'),
+                        l.day || '', l.weather?.condition || '',
+                        l.laborers || 0, l.notes || '', p.title
+                    ]));
             }
         } else if (reportType === 'inventory') {
-            rows.push(['Project', 'Material', 'Unit', 'Inflow', 'Outflow', 'Balance', 'Status']);
+            dataRows.push(['Project', 'Material', 'Unit', 'Inflow', 'Outflow', 'Balance', 'Status']);
             for (const p of projList) {
                 const res = await api.get(`/projects/${p._id}/inventory`);
-                (res.data?.materials || res.data || []).forEach(m => {
-                    rows.push([p.title, m.name, m.unit, m.inflow || 0, m.outflow || 0, m.balance || 0, m.status]);
-                });
+                (res.data?.materials || res.data || []).forEach(m =>
+                    dataRows.push([p.title, m.name, m.unit, m.inflow || 0, m.outflow || 0, m.balance || 0, m.status || ''])
+                );
             }
         } else if (reportType === 'financial') {
-            rows.push(['Project', 'Client', 'Budget', 'Unit', 'Status', 'Type', 'Manager']);
-            projList.forEach(p => rows.push([p.title, p.client || '', p.budget || 0, p.budgetUnit || 'Lakhs', p.status || '', p.type || '', p.manager || '']));
+            dataRows.push(['Project', 'Client', 'Budget', 'Unit', 'Status', 'Type', 'Manager', 'Start Date', 'End Date']);
+            projList.forEach(p => dataRows.push([
+                p.title, p.client || '', p.budget || 0, p.budgetUnit || 'Lakhs',
+                p.status || '', p.type || '', p.manager || '',
+                p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN') : '',
+                p.endDate   ? new Date(p.endDate).toLocaleDateString('en-IN')   : ''
+            ]));
+            // Expenses — sorted by date desc
+            dataRows.push([]);
+            dataRows.push(['--- EXPENSES (sorted newest first) ---']);
+            dataRows.push(['Date', 'Title', 'Category', 'Amount (Rs)', 'Invoice #', 'Status', 'Project']);
+            for (const p of projList) {
+                try {
+                    const res = await api.get('/expenses', { params: { project: p._id } });
+                    (res.data || [])
+                        .sort((a, b) => new Date(b.expenseDate) - new Date(a.expenseDate))
+                        .forEach(e => dataRows.push([
+                            e.expenseDate ? new Date(e.expenseDate).toLocaleDateString('en-IN') : '',
+                            e.title || '', e.category || '',
+                            Number(e.amount) || 0,
+                            e.invoiceNumber || '', e.status || '', p.title
+                        ]));
+                } catch {}
+            }
         } else if (reportType === 'personnel') {
-            rows.push(['Project', 'Name', 'Role', 'On Site Days', 'Remote Days', 'Leave Days', 'Off Duty', 'Total']);
+            dataRows.push(['Project', 'Name', 'Role', 'On Site Days', 'Remote Days', 'Leave Days', 'Off Duty', 'Total Recorded']);
             for (const p of projList) {
                 const res  = await api.get('/personnel/attendance-report', { params: { projectId: p._id, month, year } });
-                (res.data || []).forEach(per => rows.push([p.title, per.name, per.role || '', per['On Site'] || 0, per['Remote'] || 0, per['On Leave'] || 0, per['Off Duty'] || 0, per.totalDays || 0]));
+                (res.data || []).forEach(per => dataRows.push([
+                    p.title, per.name, per.role || '',
+                    per['On Site'] || 0, per['Remote'] || 0,
+                    per['On Leave'] || 0, per['Off Duty'] || 0,
+                    per.totalDays || 0
+                ]));
             }
         }
 
-        const ws  = XLSX.utils.aoa_to_sheet(rows);
-        const csv = XLSX.utils.sheet_to_csv(ws);
-        downloadCsvBlob(csv, `${reportType}_${label.replace(/\s+/g, '_')}.csv`);
+        dataRows.forEach(r => lines.push(toRow(r)));
+
+        const csv = lines.join('\n');
+        downloadBlob(
+            new Blob([csv], { type: 'text/csv;charset=utf-8;' }),
+            `${co.replace(/\s+/g, '_')}_${typeLabel.replace(/\s+/g, '_')}_${label.replace(/\s+/g, '_')}.csv`
+        );
     };
 
     // ─── UNIFIED GENERATE ─────────────────────────────────────────────────────
@@ -774,12 +1046,12 @@ const Reports = () => {
             <div className="flex h-screen bg-[#f5f5f7] font-sans overflow-hidden">
 
                 {/* ── Sidebar ── */}
-                <aside className="w-60 bg-[#1a1d2e] shrink-0 flex flex-col py-7 px-3">
-                    <div className="px-2 mb-8">
-                        <CompanyLogo className="h-8" />
+                <aside className="w-60 bg-[#1a1d2e] shrink-0 flex flex-col border-r border-white/[0.06]">
+                    <div className="px-5 py-5 flex justify-center border-b border-white/[0.04]">
+                        <CompanyLogo className="w-28 h-auto opacity-90" defaultLogoType="white" />
                     </div>
-                    <nav className="space-y-0.5 flex-1">
-                        <p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest px-3 mb-3">Menu</p>
+                    <nav className="flex-1 px-3 pt-4 space-y-0.5 overflow-y-auto">
+                        <p className="px-3 mb-3 text-[9px] font-semibold tracking-[0.15em] text-white/20 uppercase">Menu</p>
                         {NAV_ITEMS.map(item => (
                             <a key={item.href} href={item.href}
                                 className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-[13px] group ${item.active ? 'bg-white/[0.08] text-white' : 'text-white/30 hover:bg-white/[0.04] hover:text-white/60'}`}>
@@ -788,8 +1060,8 @@ const Reports = () => {
                                 {item.active && <div className="ml-auto w-1 h-4 rounded-full bg-gradient-to-b from-violet-400 to-blue-500" />}
                             </a>
                         ))}
-                        <div className="mt-4 pt-4 border-t border-white/5">
-                            <p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest px-3 mb-3">System</p>
+                        <div className="pt-4 mt-2 border-t border-white/[0.04]">
+                            <p className="px-3 mb-3 text-[9px] font-semibold tracking-[0.15em] text-white/20 uppercase">System</p>
                             <a href="/settings" className="flex items-center gap-3 px-3 py-2 rounded-lg text-white/30 hover:bg-white/[0.04] hover:text-white/60 text-[13px] group">
                                 <span className="text-white/20 group-hover:text-white/40"><Settings size={16} /></span>
                                 <span className="font-medium">Settings</span>
@@ -821,7 +1093,7 @@ const Reports = () => {
                     <div className="bg-white border-b border-gray-100 px-8 flex gap-1 shrink-0">
                         {[
                             { id: 'generate', label: 'Generate Report', icon: <Zap size={13} /> },
-                            { id: 'vault',    label: 'Document Vault',  icon: <FolderArchive size={13} /> },
+                            { id: 'vault',    label: 'Document Vault',  icon: <Archive size={13} /> },
                             { id: 'history',  label: 'Report History',  icon: <History size={13} /> },
                         ].map(tab => (
                             <button key={tab.id} onClick={() => setMainTab(tab.id)}
