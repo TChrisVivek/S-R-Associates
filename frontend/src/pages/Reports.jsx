@@ -101,20 +101,19 @@ const Reports = () => {
             projectsData.forEach(project => {
                 if (project.blueprints && Array.isArray(project.blueprints)) {
                     project.blueprints.forEach(bp => {
+                        // Determine best accessible URL for this document
+                        // Cloudinary /auto/upload PDFs: url is already correct
+                        // Older /image/upload PDFs: try /raw/upload/ path
+                        const rawUrl = bp.url && bp.url.includes('/image/upload/')
+                            ? bp.url.replace('/image/upload/', '/raw/upload/').replace(/-\d+\.jpg$/, '').replace(/\.jpg$/, '')
+                            : bp.url;
+                        const viewUrl = bp.originalUrl || rawUrl;
                         docs.push({
                             id: bp._id || Math.random().toString(),
                             projectId: project._id,
                             name: bp.name || 'Unknown Document',
                             url: bp.url,
-                            // Fix Cloudinary PDF URL: Cloudinary converts PDFs to images,
-                            // but the original PDF is accessible via /raw/upload/ path
-                            originalUrl: bp.originalUrl
-                                || (bp.url && bp.url.includes('cloudinary.com')
-                                    ? bp.url
-                                        .replace('/image/upload/', '/raw/upload/')
-                                        .replace(/\-\d+\.jpg$/, '')
-                                        .replace(/\.jpg$/, '')
-                                    : bp.url),
+                            originalUrl: viewUrl,
                             project: project.title || 'Unknown Project',
                             uploadedBy: project.manager || 'System',
                             date: bp.uploadedAt ? new Date(bp.uploadedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Unknown Date',
@@ -1542,10 +1541,37 @@ const Reports = () => {
                                                         <td className="py-3 px-6 text-xs text-gray-500">{doc.uploadedBy}</td>
                                                         <td className="py-3 px-6 text-xs text-gray-400">{doc.date}</td>
                                                         <td className="py-3 px-6 text-right">
-                                                            <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                {doc.originalUrl && <a href={doc.originalUrl} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-violet-600 p-1.5 rounded-lg hover:bg-violet-50 transition-colors"><Eye size={13} /></a>}
-                                                                {doc.originalUrl && <a href={doc.originalUrl} download target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-800 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"><Download size={13} /></a>}
-                                                                <button onClick={() => handleDeleteDocument(doc)} className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors"><Trash2 size={13} /></button>
+                                                            <div className="flex justify-end gap-1">
+                                                                {doc.originalUrl && (
+                                                                    <a
+                                                                        href={doc.originalUrl}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        title="View document"
+                                                                        className="text-gray-400 hover:text-violet-600 p-1.5 rounded-lg hover:bg-violet-50 transition-colors"
+                                                                    >
+                                                                        <Eye size={13} />
+                                                                    </a>
+                                                                )}
+                                                                {doc.originalUrl && (
+                                                                    <a
+                                                                        href={doc.originalUrl}
+                                                                        download
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        title="Download document"
+                                                                        className="text-gray-400 hover:text-gray-800 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                                                                    >
+                                                                        <Download size={13} />
+                                                                    </a>
+                                                                )}
+                                                                <button
+                                                                    onClick={() => handleDeleteDocument(doc)}
+                                                                    title="Delete document"
+                                                                    className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                                                                >
+                                                                    <Trash2 size={13} />
+                                                                </button>
                                                             </div>
                                                         </td>
                                                     </tr>
