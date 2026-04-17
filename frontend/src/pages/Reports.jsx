@@ -1130,16 +1130,24 @@ const Reports = () => {
                             </a>
                         </div>
                     </nav>
-                    {currentUser && (
-                        <a href="/settings" className="flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-white/5 transition-colors mt-4">
-                            <img src={currentUser.avatar || `https://i.pravatar.cc/150?u=${currentUser._id}`} className="w-8 h-8 rounded-full object-cover" alt="" />
+                    <div className="px-3 pb-4">
+                        <div onClick={() => window.location.href = '/profile'} className="flex items-center gap-3 px-3 py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.04] transition-all cursor-pointer group">
+                            {currentUser?.profile_image ? (
+                                <div className="w-8 h-8 rounded-lg overflow-hidden ring-1 ring-white/10">
+                                    <img src={currentUser.profile_image} alt={currentUser.username} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                                </div>
+                            ) : (
+                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500/20 to-blue-500/20 flex items-center justify-center text-violet-300 text-xs font-semibold ring-1 ring-white/10">
+                                    {currentUser?.username?.[0] || 'U'}
+                                </div>
+                            )}
                             <div className="flex-1 min-w-0">
-                                <p className="text-[12px] font-semibold text-white truncate">{currentUser.name || 'User'}</p>
-                                <p className="text-[10px] text-white/30 capitalize">{currentUser.role || 'Member'}</p>
+                                <p className="text-[12px] font-medium text-white/80 truncate">{currentUser?.username || 'User'}</p>
+                                <p className="text-[10px] text-white/25">{currentUser?.role || 'Guest'}</p>
                             </div>
-                            <ChevronRight size={14} className="text-white/20 shrink-0" />
-                        </a>
-                    )}
+                            <ChevronRight size={12} className="text-white/10 group-hover:text-white/30 transition-colors" />
+                        </div>
+                    </div>
                 </aside>
 
                 {/* ── Main Content ── */}
