@@ -237,13 +237,18 @@ exports.getAttendanceReport = async (req, res) => {
             report[record.personnel_id].totalDays += record.count;
         });
 
-        const result = Object.values(report);
+        // Always fetch ALL personnel in the system and merge with attendance data
+        // — ensures every person appears in the report, even those with no logs or no project assignment
+        const allPersonnel = await Personnel.find({}).sort({ name: 1 });
 
-        // Fallback: if no attendance logs exist, return personnel assigned to the project
-        // with 0 counts so the report isn't blank
-        if (result.length === 0) {
-            const fallbackPersonnel = await Personnel.find({ project_id: projectId });
-            const fallback = fallbackPersonnel.map(p => ({
+        const merged = allPersonnel.map(p => {
+            const pid = p._id.toString();
+            if (report[pid]) {
+                // Has attendance data — return actual counts
+                return report[pid];
+            }
+            // No attendance logs for this person — return with zero counts
+            return {
                 id: p._id,
                 name: p.name,
                 role: p.role || 'Personnel',
@@ -252,11 +257,10 @@ exports.getAttendanceReport = async (req, res) => {
                 'Remote': 0,
                 'Off Duty': 0,
                 'On Leave': 0
-            }));
-            return res.json(fallback);
-        }
+            };
+        });
 
-        res.json(result);
+        res.json(merged);
 
     } catch (error) {
         console.error("Error generating attendance report:", error);
