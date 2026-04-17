@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import CompanyLogo from '../components/CompanyLogo';
 import {
-    LayoutDashboard, FolderOpen, Users, PieChart, FileText, Settings,
-    Download, FileIcon, Calendar, Box, Wallet, UploadCloud, File as FilePdf,
-    Trash2, Eye, Loader2, ChevronRight, BarChart3, CheckCircle2, X, CloudSun, AlertCircle
+    LayoutDashboard, FolderOpen, Users, PieChart, Settings,
+    Download, Calendar, Box, Wallet, UploadCloud, File as FilePdf,
+    Trash2, Eye, Loader2, X, AlertCircle, FileSpreadsheet, FileDown,
+    ClipboardList, TrendingUp, UserCheck, Package, ArrowRight,
+    History, FolderArchive, Zap, ChevronRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -14,257 +17,269 @@ import autoTable from 'jspdf-autotable';
 import GlobalLoader from '../components/GlobalLoader';
 import { uploadToCloudinary } from '../utils/cloudinaryUpload';
 
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+
+const REPORT_TYPES = [
+    {
+        id: 'daily',
+        label: 'Daily Progress',
+        icon: ClipboardList,
+        desc: 'Detailed logs of site activities, weather impact, and workforce distribution.',
+        color: '#2563EB',
+        bg: '#EFF6FF',
+    },
+    {
+        id: 'inventory',
+        label: 'Inventory Report',
+        icon: Package,
+        desc: 'Material tracking, consumption rates, and remaining stock for all sites.',
+        color: '#16a34a',
+        bg: '#F0FDF4',
+    },
+    {
+        id: 'financial',
+        label: 'Financial Summary',
+        icon: TrendingUp,
+        desc: 'Budget utilization, overhead costs, and projected expenditure analysis.',
+        color: '#d97706',
+        bg: '#FFFBEB',
+    },
+    {
+        id: 'personnel',
+        label: 'Personnel',
+        icon: UserCheck,
+        desc: 'Safety logs, attendance records, and subcontractor performance metrics.',
+        color: '#7c3aed',
+        bg: '#F5F3FF',
+    },
+];
+
+const EXPORT_FORMATS = [
+    { id: 'pdf',   label: 'Adobe PDF',        sublabel: 'Standard distribution',  icon: FilePdf,        color: '#dc2626' },
+    { id: 'excel', label: 'Microsoft Excel',   sublabel: 'Data analysis ready',    icon: FileSpreadsheet, color: '#16a34a' },
+    { id: 'csv',   label: 'CSV Format',        sublabel: 'Raw data dump',          icon: FileDown,        color: '#2563EB' },
+];
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+
+const filterByDate = (items, dateKey, from, to) => {
+    if (!from && !to) return items;
+    return items.filter(item => {
+        const d = new Date(item[dateKey]).toISOString().slice(0, 10);
+        if (from && d < from) return false;
+        if (to && d > to) return false;
+        return true;
+    });
+};
+
+const styleExcelSheet = (ws, headerRow) => {
+    // Set column widths roughly
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    const cols = [];
+    for (let c = range.s.c; c <= range.e.c; c++) cols.push({ wch: 20 });
+    ws['!cols'] = cols;
+    return ws;
+};
+
+const downloadXlsx = (wb, filename) => XLSX.writeFile(wb, filename);
+
+const downloadCsvBlob = (csvStr, filename) => {
+    const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+};
+
+// ─── COMPONENT ────────────────────────────────────────────────────────────────
+
 const Reports = () => {
     const navigate = useNavigate();
     const { user: currentUser } = useAuth();
-    const [activeTab, setActiveTab] = useState('generated');
-    const [uploadedDocs, setUploadedDocs] = useState([]);
-    const [systemReports, setSystemReports] = useState(() => {
-        const saved = localStorage.getItem('S R Associates_reports_history');
-        if (saved) {
-            try { return JSON.parse(saved); }
-            catch (e) { return []; }
-        }
-        return [];
-    });
-    const [isLoading, setIsLoading] = useState(true);
-    const [companyName, setCompanyName] = useState('S R Associates');
-    const [companyInitial, setCompanyInitial] = useState('B');
-    const [projects, setProjects] = useState([]);
-    const [generating, setGenerating] = useState(null);
-    const [showDailyPicker, setShowDailyPicker] = useState(false);
-    const [dailySelectedProject, setDailySelectedProject] = useState('');
-    // Global Date Picker for Daily Logs
-    const [showDatePicker, setShowDatePicker] = useState(false);
-    const [logDates, setLogDates] = useState([]);
-    const [loadingDates, setLoadingDates] = useState(false);
-    // Inventory picker
-    const [showInvPicker, setShowInvPicker] = useState(false);
-    const [invSelectedProject, setInvSelectedProject] = useState('');
-    const [invDateFrom, setInvDateFrom] = useState('');
-    const [invDateTo, setInvDateTo] = useState('');
-    const [invAvailDates, setInvAvailDates] = useState([]);
-    const [loadingInv, setLoadingInv] = useState(false);
-    // Financial picker
-    const [showFinPicker, setShowFinPicker] = useState(false);
-    const [finSelectedProject, setFinSelectedProject] = useState('');
-    // Attendance picker
-    const [showAttPicker, setShowAttPicker] = useState(false);
-    const [showGlobalAttPicker, setShowGlobalAttPicker] = useState(false);
-    const [attType, setAttType] = useState('monthly'); // 'monthly' or 'yearly'
-    const [attSelectedProject, setAttSelectedProject] = useState('');
-    const [attMonth, setAttMonth] = useState(new Date().getMonth() + 1);
-    const [attEndMonth, setAttEndMonth] = useState(new Date().getMonth() + 1);
-    const [attYear, setAttYear] = useState(new Date().getFullYear());
-    // Upload modal
-    const [showUploadModal, setShowUploadModal] = useState(false);
-    const [uploadProject, setUploadProject] = useState('');
-    const [uploadFile, setUploadFile] = useState(null);
-    const [uploading, setUploading] = useState(false);
-    const [documentToDelete, setDocumentToDelete] = useState(null);
-    // Report Delete Modal
-    const [reportToDelete, setReportToDelete] = useState(null);
-    const [reportDeleteConfirmText, setReportDeleteConfirmText] = useState('');
     const { showToast, ToastComponent } = useToast();
 
-    useEffect(() => {
-        const updateCompanyDisplay = () => {
-            const shortName = localStorage.getItem('companyShortName');
-            if (shortName) { setCompanyName(shortName); setCompanyInitial(shortName[0].toUpperCase()); }
-            else { setCompanyName('S R Associates'); setCompanyInitial('B'); }
-        };
-        updateCompanyDisplay();
-        window.addEventListener('companyNameUpdated', updateCompanyDisplay);
-        return () => window.removeEventListener('companyNameUpdated', updateCompanyDisplay);
-    }, []);
+    // ── Loading & data ────────────────────────────────────────────────────────
+    const [isLoading, setIsLoading] = useState(true);
+    const [projects, setProjects] = useState([]);
+    const [uploadedDocs, setUploadedDocs] = useState([]);
+    const [companyName, setCompanyName] = useState('S R Associates');
 
+    // ── Report history (persisted) ────────────────────────────────────────────
+    const [systemReports, setSystemReports] = useState(() => {
+        const saved = localStorage.getItem('S R Associates_reports_history');
+        try { return saved ? JSON.parse(saved) : []; } catch { return []; }
+    });
+
+    // ── Main tabs ─────────────────────────────────────────────────────────────
+    const [mainTab, setMainTab] = useState('generate'); // 'generate' | 'vault' | 'history'
+
+    // ── Form state ────────────────────────────────────────────────────────────
+    const [reportType, setReportType]       = useState('daily');
+    const [exportFormat, setExportFormat]   = useState('pdf');
+    const [formProject, setFormProject]     = useState('');     // '' = all projects
+    const [formDateFrom, setFormDateFrom]   = useState('');
+    const [formDateTo, setFormDateTo]       = useState('');
+    const [isGenerating, setIsGenerating]   = useState(false);
+
+    // ── Vault state ───────────────────────────────────────────────────────────
+    const [documentToDelete, setDocumentToDelete]   = useState(null);
+    const [showUploadModal, setShowUploadModal]      = useState(false);
+    const [uploadFile, setUploadFile]               = useState(null);
+    const [uploadProject, setUploadProject]         = useState('');
+    const [uploading, setUploading]                 = useState(false);
+
+    // ── History state ─────────────────────────────────────────────────────────
+    const [reportToDelete, setReportToDelete]               = useState(null);
+    const [reportDeleteConfirmText, setReportDeleteConfirmText] = useState('');
+
+    // ── Derived ───────────────────────────────────────────────────────────────
+    const selectedProject  = formProject ? projects.find(p => p._id === formProject) : null;
+    const siteManager      = selectedProject?.manager || (formProject ? '—' : 'All Managers');
+    const getDateParams    = () => {
+        const from  = formDateFrom ? new Date(formDateFrom) : new Date();
+        const to    = formDateTo   ? new Date(formDateTo)   : from;
+        return {
+            month:    from.getMonth() + 1,
+            endMonth: to.getMonth() + 1,
+            year:     from.getFullYear(),
+        };
+    };
+
+    // ─── PERSISTENCE ──────────────────────────────────────────────────────────
     useEffect(() => {
-        try {
-            // Keep last 10 reports to avoid localStorage quota limits
-            localStorage.setItem('S R Associates_reports_history', JSON.stringify(systemReports.slice(0, 10)));
-        } catch (e) {
-            console.error('Failed to save reports to local storage due to size limit');
-        }
+        try { localStorage.setItem('S R Associates_reports_history', JSON.stringify(systemReports.slice(0, 10))); }
+        catch (e) { console.error('Storage quota exceeded'); }
     }, [systemReports]);
 
+    useEffect(() => {
+        const update = () => {
+            const n = localStorage.getItem('companyShortName');
+            setCompanyName(n || 'S R Associates');
+        };
+        update();
+        window.addEventListener('companyNameUpdated', update);
+        return () => window.removeEventListener('companyNameUpdated', update);
+    }, []);
+
+    // ─── DATA FETCH ───────────────────────────────────────────────────────────
     useEffect(() => { fetchData(); }, []);
 
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const response = await api.get('/projects');
-            let projectsData = response.data || [];
-
-            // Site managers should select individual projects rather than being completely blocked from seeing them
-            setProjects(projectsData);
+            const res = await api.get('/projects');
+            const pd  = res.data || [];
+            setProjects(pd);
             const docs = [];
-            projectsData.forEach(project => {
-                if (project.blueprints && Array.isArray(project.blueprints)) {
-                    project.blueprints.forEach(bp => {
-                        // Determine best accessible URL for this document
-                        // Cloudinary /auto/upload PDFs: url is already correct
-                        // Older /image/upload PDFs: try /raw/upload/ path
-                        const rawUrl = bp.url && bp.url.includes('/image/upload/')
-                            ? bp.url.replace('/image/upload/', '/raw/upload/').replace(/-\d+\.jpg$/, '').replace(/\.jpg$/, '')
-                            : bp.url;
-                        const viewUrl = bp.originalUrl || rawUrl;
-                        docs.push({
-                            id: bp._id || Math.random().toString(),
-                            projectId: project._id,
-                            name: bp.name || 'Unknown Document',
-                            url: bp.url,
-                            originalUrl: viewUrl,
-                            project: project.title || 'Unknown Project',
-                            uploadedBy: project.manager || 'System',
-                            date: bp.uploadedAt ? new Date(bp.uploadedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Unknown Date',
-                            type: 'Blueprint', size: 'Unknown'
-                        });
+            pd.forEach(project => {
+                (project.blueprints || []).forEach(bp => {
+                    const rawUrl = bp.url && bp.url.includes('/image/upload/')
+                        ? bp.url.replace('/image/upload/', '/raw/upload/').replace(/-\d+\.jpg$/, '').replace(/\.jpg$/, '')
+                        : bp.url;
+                    docs.push({
+                        id: bp._id || Math.random().toString(),
+                        projectId: project._id,
+                        name: bp.name || 'Unknown Document',
+                        url: bp.url,
+                        originalUrl: bp.originalUrl || rawUrl,
+                        project: project.title || 'Unknown Project',
+                        uploadedBy: project.manager || 'System',
+                        date: bp.uploadedAt
+                            ? new Date(bp.uploadedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                            : 'Unknown Date',
+                        type: 'Blueprint',
                     });
-                }
+                });
             });
             setUploadedDocs(docs);
-        } catch (error) { console.error("Failed to fetch reports data", error); }
+        } catch (e) { console.error('Failed to fetch data', e); }
         finally { setIsLoading(false); }
     };
 
-    const handleDeleteDocument = async (doc) => {
-        if (!doc.projectId || !doc.id) {
-            showToast("Cannot delete: missing document identifiers.", "error");
-            return;
-        }
-        setDocumentToDelete(doc);
-    };
+    // ─── PDF HELPERS ──────────────────────────────────────────────────────────
 
-    const confirmDeleteDocument = async () => {
-        if (!documentToDelete) return;
-
-        try {
-            await api.delete(`/projects/${documentToDelete.projectId}/blueprints/${documentToDelete.id}`);
-            setUploadedDocs(uploadedDocs.filter(d => d.id !== documentToDelete.id));
-            showToast("Document deleted successfully.", "success");
-        } catch (error) {
-            console.error("Failed to delete document", error);
-            showToast("Failed to delete document. Please try again.", "error");
-        } finally {
-            setDocumentToDelete(null);
-        }
-    };
-
-    const confirmDeleteReport = () => {
-        if (!reportToDelete) return;
-
-        const updatedReports = systemReports.filter(r => r.id !== reportToDelete.id);
-        setSystemReports(updatedReports);
-        showToast("Report deleted successfully.", "success");
-        setReportToDelete(null);
-        setReportDeleteConfirmText('');
-    };
-
-    // ─── PDF GENERATION HELPERS ───
     const addPdfHeader = (doc, title) => {
         const company = localStorage.getItem('companyShortName') || 'S R Associates';
-
-        // Header background (Dark Blue)
         doc.setFillColor(26, 29, 46);
         doc.rect(0, 0, 210, 40, 'F');
-
-        // Brand Accent Line (Purple)
         doc.setFillColor(109, 40, 217);
         doc.rect(0, 40, 210, 2, 'F');
-
-        // Company Name
         doc.setTextColor(255, 255, 255);
-        doc.setFontSize(22);
-        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(22); doc.setFont('helvetica', 'bold');
         doc.text(company, 14, 18);
-
-        // Subtitle
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(9); doc.setFont('helvetica', 'italic');
         doc.setTextColor(200, 200, 215);
         doc.text('Engineers & Contractors', 14, 25);
-
-        // Report Title
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14); doc.setFont('helvetica', 'bold');
         doc.setTextColor(255, 255, 255);
         doc.text(title.toUpperCase(), 14, 35);
-
-        // Date
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9); doc.setFont('helvetica', 'normal');
         doc.setTextColor(200, 200, 215);
         doc.text(`Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, 196, 35, { align: 'right' });
-
-        // Reset text color for body
         doc.setTextColor(0, 0, 0);
         return 55;
     };
 
     const addPdfFooter = (doc) => {
         const pageCount = doc.internal.getNumberOfPages();
+        const company   = localStorage.getItem('companyShortName') || 'S R Associates';
         for (let i = 1; i <= pageCount; i++) {
             doc.setPage(i);
-
-            // Subtle footer line
-            doc.setDrawColor(230, 230, 230);
-            doc.setLineWidth(0.5);
+            doc.setDrawColor(230, 230, 230); doc.setLineWidth(0.5);
             doc.line(14, 285, 196, 285);
-
-            // Footer Text
-            doc.setFontSize(8);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(150, 150, 150);
-            const company = localStorage.getItem('companyShortName') || 'S R Associates';
+            doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 150, 150);
             doc.text(`© ${new Date().getFullYear()} ${company}. All rights reserved.`, 14, 290);
             doc.text(`Page ${i} of ${pageCount}`, 196, 290, { align: 'right' });
         }
-        // Reset text color
         doc.setTextColor(0, 0, 0);
     };
 
-    const downloadProjectDailyLogs = async () => {
-        if (!dailySelectedProject) return;
-        const project = projects.find(p => p._id === dailySelectedProject);
-        if (!project) return;
+    const addReportToHistory = (doc, name, project = '') => {
+        const newReport = {
+            id: Date.now().toString(),
+            name,
+            project,
+            date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+            status: 'Ready',
+            size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
+            dataUri: doc.output('datauristring'),
+        };
+        setSystemReports(prev => [newReport, ...prev]);
+    };
 
-        setShowDailyPicker(false);
-        setGenerating('daily');
+    // ─── PDF GENERATORS ───────────────────────────────────────────────────────
 
-        try {
-            const res = await api.get(`/projects/${project._id}/daily-logs`);
+    const generateDailyPDF = async ({ projectId, dateFrom, dateTo }) => {
+        const doc = new jsPDF();
+        const projList = projectId ? projects.filter(p => p._id === projectId) : projects.filter(p => !['Completed', 'On Hold'].includes(p.status));
+        let isFirstPage = true;
+
+        for (const p of projList) {
+            const res  = await api.get(`/projects/${p._id}/daily-logs`);
             const logs = res.data?.logs || [];
+            const filtered = filterByDate(logs, 'date', dateFrom, dateTo).sort((a, b) => new Date(b.date) - new Date(a.date));
 
-            // Sort logs descending by date
-            logs.sort((a, b) => new Date(b.date) - new Date(a.date));
+            if (!isFirstPage) doc.addPage();
+            isFirstPage = false;
 
-            const doc = new jsPDF();
-            let y = addPdfHeader(doc, `Daily Logs — ${project.title}`);
-
-            // Summary
-            doc.setFontSize(14);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(26, 29, 46);
+            let y = addPdfHeader(doc, `Daily Logs — ${p.title}`);
+            doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 100, 100);
+            doc.text(`Total recorded logs: ${filtered.length}`, 196, y, { align: 'right' });
+            doc.setTextColor(26, 29, 46); doc.setFontSize(11); doc.setFont('helvetica', 'bold');
             doc.text('Project Daily Logs', 14, y);
-
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(100, 100, 100);
-            doc.text(`Total recorded logs: ${logs.length}`, 196, y, { align: 'right' });
             y += 8;
 
-            if (logs.length === 0) {
-                doc.setFontSize(10);
-                doc.text('No daily logs have been recorded for this project yet.', 14, y);
+            if (filtered.length === 0) {
+                doc.setFontSize(10); doc.setFont('helvetica', 'italic'); doc.setTextColor(150, 150, 150);
+                doc.text('No daily logs for the selected period.', 14, y);
             } else {
-                const tableData = logs.map(log => [
+                const tableData = filtered.map(log => [
                     new Date(log.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
                     log.day || '-',
                     log.weather?.condition || '-',
                     log.laborers || 0,
                     log.notes || '-'
                 ]);
-
                 autoTable(doc, {
                     startY: y,
                     head: [['Date', 'Day', 'Weather', 'Laborers', 'Notes / Activities']],
@@ -284,404 +299,30 @@ const Reports = () => {
                     }
                 });
             }
-
             addPdfFooter(doc);
-
-            doc.save(`Daily_Logs_${project.title.replace(/\s+/g, '_')}.pdf`);
-
-            const newReport = {
-                id: Date.now().toString(),
-                name: `Daily Logs — ${project.title}`,
-                project: project.title,
-                date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-                status: 'Ready',
-                size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
-                dataUri: doc.output('datauristring')
-            };
-            setSystemReports(prev => [newReport, ...prev]);
-
-        } catch (error) {
-            console.error('Failed to generate daily logs report:', error);
-            showToast('Failed to generate logs report', 'error');
-        } finally {
-            setGenerating(null);
-            setDailySelectedProject('');
         }
+
+        const label = projectId ? (selectedProject?.title || 'Project') : 'All_Projects';
+        doc.save(`Daily_Logs_${label.replace(/\s+/g, '_')}.pdf`);
+        addReportToHistory(doc, `Daily Logs — ${label}`, label);
     };
 
-    const openDatePicker = async () => {
-        setLogDates([]);
-        setShowDatePicker(true);
-        setLoadingDates(true);
-        try {
-            const dateMap = {};
-            for (const p of projects) {
-                if (['Completed', 'On Hold'].includes(p.status)) continue;
-                try {
-                    const res = await api.get(`/projects/${p._id}/daily-logs`);
-                    const logs = res.data?.logs || [];
-                    logs.forEach(log => {
-                        const dateKey = log.date.slice(0, 10);
-                        if (!dateMap[dateKey]) dateMap[dateKey] = { dateKey, day: log.day, logs: [], totalLaborers: 0 };
-                        dateMap[dateKey].logs.push({ ...log, projectTitle: p.title });
-                        dateMap[dateKey].totalLaborers += Number(log.laborers) || 0;
-                    });
-                } catch (e) { }
-            }
-            const sortedDates = Object.values(dateMap).sort((a, b) => new Date(b.dateKey) - new Date(a.dateKey));
-            setLogDates(sortedDates);
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoadingDates(false);
-        }
-    };
+    const generateInventoryPDF = async ({ projectId, dateFrom, dateTo }) => {
+        const doc      = new jsPDF();
+        const projList = projectId ? projects.filter(p => p._id === projectId) : projects;
+        let isFirstPage = true;
 
-    const generateGlobalDailyLogsForDate = async (entry) => {
-        setShowDatePicker(false);
-        setGenerating('daily');
-        try {
-            const doc = new jsPDF();
-            let y = addPdfHeader(doc, `Global Daily Logs — ${new Date(entry.dateKey).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`);
-
-            // Summary
-            doc.setFontSize(14);
-            doc.setFont('helvetica', 'bold');
-            doc.setTextColor(26, 29, 46);
-            doc.text('Global Daily Logs', 14, y);
-
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(100, 100, 100);
-            doc.text(`Active Projects on this day: ${entry.logs.length}`, 196, y, { align: 'right' });
-            y += 8;
-
-            if (entry.logs.length > 0) {
-                const tableData = entry.logs.map(log => [
-                    log.projectTitle,
-                    log.weather?.condition || '-',
-                    log.laborers || 0,
-                    log.notes || '-'
-                ]);
-
-                autoTable(doc, {
-                    startY: y,
-                    head: [['Project Name', 'Weather', 'Laborers', 'Notes / Activities']],
-                    body: tableData,
-                    theme: 'grid',
-                    headStyles: { fillColor: [26, 29, 46], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
-                    bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
-                    alternateRowStyles: { fillColor: [250, 250, 252] },
-                    margin: { left: 14, right: 14 },
-                    styles: { cellPadding: 3, lineColor: [230, 230, 230], lineWidth: 0.1, overflow: 'linebreak' },
-                    columnStyles: {
-                        0: { fontStyle: 'bold', cellWidth: 50 },
-                        1: { cellWidth: 28, halign: 'center' },
-                        2: { cellWidth: 24, halign: 'center' },
-                        3: { cellWidth: 'auto' }
-                    }
-                });
-            }
-
-            addPdfFooter(doc);
-
-            doc.save(`Global_Daily_Logs_${entry.dateKey}.pdf`);
-
-            // Add to report history
-            const newReport = {
-                id: Date.now().toString(),
-                name: `Global Logs: ${new Date(entry.dateKey).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}`,
-                project: `${entry.logs.length} Projects`,
-                date: new Date(entry.dateKey).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-                status: 'Ready',
-                size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
-                dataUri: doc.output('datauristring')
-            };
-            setSystemReports(prev => [newReport, ...prev]);
-
-        } catch (error) {
-            console.error('Failed to generate global daily logs report:', error);
-            showToast('Failed to generate global report', 'error');
-        } finally {
-            setGenerating(null);
-        }
-    };
-
-    const generateInventoryReport = (download = false) => {
-        setGenerating('inventory');
-        setTimeout(async () => {
-            try {
-                const doc = new jsPDF();
-                let y = addPdfHeader(doc, 'Inventory Report');
-
-                // Fetch inventory for each project
-                for (const p of projects) {
-                    if (y > 240) { doc.addPage(); y = 20; }
-                    doc.setFontSize(11);
-                    doc.setFont('helvetica', 'bold');
-                    doc.text(p.title || 'Untitled', 14, y);
-                    y += 6;
-
-                    try {
-                        const invRes = await api.get(`/projects/${p._id}/inventory`);
-                        const items = invRes.data?.materials || invRes.data || [];
-                        if (items.length > 0) {
-                            const invData = items.map(item => [
-                                item.name || 'N/A',
-                                item.unit || 'N/A',
-                                String(item.balance || 0),
-                                item.status || 'N/A'
-                            ]);
-                            autoTable(doc, {
-                                startY: y,
-                                head: [['Material', 'Unit', 'Balance', 'Status']],
-                                body: invData,
-                                theme: 'grid',
-                                headStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
-                                bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
-                                alternateRowStyles: { fillColor: [250, 250, 252] },
-                                margin: { left: 14, right: 14 },
-                                styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
-                                didParseCell: (data) => {
-                                    if (data.section === 'body' && data.column.index === 3) {
-                                        const val = (data.cell.raw || '').toString().toUpperCase();
-                                        if (val.includes('OUT')) data.cell.styles.textColor = [220, 38, 38];
-                                        else if (val.includes('LOW')) data.cell.styles.textColor = [234, 138, 0];
-                                        else if (val.includes('OPTIMAL')) data.cell.styles.textColor = [22, 163, 74];
-                                        data.cell.styles.fontStyle = 'bold';
-                                    }
-                                    if (data.section === 'body' && data.column.index === 0) {
-                                        data.cell.styles.fontStyle = 'bold';
-                                        data.cell.styles.textColor = [26, 29, 46];
-                                    }
-                                },
-                            });
-                            y = doc.lastAutoTable.finalY + 10;
-                        } else {
-                            doc.setFontSize(8);
-                            doc.setFont('helvetica', 'italic');
-                            doc.text('No inventory data available', 14, y);
-                            y += 8;
-                        }
-                    } catch {
-                        doc.setFontSize(9);
-                        doc.setFont('helvetica', 'italic');
-                        doc.setTextColor(150, 150, 150);
-                        doc.text('Inventory data unavailable', 14, y);
-                        doc.setTextColor(0, 0, 0);
-                        y += 10;
-                    }
-                }
-
-                addPdfFooter(doc);
-
-                if (download) {
-                    doc.save(`Inventory_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
-                }
-
-                const newReport = {
-                    id: Date.now().toString(),
-                    name: 'Inventory Report',
-                    project: projects.length > 0 ? `${projects.length} ${projects.length === 1 ? 'Project' : 'Projects'}` : 'No Projects',
-                    date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-                    status: 'Ready',
-                    size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
-                    dataUri: doc.output('datauristring')
-                };
-                setSystemReports(prev => [newReport, ...prev]);
-            } catch (err) { console.error('Inventory report failed:', err); }
-            finally { setGenerating(null); }
-        }, 500);
-    };
-
-    const generateFinancialSummary = (download = false) => {
-        setGenerating('financial');
-        setTimeout(() => {
-            try {
-                const doc = new jsPDF();
-                let y = addPdfHeader(doc, 'Financial Summary');
-
-                doc.setFontSize(11);
-                doc.setFont('helvetica', 'bold');
-                doc.text('Budget Overview', 14, y);
-                y += 6;
-
-                const finData = projects.map(p => {
-                    const budget = Number(p.budget) || 0;
-                    const unit = p.budgetUnit || 'Lakhs';
-                    const budgetDisplay = budget > 0 ? `Rs.${budget.toLocaleString('en-IN')} ${unit}` : 'N/A';
-                    return [
-                        p.title || 'Untitled',
-                        p.client || 'N/A',
-                        budgetDisplay,
-                        p.status || 'Planning',
-                        p.type || 'N/A'
-                    ];
-                });
-
-                autoTable(doc, {
-                    startY: y,
-                    head: [['Project', 'Client', 'Budget', 'Status', 'Type']],
-                    body: finData,
-                    theme: 'grid',
-                    headStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
-                    bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
-                    alternateRowStyles: { fillColor: [250, 250, 252] },
-                    margin: { left: 14, right: 14 },
-                    styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
-                    columnStyles: {
-                        0: { fontStyle: 'bold', textColor: [26, 29, 46] },
-                        2: { textColor: [22, 163, 74], fontStyle: 'bold' } // Budget green
-                    }
-                });
-
-                y = doc.lastAutoTable.finalY + 12;
-
-                // Totals
-                let totalLakhs = 0;
-                let totalCrores = 0;
-                projects.forEach(p => {
-                    const b = Number(p.budget) || 0;
-                    if (p.budgetUnit === 'Crores') totalCrores += b;
-                    else totalLakhs += b;
-                });
-                const totalInLakhs = totalLakhs + (totalCrores * 100);
-
-                if (y > 250) { doc.addPage(); y = 20; }
-
-                // Totals Card Background
-                doc.setFillColor(248, 248, 250);
-                doc.setDrawColor(230, 230, 230);
-                doc.roundedRect(14, y, 182, 30, 2, 2, 'FD');
-
-                doc.setFontSize(12);
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(109, 40, 217);
-                doc.text('Financial Totals', 18, y + 8);
-
-                doc.setFontSize(10);
-                doc.setFont('helvetica', 'normal');
-                doc.setTextColor(80, 80, 80);
-                doc.text(`Total Projects:`, 18, y + 16);
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(0, 0, 0);
-                doc.text(`${projects.length}`, 45, y + 16);
-
-                // Format the combined budget
-                let combinedBudgetText = '';
-                if (totalInLakhs >= 100) {
-                    const inCrores = totalInLakhs / 100;
-                    // Format up to 2 decimal places to elegantly show partial Crores
-                    combinedBudgetText = `Rs.${inCrores.toLocaleString('en-IN', { maximumFractionDigits: 2 })} Crores`;
-                } else {
-                    combinedBudgetText = `Rs.${totalInLakhs.toLocaleString('en-IN')} Lakhs`;
-                }
-
-                doc.setFont('helvetica', 'normal');
-                doc.setTextColor(80, 80, 80);
-                doc.text(`Combined Budget:`, 18, y + 23);
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(22, 163, 74);
-                doc.text(combinedBudgetText, 50, y + 23);
-
-                addPdfFooter(doc);
-
-                if (download) {
-                    doc.save(`Financial_Summary_${new Date().toISOString().slice(0, 10)}.pdf`);
-                }
-
-                const newReport = {
-                    id: Date.now().toString(),
-                    name: 'Financial Summary',
-                    project: projects.length > 0 ? `${projects.length} ${projects.length === 1 ? 'Project' : 'Projects'}` : 'No Projects',
-                    date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-                    status: 'Ready',
-                    size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
-                    dataUri: doc.output('datauristring')
-                };
-                setSystemReports(prev => [newReport, ...prev]);
-            } catch (err) { console.error('Financial report failed:', err); }
-            finally { setGenerating(null); }
-        }, 500);
-    };
-
-    const downloadReport = (report) => {
-        if (!report.dataUri && !report.blob) return;
-        const url = report.blob ? URL.createObjectURL(report.blob) : report.dataUri;
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${report.name.replace(/\s+/g, '_')}_${report.date.replace(/\s+/g, '_')}.pdf`;
-        a.click();
-        if (report.blob) URL.revokeObjectURL(url);
-    };
-
-    // ─── INVENTORY PICKER ───
-    const openInventoryPicker = () => {
-        setInvSelectedProject('');
-        setInvDateFrom('');
-        setInvDateTo('');
-        setInvAvailDates([]);
-        setShowInvPicker(true);
-    };
-
-    const handleInvProjectChange = async (projectId) => {
-        if (!projectId) { setInvAvailDates([]); return; }
-        setLoadingInv(true);
-        try {
-            const res = await api.get(`/projects/${projectId}/inventory`);
+        for (const p of projList) {
+            const res       = await api.get(`/projects/${p._id}/inventory`);
             const materials = res.data?.materials || res.data || [];
-            const allDates = new Set();
-            materials.forEach(m => {
-                (m.logs || []).forEach(log => {
-                    if (log.date) allDates.add(new Date(log.date).toISOString().slice(0, 10));
-                });
-            });
-            const sorted = [...allDates].sort();
-            setInvAvailDates(sorted);
-            setInvDateFrom('');
-            setInvDateTo('');
-        } catch (err) { console.error('Failed to fetch inventory:', err); setInvAvailDates([]); }
-        finally { setLoadingInv(false); }
-    };
+            if (!isFirstPage) doc.addPage();
+            isFirstPage = false;
 
-    const downloadFilteredInventory = async () => {
-        setShowInvPicker(false);
-        setGenerating('inventory');
-        try {
-            const project = projects.find(p => p._id === invSelectedProject);
-            const res = await api.get(`/projects/${invSelectedProject}/inventory`);
-            const materials = res.data?.materials || res.data || [];
-
-            const doc = new jsPDF();
-            const fromDate = invDateFrom || null;
-            const toDate = invDateTo || null;
-            const dateLabel = fromDate && toDate
-                ? `${new Date(fromDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} to ${new Date(toDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
-                : fromDate ? `From ${new Date(fromDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
-                    : toDate ? `Up to ${new Date(toDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
-                        : 'All dates';
-
-            let y = addPdfHeader(doc, `Inventory Report — ${project?.title || 'Project'}`);
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'normal');
-            doc.text(`Site: ${project?.address || 'N/A'}  |  Period: ${dateLabel}`, 14, y);
-            y += 8;
-
-            // Summary table
-            const summaryData = materials.map(m => [
-                m.name || 'N/A',
-                m.unit || '',
-                String(m.inflow || 0),
-                String(m.outflow || 0),
-                String(m.balance || 0),
-                m.status || 'N/A'
-            ]);
-
-            doc.setFontSize(11);
-            doc.setFont('helvetica', 'bold');
-            doc.text('Material Summary', 14, y);
+            let y = addPdfHeader(doc, `Inventory Report — ${p.title}`);
+            doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.text('Material Summary', 14, y);
             y += 6;
 
+            const summaryData = materials.map(m => [m.name || 'N/A', m.unit || '', String(m.inflow || 0), String(m.outflow || 0), String(m.balance || 0), m.status || 'N/A']);
             autoTable(doc, {
                 startY: y,
                 head: [['Material', 'Unit', 'Inflow', 'Outflow', 'Balance', 'Status']],
@@ -694,33 +335,20 @@ const Reports = () => {
                 styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
                 didParseCell: (data) => {
                     if (data.section === 'body' && data.column.index === 5) {
-                        const val = (data.cell.raw || '').toString().toUpperCase();
-                        if (val.includes('OUT')) data.cell.styles.textColor = [220, 38, 38];
-                        else if (val.includes('LOW')) data.cell.styles.textColor = [234, 138, 0];
-                        else if (val.includes('OPTIMAL')) data.cell.styles.textColor = [22, 163, 74];
+                        const v = (data.cell.raw || '').toString().toUpperCase();
+                        if (v.includes('OUT')) data.cell.styles.textColor = [220, 38, 38];
+                        else if (v.includes('LOW')) data.cell.styles.textColor = [234, 138, 0];
+                        else if (v.includes('OPTIMAL')) data.cell.styles.textColor = [22, 163, 74];
                         data.cell.styles.fontStyle = 'bold';
                     }
-                    if (data.section === 'body' && data.column.index === 0) {
-                        data.cell.styles.fontStyle = 'bold';
-                        data.cell.styles.textColor = [26, 29, 46];
-                    }
-                },
+                }
             });
             y = doc.lastAutoTable.finalY + 10;
 
-            // Filtered transaction logs
-            doc.setFontSize(11);
-            doc.setFont('helvetica', 'bold');
-            if (y > 260) { doc.addPage(); y = 20; }
-            doc.text('Transaction Log', 14, y);
-            y += 6;
-
+            // Transaction log
             const logRows = [];
             materials.forEach(m => {
-                (m.logs || []).forEach(log => {
-                    const logDate = new Date(log.date).toISOString().slice(0, 10);
-                    if (fromDate && logDate < fromDate) return;
-                    if (toDate && logDate > toDate) return;
+                filterByDate(m.logs || [], 'date', dateFrom, dateTo).forEach(log => {
                     logRows.push([
                         new Date(log.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }),
                         m.name || 'N/A',
@@ -733,167 +361,143 @@ const Reports = () => {
             });
 
             if (logRows.length > 0) {
+                if (y > 240) { doc.addPage(); y = 20; }
+                doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.text('Transaction Log', 14, y);
+                y += 6;
                 autoTable(doc, {
                     startY: y,
-                    head: [['Date', 'Material', 'Type', 'Quantity', 'Supplier/Purpose', 'Cost']],
+                    head: [['Date', 'Material', 'Type', 'Qty', 'Supplier/Purpose', 'Cost']],
                     body: logRows,
                     theme: 'grid',
                     headStyles: { fillColor: [26, 29, 46], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
                     bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
                     alternateRowStyles: { fillColor: [250, 250, 252] },
                     margin: { left: 14, right: 14 },
-                    styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
-                    columnStyles: {
-                        0: { fontStyle: 'bold', textColor: [26, 29, 46] },
-                        2: { fontStyle: 'italic' }
-                    }
+                    styles: { cellPadding: 3, lineColor: [230, 230, 230], lineWidth: 0.1 },
                 });
-            } else {
-                doc.setFontSize(9);
-                doc.setFont('helvetica', 'italic');
-                doc.setTextColor(150, 150, 150);
-                doc.text('No transactions in the selected period.', 14, y);
-                doc.setTextColor(0, 0, 0);
             }
-
             addPdfFooter(doc);
+        }
 
-            doc.save(`Inventory_${(project?.title || 'Report').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
-
-            const newReport = {
-                id: Date.now().toString(),
-                name: `Inventory — ${project?.title || 'Project'}`,
-                project: project?.title || 'Project',
-                date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-                status: 'Ready',
-                size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
-                blob: doc.output('blob')
-            };
-            setSystemReports(prev => [newReport, ...prev]);
-        } catch (err) { console.error('Inventory PDF failed:', err); }
-        finally { setGenerating(null); }
+        const label = projectId ? (selectedProject?.title || 'Project') : 'All_Projects';
+        doc.save(`Inventory_${label.replace(/\s+/g, '_')}.pdf`);
+        addReportToHistory(doc, `Inventory — ${label}`, label);
     };
 
-    // ─── ATTENDANCE REPORT GENERATION ───
-    const generateAttendanceReport = async () => {
-        if (!attSelectedProject || !attYear || (attType === 'monthly' && !attMonth)) return;
-        setShowAttPicker(false);
-        setGenerating('attendance');
-        try {
-            const project = projects.find(p => p._id === attSelectedProject);
-            const doc = new jsPDF();
+    const generateFinancialPDF = async ({ projectId }) => {
+        const doc      = new jsPDF();
+        const projList = projectId ? projects.filter(p => p._id === projectId) : projects;
+        let isFirstPage = true;
 
-            if (attType === 'monthly') {
-                const startM = attMonth;
-                const endM = attEndMonth >= attMonth ? attEndMonth : attMonth;
-                const monthNames = [];
-                let isFirstPage = true;
+        for (const p of projList) {
+            if (!isFirstPage) doc.addPage();
+            isFirstPage = false;
+            let y = addPdfHeader(doc, `Financial Summary — ${p.title}`);
 
-                for (let m = startM; m <= endM; m++) {
-                    const res = await api.get(`/personnel/attendance-report`, {
-                        params: { projectId: attSelectedProject, month: m, year: attYear }
-                    });
-                    const data = res.data || [];
-                    const monthName = new Date(attYear, m - 1).toLocaleString('en-US', { month: 'long' });
-                    monthNames.push(monthName);
+            const budget     = Number(p.budget) || 0;
+            const unit       = p.budgetUnit || 'Lakhs';
+            const budgetStr  = budget > 0 ? `Rs.${budget.toLocaleString('en-IN')} ${unit}` : 'N/A';
+            const startDate  = p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
+            const endDate    = p.endDate   ? new Date(p.endDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
 
-                    if (!isFirstPage) doc.addPage();
-                    isFirstPage = false;
-
-                    let y = addPdfHeader(doc, `Attendance Report: ${monthName} ${attYear}`);
-                    doc.setFontSize(14);
-                    doc.setFont('helvetica', 'bold');
-                    doc.setTextColor(26, 29, 46);
-                    doc.text(`Project: ${project?.title || 'Unknown'}`, 14, y);
-                    y += 8;
-
-                    if (data.length === 0) {
-                        doc.setFontSize(10);
-                        doc.setFont('helvetica', 'italic');
-                        doc.setTextColor(150, 150, 150);
-                        doc.text(`No attendance logs found for this project in ${monthName}.`, 14, y);
-                    } else {
-                        const tableData = data.map(person => [
-                            person.name,
-                            person.role || 'Personnel',
-                            String(person['On Site'] || 0),
-                            String(person['Remote'] || 0),
-                            String(person['On Leave'] || 0),
-                            String(person['Off Duty'] || 0),
-                            String(person.totalDays || 0)
-                        ]);
-                        autoTable(doc, {
-                            startY: y,
-                            head: [['Name', 'Role', 'On Site Days', 'Remote Days', 'Leave Days', 'Off Duty', 'Total Recorded']],
-                            body: tableData,
-                            theme: 'grid',
-                            headStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
-                            bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
-                            alternateRowStyles: { fillColor: [250, 250, 252] },
-                            margin: { left: 14, right: 14 },
-                            styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
-                            columnStyles: {
-                                0: { fontStyle: 'bold', textColor: [26, 29, 46] },
-                                2: { halign: 'center', fontStyle: 'bold', textColor: [22, 163, 74] },
-                                3: { halign: 'center' },
-                                4: { halign: 'center', textColor: [234, 138, 0] },
-                                5: { halign: 'center' },
-                                6: { halign: 'center', fontStyle: 'bold' }
-                            }
-                        });
+            autoTable(doc, {
+                startY: y,
+                body: [
+                    ['Project', p.title || 'N/A'], ['Type', p.type || 'N/A'], ['Status', p.status || 'N/A'],
+                    ['Client', p.client || 'N/A'], ['Manager', p.manager || 'N/A'],
+                    ['Site', p.address || 'N/A'], ['Budget', budgetStr],
+                    ['Start Date', startDate], ['Target End', endDate],
+                ],
+                theme: 'plain',
+                columnStyles: {
+                    0: { fontStyle: 'bold', cellWidth: 50, textColor: [100, 100, 100], fontSize: 9 },
+                    1: { fontSize: 9, textColor: [40, 40, 40] }
+                },
+                margin: { left: 14, right: 14 },
+                styles: { cellPadding: 3 },
+                didParseCell: (data) => {
+                    if (data.row.index === 6 && data.column.index === 1) {
+                        data.cell.styles.textColor = [22, 163, 74];
+                        data.cell.styles.fontStyle = 'bold';
                     }
-                    addPdfFooter(doc);
                 }
+            });
+            y = doc.lastAutoTable.finalY + 10;
 
-                const periodStr = startM === endM
-                    ? `${monthNames[0]} ${attYear}`
-                    : `${monthNames[0]}-${monthNames[monthNames.length - 1]} ${attYear}`;
-                doc.save(`Attendance_${(project?.title || 'Report').replace(/\s+/g, '_')}_${periodStr.replace(/\s+/g, '_')}.pdf`);
+            // Material costs
+            try {
+                const invRes    = await api.get(`/projects/${p._id}/inventory`);
+                const materials = invRes.data?.materials || invRes.data || [];
+                if (materials.length > 0) {
+                    if (y > 240) { doc.addPage(); y = 20; }
+                    doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.text('Material Cost Breakdown', 14, y);
+                    y += 6;
+                    let totalCost = 0;
+                    const costData = materials.map(m => {
+                        let c = 0;
+                        (m.logs || []).forEach(l => { if (l.type === 'delivery' && l.totalCost) c += Number(l.totalCost); });
+                        totalCost += c;
+                        return [m.name || 'N/A', m.unit || '', String(m.inflow || 0), String(m.outflow || 0), String(m.balance || 0), c > 0 ? `Rs.${c.toLocaleString('en-IN')}` : '-'];
+                    });
+                    autoTable(doc, {
+                        startY: y,
+                        head: [['Material', 'Unit', 'Inflow', 'Outflow', 'Balance', 'Cost']],
+                        body: costData,
+                        theme: 'grid',
+                        headStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
+                        bodyStyles: { fontSize: 8 },
+                        alternateRowStyles: { fillColor: [250, 250, 252] },
+                        margin: { left: 14, right: 14 },
+                        styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
+                    });
+                    y = doc.lastAutoTable.finalY + 8;
+                    doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+                    doc.text(`Total Material Cost: Rs.${totalCost.toLocaleString('en-IN')}`, 196, y, { align: 'right' });
+                }
+            } catch (e) { /* skip */ }
+            addPdfFooter(doc);
+        }
 
-                const newReport = {
-                    id: Date.now().toString(),
-                    name: `Attendance: ${periodStr}`,
-                    project: project?.title || 'Project',
-                    date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-                    status: 'Ready',
-                    size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
-                    dataUri: doc.output('datauristring')
-                };
-                setSystemReports(prev => [newReport, ...prev]);
+        const label = projectId ? (selectedProject?.title || 'Project') : 'All_Projects';
+        doc.save(`Financial_${label.replace(/\s+/g, '_')}.pdf`);
+        addReportToHistory(doc, `Financial — ${label}`, label);
+    };
 
-            } else {
-                // Yearly - unchanged
-                const res = await api.get(`/personnel/attendance-report`, {
-                    params: { projectId: attSelectedProject, month: 'all', year: attYear }
-                });
+    const generateAttendancePDF = async ({ projectId, month, endMonth, year }) => {
+        const doc      = new jsPDF();
+        const projList = projectId ? projects.filter(p => p._id === projectId) : projects.filter(p => !['Completed', 'On Hold'].includes(p.status));
+        const monthNames = [];
+        let isFirstPage = true;
+
+        for (let m = month; m <= endMonth; m++) {
+            const mName = new Date(year, m - 1).toLocaleString('en-US', { month: 'long' });
+            monthNames.push(mName);
+
+            for (const p of projList) {
+                const res  = await api.get('/personnel/attendance-report', { params: { projectId: p._id, month: m, year } });
                 const data = res.data || [];
-                const periodStr = `${attYear}`;
-                let y = addPdfHeader(doc, `Attendance Report: ${periodStr}`);
 
-                doc.setFontSize(14);
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(26, 29, 46);
-                doc.text(`Project: ${project?.title || 'Unknown'}`, 14, y);
+                if (!isFirstPage) doc.addPage();
+                isFirstPage = false;
+
+                let y = addPdfHeader(doc, projectId ? `Attendance Report: ${mName} ${year}` : `Global Attendance: ${mName} ${year}`);
+                doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 29, 46);
+                doc.text(`Project: ${p.title}`, 14, y);
                 y += 8;
 
                 if (data.length === 0) {
-                    doc.setFontSize(10);
-                    doc.setFont('helvetica', 'italic');
-                    doc.setTextColor(150, 150, 150);
-                    doc.text(`No attendance logs found for this project in the selected year.`, 14, y);
+                    doc.setFontSize(10); doc.setFont('helvetica', 'italic'); doc.setTextColor(150, 150, 150);
+                    doc.text('No attendance data found for this period.', 14, y);
                 } else {
                     const tableData = data.map(person => [
-                        person.name,
-                        person.role || 'Personnel',
-                        String(person['On Site'] || 0),
-                        String(person['Remote'] || 0),
-                        String(person['On Leave'] || 0),
-                        String(person['Off Duty'] || 0),
+                        person.name, person.role || 'Personnel',
+                        String(person['On Site'] || 0), String(person['Remote'] || 0),
+                        String(person['On Leave'] || 0), String(person['Off Duty'] || 0),
                         String(person.totalDays || 0)
                     ]);
                     autoTable(doc, {
                         startY: y,
-                        head: [['Name', 'Role', 'On Site Days', 'Remote Days', 'Leave Days', 'Off Duty', 'Total Recorded']],
+                        head: [['Name', 'Role', 'On Site Days', 'Remote Days', 'Leave Days', 'Off Duty', 'Total']],
                         body: tableData,
                         theme: 'grid',
                         headStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
@@ -904,414 +508,220 @@ const Reports = () => {
                         columnStyles: {
                             0: { fontStyle: 'bold', textColor: [26, 29, 46] },
                             2: { halign: 'center', fontStyle: 'bold', textColor: [22, 163, 74] },
-                            3: { halign: 'center' },
-                            4: { halign: 'center', textColor: [234, 138, 0] },
-                            5: { halign: 'center' },
-                            6: { halign: 'center', fontStyle: 'bold' }
+                            3: { halign: 'center' }, 4: { halign: 'center', textColor: [234, 138, 0] },
+                            5: { halign: 'center' }, 6: { halign: 'center', fontStyle: 'bold' }
                         }
                     });
                 }
-
                 addPdfFooter(doc);
-                doc.save(`Attendance_${(project?.title || 'Report').replace(/\s+/g, '_')}_${periodStr.replace(/\s+/g, '_')}.pdf`);
-
-                const newReport = {
-                    id: Date.now().toString(),
-                    name: `Attendance: ${periodStr}`,
-                    project: project?.title || 'Project',
-                    date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-                    status: 'Ready',
-                    size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
-                    dataUri: doc.output('datauristring')
-                };
-                setSystemReports(prev => [newReport, ...prev]);
             }
+        }
 
-        } catch (error) {
-            console.error('Failed to generate attendance report:', error);
-            showToast('Failed to generate attendance report', 'error');
-        } finally {
-            setGenerating(null);
+        const periodStr = month === endMonth ? `${monthNames[0]} ${year}` : `${monthNames[0]}-${monthNames[monthNames.length - 1]} ${year}`;
+        const label     = projectId ? (selectedProject?.title || 'Project') : 'All_Projects';
+        doc.save(`Attendance_${label.replace(/\s+/g, '_')}_${periodStr.replace(/\s+/g, '_')}.pdf`);
+        addReportToHistory(doc, `Attendance: ${periodStr} — ${label}`, label);
+    };
+
+    // ─── EXCEL GENERATORS ─────────────────────────────────────────────────────
+
+    const generateExcelReport = async ({ projectId, dateFrom, dateTo, month, endMonth, year }) => {
+        const wb       = XLSX.utils.book_new();
+        const projList = projectId ? projects.filter(p => p._id === projectId) : projects;
+        const label    = projectId ? (selectedProject?.title || 'Project') : 'All Projects';
+
+        if (reportType === 'daily') {
+            for (const p of projList) {
+                const res  = await api.get(`/projects/${p._id}/daily-logs`);
+                const logs = filterByDate(res.data?.logs || [], 'date', dateFrom, dateTo)
+                    .sort((a, b) => new Date(b.date) - new Date(a.date));
+                const rows = [
+                    ['Date', 'Day', 'Weather', 'Laborers', 'Notes'],
+                    ...logs.map(l => [
+                        new Date(l.date).toLocaleDateString('en-IN'),
+                        l.day || '-', l.weather?.condition || '-',
+                        l.laborers || 0, l.notes || '-'
+                    ])
+                ];
+                const ws = styleExcelSheet(XLSX.utils.aoa_to_sheet(rows));
+                XLSX.utils.book_append_sheet(wb, ws, p.title.slice(0, 31));
+            }
+            downloadXlsx(wb, `Daily_Logs_${label.replace(/\s+/g, '_')}.xlsx`);
+
+        } else if (reportType === 'inventory') {
+            for (const p of projList) {
+                const res       = await api.get(`/projects/${p._id}/inventory`);
+                const materials = res.data?.materials || res.data || [];
+                // Summary sheet
+                const summaryRows = [
+                    ['Material', 'Unit', 'Inflow', 'Outflow', 'Balance', 'Status'],
+                    ...materials.map(m => [m.name, m.unit, m.inflow || 0, m.outflow || 0, m.balance || 0, m.status])
+                ];
+                const ws1 = styleExcelSheet(XLSX.utils.aoa_to_sheet(summaryRows));
+                XLSX.utils.book_append_sheet(wb, ws1, (p.title.slice(0, 25) + '-Summary'));
+
+                // Transaction sheet
+                const txRows = [['Date', 'Material', 'Type', 'Quantity', 'Unit', 'Supplier/Purpose', 'Cost']];
+                materials.forEach(m => {
+                    filterByDate(m.logs || [], 'date', dateFrom, dateTo).forEach(log => {
+                        txRows.push([
+                            new Date(log.date).toLocaleDateString('en-IN'),
+                            m.name, log.type === 'delivery' ? 'Delivery' : 'Usage',
+                            log.quantity || 0, m.unit,
+                            log.type === 'delivery' ? (log.supplier || '') : (log.locationPurpose || ''),
+                            log.totalCost || 0
+                        ]);
+                    });
+                });
+                if (txRows.length > 1) {
+                    const ws2 = styleExcelSheet(XLSX.utils.aoa_to_sheet(txRows));
+                    XLSX.utils.book_append_sheet(wb, ws2, (p.title.slice(0, 24) + '-Logs'));
+                }
+            }
+            downloadXlsx(wb, `Inventory_${label.replace(/\s+/g, '_')}.xlsx`);
+
+        } else if (reportType === 'financial') {
+            const rows = [['Project', 'Client', 'Manager', 'Budget', 'Unit', 'Status', 'Type', 'Site', 'Start Date', 'End Date']];
+            for (const p of projList) {
+                rows.push([
+                    p.title, p.client || '', p.manager || '',
+                    p.budget || 0, p.budgetUnit || 'Lakhs', p.status || '',
+                    p.type || '', p.address || '',
+                    p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN') : '',
+                    p.endDate   ? new Date(p.endDate).toLocaleDateString('en-IN')   : '',
+                ]);
+            }
+            const ws = styleExcelSheet(XLSX.utils.aoa_to_sheet(rows));
+            XLSX.utils.book_append_sheet(wb, ws, 'Financial Summary');
+
+            // Material costs per project
+            const costRows = [['Project', 'Material', 'Unit', 'Inflow', 'Outflow', 'Balance', 'Total Cost (Rs)']];
+            for (const p of projList) {
+                try {
+                    const res       = await api.get(`/projects/${p._id}/inventory`);
+                    const materials = res.data?.materials || res.data || [];
+                    materials.forEach(m => {
+                        let cost = 0;
+                        (m.logs || []).forEach(l => { if (l.type === 'delivery' && l.totalCost) cost += Number(l.totalCost); });
+                        costRows.push([p.title, m.name, m.unit, m.inflow || 0, m.outflow || 0, m.balance || 0, cost]);
+                    });
+                } catch {}
+            }
+            if (costRows.length > 1) {
+                const ws2 = styleExcelSheet(XLSX.utils.aoa_to_sheet(costRows));
+                XLSX.utils.book_append_sheet(wb, ws2, 'Material Costs');
+            }
+            downloadXlsx(wb, `Financial_${label.replace(/\s+/g, '_')}.xlsx`);
+
+        } else if (reportType === 'personnel') {
+            for (let m = month; m <= endMonth; m++) {
+                const mName = new Date(year, m - 1).toLocaleString('en-US', { month: 'long' });
+                const rows  = [['Name', 'Role', 'On Site Days', 'Remote Days', 'Leave Days', 'Off Duty', 'Total Recorded']];
+                for (const p of projList) {
+                    const res  = await api.get('/personnel/attendance-report', { params: { projectId: p._id, month: m, year } });
+                    const data = res.data || [];
+                    if (data.length > 0) {
+                        rows.push([`-- ${p.title} --`, '', '', '', '', '', '']);
+                        data.forEach(person => rows.push([
+                            person.name, person.role || '',
+                            person['On Site'] || 0, person['Remote'] || 0,
+                            person['On Leave'] || 0, person['Off Duty'] || 0,
+                            person.totalDays || 0
+                        ]));
+                    }
+                }
+                const sheetName = `${mName.slice(0, 3)} ${year}`.slice(0, 31);
+                XLSX.utils.book_append_sheet(wb, styleExcelSheet(XLSX.utils.aoa_to_sheet(rows)), sheetName);
+            }
+            downloadXlsx(wb, `Attendance_${label.replace(/\s+/g, '_')}_${year}.xlsx`);
         }
     };
 
-    // ─── GLOBAL ATTENDANCE REPORT GENERATION ───
-    const generateGlobalAttendanceReport = async () => {
-        if (!attYear || (attType === 'monthly' && !attMonth)) return;
-        setShowGlobalAttPicker(false);
-        setGenerating('attendance');
+    // ─── CSV GENERATOR ────────────────────────────────────────────────────────
+
+    const generateCsvReport = async ({ projectId, dateFrom, dateTo, month, year }) => {
+        const wb       = XLSX.utils.book_new();
+        const projList = projectId ? projects.filter(p => p._id === projectId) : projects;
+        const label    = projectId ? (selectedProject?.title || 'Project') : 'All Projects';
+
+        // Re-use Excel logic but output as CSV
+        const rows = [];
+
+        if (reportType === 'daily') {
+            rows.push(['Date', 'Day', 'Weather', 'Laborers', 'Notes', 'Project']);
+            for (const p of projList) {
+                const res  = await api.get(`/projects/${p._id}/daily-logs`);
+                filterByDate(res.data?.logs || [], 'date', dateFrom, dateTo).forEach(l => {
+                    rows.push([new Date(l.date).toLocaleDateString('en-IN'), l.day || '', l.weather?.condition || '', l.laborers || 0, l.notes || '', p.title]);
+                });
+            }
+        } else if (reportType === 'inventory') {
+            rows.push(['Project', 'Material', 'Unit', 'Inflow', 'Outflow', 'Balance', 'Status']);
+            for (const p of projList) {
+                const res = await api.get(`/projects/${p._id}/inventory`);
+                (res.data?.materials || res.data || []).forEach(m => {
+                    rows.push([p.title, m.name, m.unit, m.inflow || 0, m.outflow || 0, m.balance || 0, m.status]);
+                });
+            }
+        } else if (reportType === 'financial') {
+            rows.push(['Project', 'Client', 'Budget', 'Unit', 'Status', 'Type', 'Manager']);
+            projList.forEach(p => rows.push([p.title, p.client || '', p.budget || 0, p.budgetUnit || 'Lakhs', p.status || '', p.type || '', p.manager || '']));
+        } else if (reportType === 'personnel') {
+            rows.push(['Project', 'Name', 'Role', 'On Site Days', 'Remote Days', 'Leave Days', 'Off Duty', 'Total']);
+            for (const p of projList) {
+                const res  = await api.get('/personnel/attendance-report', { params: { projectId: p._id, month, year } });
+                (res.data || []).forEach(per => rows.push([p.title, per.name, per.role || '', per['On Site'] || 0, per['Remote'] || 0, per['On Leave'] || 0, per['Off Duty'] || 0, per.totalDays || 0]));
+            }
+        }
+
+        const ws  = XLSX.utils.aoa_to_sheet(rows);
+        const csv = XLSX.utils.sheet_to_csv(ws);
+        downloadCsvBlob(csv, `${reportType}_${label.replace(/\s+/g, '_')}.csv`);
+    };
+
+    // ─── UNIFIED GENERATE ─────────────────────────────────────────────────────
+
+    const handleGenerateReport = async () => {
+        setIsGenerating(true);
         try {
-            const doc = new jsPDF();
+            const { month, endMonth, year } = getDateParams();
+            const params = { projectId: formProject || null, dateFrom: formDateFrom || null, dateTo: formDateTo || null, month, endMonth, year };
 
-            if (attType === 'monthly') {
-                const startM = attMonth;
-                const endM = attEndMonth >= attMonth ? attEndMonth : attMonth;
-                const monthNames = [];
-                let isFirstPage = true;
-
-                for (let m = startM; m <= endM; m++) {
-                    const monthName = new Date(attYear, m - 1).toLocaleString('en-US', { month: 'long' });
-                    monthNames.push(monthName);
-
-                    if (!isFirstPage) doc.addPage();
-                    isFirstPage = false;
-
-                    let y = addPdfHeader(doc, `Global Attendance Report: ${monthName} ${attYear}`);
-
-                    for (const p of projects) {
-                        if (['Completed', 'On Hold'].includes(p.status)) continue;
-                        if (y > 240) { doc.addPage(); y = 20; }
-
-                        doc.setFontSize(11);
-                        doc.setFont('helvetica', 'bold');
-                        doc.setTextColor(26, 29, 46);
-                        doc.text(p.title || 'Untitled', 14, y);
-                        y += 6;
-
-                        try {
-                            const res = await api.get(`/personnel/attendance-report`, {
-                                params: { projectId: p._id, month: m, year: attYear }
-                            });
-                            const data = res.data || [];
-
-                            if (data.length === 0) {
-                                doc.setFontSize(9);
-                                doc.setFont('helvetica', 'italic');
-                                doc.setTextColor(150, 150, 150);
-                                doc.text('No attendance logs found for this project.', 14, y);
-                                y += 10;
-                            } else {
-                                const tableData = data.map(person => [
-                                    person.name,
-                                    person.role || 'Personnel',
-                                    String(person['On Site'] || 0),
-                                    String(person['Remote'] || 0),
-                                    String(person['On Leave'] || 0),
-                                    String(person['Off Duty'] || 0),
-                                    String(person.totalDays || 0)
-                                ]);
-                                autoTable(doc, {
-                                    startY: y,
-                                    head: [['Name', 'Role', 'On Site Days', 'Remote Days', 'Leave Days', 'Off Duty', 'Total Recorded']],
-                                    body: tableData,
-                                    theme: 'grid',
-                                    headStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
-                                    bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
-                                    alternateRowStyles: { fillColor: [250, 250, 252] },
-                                    margin: { left: 14, right: 14 },
-                                    styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
-                                    columnStyles: {
-                                        0: { fontStyle: 'bold', textColor: [26, 29, 46] },
-                                        2: { halign: 'center', fontStyle: 'bold', textColor: [22, 163, 74] },
-                                        3: { halign: 'center' },
-                                        4: { halign: 'center', textColor: [234, 138, 0] },
-                                        5: { halign: 'center' },
-                                        6: { halign: 'center', fontStyle: 'bold' }
-                                    }
-                                });
-                                y = doc.lastAutoTable.finalY + 10;
-                            }
-                        } catch (e) {
-                            doc.setFontSize(9);
-                            doc.setFont('helvetica', 'italic');
-                            doc.setTextColor(150, 150, 150);
-                            doc.text('Error fetching data for this project.', 14, y);
-                            doc.setTextColor(0, 0, 0);
-                            y += 10;
-                        }
-                    }
-                    addPdfFooter(doc);
-                }
-
-                const periodStr = startM === endM
-                    ? `${monthNames[0]} ${attYear}`
-                    : `${monthNames[0]}-${monthNames[monthNames.length - 1]} ${attYear}`;
-                doc.save(`Global_Attendance_${periodStr.replace(/\s+/g, '_')}.pdf`);
-
-                const newReport = {
-                    id: Date.now().toString(),
-                    name: `Global Attendance: ${periodStr}`,
-                    project: `All Active Projects`,
-                    date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-                    status: 'Ready',
-                    size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
-                    dataUri: doc.output('datauristring')
-                };
-                setSystemReports(prev => [newReport, ...prev]);
-
+            if (exportFormat === 'pdf') {
+                if (reportType === 'daily')       await generateDailyPDF(params);
+                else if (reportType === 'inventory')   await generateInventoryPDF(params);
+                else if (reportType === 'financial')   await generateFinancialPDF(params);
+                else if (reportType === 'personnel')   await generateAttendancePDF(params);
+            } else if (exportFormat === 'excel') {
+                await generateExcelReport(params);
             } else {
-                // Yearly - unchanged
-                const periodStr = `${attYear}`;
-                let y = addPdfHeader(doc, `Global Attendance Report: ${periodStr}`);
-
-                for (const p of projects) {
-                    if (['Completed', 'On Hold'].includes(p.status)) continue;
-                    if (y > 240) { doc.addPage(); y = 20; }
-
-                    doc.setFontSize(11);
-                    doc.setFont('helvetica', 'bold');
-                    doc.setTextColor(26, 29, 46);
-                    doc.text(p.title || 'Untitled', 14, y);
-                    y += 6;
-
-                    try {
-                        const res = await api.get(`/personnel/attendance-report`, {
-                            params: { projectId: p._id, month: 'all', year: attYear }
-                        });
-                        const data = res.data || [];
-
-                        if (data.length === 0) {
-                            doc.setFontSize(9);
-                            doc.setFont('helvetica', 'italic');
-                            doc.setTextColor(150, 150, 150);
-                            doc.text('No attendance logs found for this project.', 14, y);
-                            y += 10;
-                        } else {
-                            const tableData = data.map(person => [
-                                person.name,
-                                person.role || 'Personnel',
-                                String(person['On Site'] || 0),
-                                String(person['Remote'] || 0),
-                                String(person['On Leave'] || 0),
-                                String(person['Off Duty'] || 0),
-                                String(person.totalDays || 0)
-                            ]);
-                            autoTable(doc, {
-                                startY: y,
-                                head: [['Name', 'Role', 'On Site Days', 'Remote Days', 'Leave Days', 'Off Duty', 'Total Recorded']],
-                                body: tableData,
-                                theme: 'grid',
-                                headStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
-                                bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
-                                alternateRowStyles: { fillColor: [250, 250, 252] },
-                                margin: { left: 14, right: 14 },
-                                styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
-                                columnStyles: {
-                                    0: { fontStyle: 'bold', textColor: [26, 29, 46] },
-                                    2: { halign: 'center', fontStyle: 'bold', textColor: [22, 163, 74] },
-                                    3: { halign: 'center' },
-                                    4: { halign: 'center', textColor: [234, 138, 0] },
-                                    5: { halign: 'center' },
-                                    6: { halign: 'center', fontStyle: 'bold' }
-                                }
-                            });
-                            y = doc.lastAutoTable.finalY + 10;
-                        }
-                    } catch (e) {
-                        doc.setFontSize(9);
-                        doc.setFont('helvetica', 'italic');
-                        doc.setTextColor(150, 150, 150);
-                        doc.text('Error fetching data for this project.', 14, y);
-                        doc.setTextColor(0, 0, 0);
-                        y += 10;
-                    }
-                }
-
-                addPdfFooter(doc);
-                doc.save(`Global_Attendance_${periodStr.replace(/\s+/g, '_')}.pdf`);
-
-                const newReport = {
-                    id: Date.now().toString(),
-                    name: `Global Attendance: ${periodStr}`,
-                    project: `All Active Projects`,
-                    date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-                    status: 'Ready',
-                    size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
-                    dataUri: doc.output('datauristring')
-                };
-                setSystemReports(prev => [newReport, ...prev]);
+                await generateCsvReport(params);
             }
-
-        } catch (error) {
-            console.error('Failed to generate global attendance report:', error);
-            showToast('Failed to generate global attendance report', 'error');
+            showToast('Report generated successfully!', 'success');
+            if (exportFormat === 'pdf') setMainTab('history');
+        } catch (err) {
+            console.error('Report generation failed:', err);
+            showToast('Failed to generate report. Check parameters and try again.', 'error');
         } finally {
-            setGenerating(null);
+            setIsGenerating(false);
         }
     };
 
-    // ─── FINANCIAL PICKER ───
-    const openFinancialPicker = () => {
-        setFinSelectedProject('');
-        setShowFinPicker(true);
+    // ─── DOCUMENT VAULT HANDLERS ──────────────────────────────────────────────
+
+    const handleDeleteDocument = (doc) => {
+        if (!doc.projectId || !doc.id) { showToast('Cannot delete: missing identifiers.', 'error'); return; }
+        setDocumentToDelete(doc);
     };
 
-    const downloadProjectFinancial = async () => {
-        if (!finSelectedProject) return;
-        setShowFinPicker(false);
-        setGenerating('financial');
+    const confirmDeleteDocument = async () => {
+        if (!documentToDelete) return;
         try {
-            const project = projects.find(p => p._id === finSelectedProject);
-            const doc = new jsPDF();
-            let y = addPdfHeader(doc, `Financial Summary — ${project?.title || 'Project'}`);
-
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'normal');
-            doc.text(`Site: ${project?.address || 'N/A'}  |  Client: ${project?.client || 'N/A'}`, 14, y);
-            y += 8;
-
-            // Project info table
-            const budget = Number(project?.budget) || 0;
-            const unit = project?.budgetUnit || 'Lakhs';
-            const budgetStr = budget > 0 ? `Rs.${budget.toLocaleString('en-IN')} ${unit}` : 'N/A';
-            const startDate = project?.startDate ? new Date(project.startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
-            const endDate = project?.endDate ? new Date(project.endDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
-
-            autoTable(doc, {
-                startY: y,
-                body: [
-                    ['Project', project?.title || 'N/A'],
-                    ['Type', project?.type || 'N/A'],
-                    ['Status', project?.status || 'N/A'],
-                    ['Client', project?.client || 'N/A'],
-                    ['Manager', project?.manager || 'N/A'],
-                    ['Site Size', project?.siteSize ? `${project.siteSize} sq ft` : 'N/A'],
-                    ['Floors', String(project?.floors || 'N/A')],
-                    ['Budget', budgetStr],
-                    ['Start Date', startDate],
-                    ['Target End', endDate],
-                ],
-                theme: 'plain',
-                columnStyles: {
-                    0: { fontStyle: 'bold', cellWidth: 50, textColor: [100, 100, 100], fontSize: 9 },
-                    1: { fontSize: 9, textColor: [40, 40, 40] }
-                },
-                margin: { left: 14, right: 14 },
-                styles: { cellPadding: 3 },
-                didParseCell: (data) => {
-                    // Make budget value green and bold
-                    if (data.row.index === 7 && data.column.index === 1) {
-                        data.cell.styles.textColor = [22, 163, 74];
-                        data.cell.styles.fontStyle = 'bold';
-                    }
-                }
-            });
-            y = doc.lastAutoTable.finalY + 10;
-
-            // Material cost breakdown
-            try {
-                const invRes = await api.get(`/projects/${finSelectedProject}/inventory`);
-                const materials = invRes.data?.materials || invRes.data || [];
-                if (materials.length > 0) {
-                    if (y > 240) { doc.addPage(); y = 20; }
-                    doc.setFontSize(11);
-                    doc.setFont('helvetica', 'bold');
-                    doc.text('Material Cost Breakdown', 14, y);
-                    y += 6;
-
-                    let totalMaterialCost = 0;
-                    const costData = materials.map(m => {
-                        let matCost = 0;
-                        (m.logs || []).forEach(log => {
-                            if (log.type === 'delivery' && log.totalCost) matCost += Number(log.totalCost);
-                        });
-                        totalMaterialCost += matCost;
-                        return [
-                            m.name || 'N/A',
-                            m.unit || '',
-                            String(m.inflow || 0),
-                            String(m.outflow || 0),
-                            String(m.balance || 0),
-                            matCost > 0 ? `Rs.${matCost.toLocaleString('en-IN')}` : '-'
-                        ];
-                    });
-
-                    autoTable(doc, {
-                        startY: y,
-                        head: [['Material', 'Unit', 'Inflow', 'Outflow', 'Balance', 'Cost']],
-                        body: costData,
-                        foot: [['', '', '', '', 'Total', `Rs.${totalMaterialCost.toLocaleString('en-IN')}`]],
-                        theme: 'grid',
-                        headStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
-                        footStyles: { fillColor: [248, 248, 250], textColor: [109, 40, 217], fontStyle: 'bold', fontSize: 9 },
-                        bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
-                        alternateRowStyles: { fillColor: [250, 250, 252] },
-                        margin: { left: 14, right: 14 },
-                        styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
-                        columnStyles: {
-                            0: { fontStyle: 'bold', textColor: [26, 29, 46] }
-                        }
-                    });
-                    y = doc.lastAutoTable.finalY + 10;
-
-                    // Budget utilization
-                    if (budget > 0) {
-                        if (y > 250) { doc.addPage(); y = 20; }
-                        const budgetInRupees = unit === 'Crores' ? budget * 10000000 : budget * 100000;
-                        const utilization = ((totalMaterialCost / budgetInRupees) * 100).toFixed(1);
-
-                        // Budget Utilization Card
-                        doc.setFillColor(248, 248, 250);
-                        doc.setDrawColor(230, 230, 230);
-                        doc.roundedRect(14, y, 182, 35, 2, 2, 'FD');
-
-                        doc.setFontSize(12);
-                        doc.setFont('helvetica', 'bold');
-                        doc.setTextColor(109, 40, 217);
-                        doc.text('Budget Utilization', 18, y + 8);
-
-                        // Row 1
-                        doc.setFontSize(10);
-                        doc.setFont('helvetica', 'normal');
-                        doc.setTextColor(80, 80, 80);
-                        doc.text(`Total Budget:`, 18, y + 16);
-                        doc.setFont('helvetica', 'bold');
-                        doc.setTextColor(22, 163, 74);
-                        doc.text(`${budgetStr}`, 45, y + 16);
-
-                        doc.setFont('helvetica', 'normal');
-                        doc.setTextColor(80, 80, 80);
-                        doc.text(`Material Spend:`, 100, y + 16);
-                        doc.setFont('helvetica', 'bold');
-                        doc.setTextColor(220, 38, 38);
-                        doc.text(`Rs.${totalMaterialCost.toLocaleString('en-IN')}`, 130, y + 16);
-
-                        // Row 2
-                        doc.setFont('helvetica', 'normal');
-                        doc.setTextColor(80, 80, 80);
-                        doc.text(`Utilization:`, 18, y + 25);
-
-                        // Color utilization based on percentage
-                        let utilColor = [22, 163, 74]; // Green
-                        if (utilization > 85 && utilization <= 100) utilColor = [234, 138, 0]; // Orange
-                        else if (utilization > 100) utilColor = [220, 38, 38]; // Red
-
-                        doc.setFont('helvetica', 'bold');
-                        doc.setTextColor(utilColor[0], utilColor[1], utilColor[2]);
-                        doc.text(`${utilization}%`, 40, y + 25);
-
-                        // Simple progress bar visualization
-                        doc.setDrawColor(230, 230, 230);
-                        doc.setFillColor(230, 230, 230);
-                        doc.roundedRect(60, y + 21, 120, 6, 1, 1, 'FD'); // Background
-
-                        let fillWidth = (utilization / 100) * 120;
-                        if (fillWidth > 120) fillWidth = 120; // Cap at 100% for bar
-
-                        if (fillWidth > 0) {
-                            doc.setFillColor(utilColor[0], utilColor[1], utilColor[2]);
-                            doc.roundedRect(60, y + 21, fillWidth, 6, 1, 1, 'F'); // Fill
-                        }
-                    }
-                }
-            } catch { /* no inventory data */ }
-
-            addPdfFooter(doc);
-
-            doc.save(`Financial_${(project?.title || 'Report').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`);
-
-            const newReport = {
-                id: Date.now().toString(),
-                name: `Financial — ${project?.title || 'Project'}`,
-                project: project?.title || 'Project',
-                date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-                status: 'Ready',
-                size: `${Math.round(doc.output('arraybuffer').byteLength / 1024)} KB`,
-                blob: doc.output('blob')
-            };
-            setSystemReports(prev => [newReport, ...prev]);
-        } catch (err) { console.error('Financial PDF failed:', err); }
-        finally { setGenerating(null); }
+            await api.delete(`/projects/${documentToDelete.projectId}/blueprints/${documentToDelete.id}`);
+            setUploadedDocs(uploadedDocs.filter(d => d.id !== documentToDelete.id));
+            showToast('Document deleted.', 'success');
+        } catch (e) { console.error(e); showToast('Failed to delete document.', 'error'); }
+        setDocumentToDelete(null);
     };
 
     const handleDocumentUpload = async (e) => {
@@ -1319,788 +729,467 @@ const Reports = () => {
         if (!uploadProject || !uploadFile) return;
         setUploading(true);
         try {
-            showToast("Uploading document to Cloudinary...", "info");
+            showToast('Uploading to Cloudinary…', 'info');
             const fileUrl = await uploadToCloudinary(uploadFile);
-
             await api.post(`/projects/${uploadProject}/blueprints`, { plans: [fileUrl] });
-
-            setShowUploadModal(false);
-            setUploadFile(null);
-            setUploadProject('');
+            setShowUploadModal(false); setUploadFile(null); setUploadProject('');
             fetchData();
-            showToast("Document uploaded successfully", "success");
-        } catch (error) {
-            console.error("Failed to upload document:", error);
-            showToast(error.message || "Failed to upload document", "error");
-        } finally {
-            setUploading(false);
-        }
+            showToast('Document uploaded!', 'success');
+        } catch (e) { console.error(e); showToast(e.message || 'Upload failed', 'error'); }
+        finally { setUploading(false); }
     };
+
+    const downloadReport = (report) => {
+        if (!report.dataUri && !report.blob) return;
+        const url = report.blob ? URL.createObjectURL(report.blob) : report.dataUri;
+        const a   = document.createElement('a');
+        a.href = url;
+        a.download = `${report.name.replace(/\s+/g, '_')}.pdf`;
+        a.click();
+        if (report.blob) URL.revokeObjectURL(url);
+    };
+
+    const confirmDeleteReport = () => {
+        if (!reportToDelete) return;
+        setSystemReports(systemReports.filter(r => r.id !== reportToDelete.id));
+        showToast('Report deleted.', 'success');
+        setReportToDelete(null); setReportDeleteConfirmText('');
+    };
+
+    // ─── RENDER ───────────────────────────────────────────────────────────────
+
+    if (isLoading) return <GlobalLoader />;
+
+    const NAV_ITEMS = [
+        { icon: <LayoutDashboard size={16} />, text: 'Dashboard',  href: '/dashboard' },
+        { icon: <FolderOpen size={16} />,      text: 'Projects',   href: '/projects' },
+        { icon: <Users size={16} />,           text: 'Personnel',  href: '/personnel' },
+        { icon: <PieChart size={16} />,        text: 'Budget',     href: '/budget' },
+        { icon: <FileText size={16} />,        text: 'Reports',    href: '/reports', active: true },
+    ];
 
     return (
         <>
             {ToastComponent}
-            {isLoading && <GlobalLoader />}
-            <div className="flex h-screen bg-[#0f1117] font-sans text-white overflow-hidden">
-                {/* ─── SIDEBAR ─── */}
-                <aside className="w-[240px] bg-[#0f1117] flex flex-col z-20 hidden md:flex border-r border-white/[0.06]">
-                    <div className="px-5 py-5 flex items-center justify-center"><CompanyLogo className="w-28 h-auto object-contain opacity-90" defaultLogoType="white" /></div>
-                    <nav className="flex-1 px-3 space-y-0.5 mt-2">
-                        <div className="px-3 mb-3"><p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">Menu</p></div>
-                        <NavItem icon={<LayoutDashboard size={17} />} text="Dashboard" href="/" />
-                        <NavItem icon={<FolderOpen size={17} />} text="Projects" href="/projects" />
-                        {['Admin', 'Site Manager'].includes(currentUser?.role) && <NavItem icon={<Users size={17} />} text="Personnel" href="/personnel" />}
-                        {['Admin'].includes(currentUser?.role) && <NavItem icon={<BarChart3 size={17} />} text="Budget" href="/budget" />}
-                        {['Admin', 'Site Manager', 'Client'].includes(currentUser?.role) && <NavItem icon={<FileText size={17} />} text="Reports" active href="/reports" />}
-                        {['Admin', 'Site Manager'].includes(currentUser?.role) && (
-                            <>
-                                <div className="px-3 mt-6 mb-3">
-                                    <p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest">System</p>
-                                </div>
-                                <NavItem icon={<Settings size={17} />} text="Settings" href="/settings" />
-                            </>
-                        )}
-                    </nav>
-                    <div className="px-3 pb-4">
-                        <div onClick={() => navigate('/profile')} className="flex items-center gap-3 px-3 py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.04] transition-all cursor-pointer group">
-                            {currentUser?.profile_image ? (
-                                <div className="w-8 h-8 rounded-lg overflow-hidden ring-1 ring-white/10"><img src={currentUser.profile_image} alt={currentUser.username} referrerPolicy="no-referrer" className="w-full h-full object-cover" /></div>
-                            ) : (
-                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500/20 to-blue-500/20 flex items-center justify-center text-violet-300 text-xs font-semibold ring-1 ring-white/10">{currentUser?.username?.[0] || 'U'}</div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                                <p className="text-[12px] font-medium text-white/80 truncate">{currentUser?.username || 'User'}</p>
-                                <p className="text-[10px] text-white/25">{currentUser?.role || 'Guest'}</p>
-                            </div>
-                            <ChevronRight size={12} className="text-white/10 group-hover:text-white/30 transition-colors" />
-                        </div>
+            <div className="flex h-screen bg-[#f5f5f7] font-sans overflow-hidden">
+
+                {/* ── Sidebar ── */}
+                <aside className="w-60 bg-[#1a1d2e] shrink-0 flex flex-col py-7 px-3">
+                    <div className="px-2 mb-8">
+                        <CompanyLogo className="h-8" />
                     </div>
+                    <nav className="space-y-0.5 flex-1">
+                        <p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest px-3 mb-3">Menu</p>
+                        {NAV_ITEMS.map(item => (
+                            <a key={item.href} href={item.href}
+                                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-[13px] group ${item.active ? 'bg-white/[0.08] text-white' : 'text-white/30 hover:bg-white/[0.04] hover:text-white/60'}`}>
+                                <span className={`transition-colors ${item.active ? 'text-violet-400' : 'text-white/20 group-hover:text-white/40'}`}>{item.icon}</span>
+                                <span className="font-medium">{item.text}</span>
+                                {item.active && <div className="ml-auto w-1 h-4 rounded-full bg-gradient-to-b from-violet-400 to-blue-500" />}
+                            </a>
+                        ))}
+                        <div className="mt-4 pt-4 border-t border-white/5">
+                            <p className="text-[10px] font-semibold text-white/20 uppercase tracking-widest px-3 mb-3">System</p>
+                            <a href="/settings" className="flex items-center gap-3 px-3 py-2 rounded-lg text-white/30 hover:bg-white/[0.04] hover:text-white/60 text-[13px] group">
+                                <span className="text-white/20 group-hover:text-white/40"><Settings size={16} /></span>
+                                <span className="font-medium">Settings</span>
+                            </a>
+                        </div>
+                    </nav>
+                    {currentUser && (
+                        <a href="/settings" className="flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-white/5 transition-colors mt-4">
+                            <img src={currentUser.avatar || `https://i.pravatar.cc/150?u=${currentUser._id}`} className="w-8 h-8 rounded-full object-cover" alt="" />
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[12px] font-semibold text-white truncate">{currentUser.name || 'User'}</p>
+                                <p className="text-[10px] text-white/30 capitalize">{currentUser.role || 'Member'}</p>
+                            </div>
+                            <ChevronRight size={14} className="text-white/20 shrink-0" />
+                        </a>
+                    )}
                 </aside>
 
-                {/* ─── MAIN ─── */}
-                <main className="flex-1 overflow-y-auto bg-[#f6f7f9]">
-                    <header className="sticky top-0 z-10 px-8 py-5 flex justify-between items-center bg-[#f6f7f9]/90 backdrop-blur-sm border-b border-gray-100">
-                        <div>
-                            <h1 className="text-xl font-semibold text-gray-900 tracking-tight">Reports</h1>
-                            <p className="text-[13px] text-gray-400 mt-0.5">Generate and manage construction insights</p>
-                        </div>
-                    </header>
+                {/* ── Main Content ── */}
+                <main className="flex-1 flex flex-col overflow-hidden">
 
-                    <div className="px-8 py-6 space-y-6">
-                        {/* Tabs */}
-                        <div className="flex gap-1 bg-white border border-gray-100 rounded-xl p-1 w-fit">
-                            <button onClick={() => setActiveTab('generated')} className={`px-4 py-2 rounded-lg text-xs font-medium transition-all ${activeTab === 'generated' ? 'bg-[#1a1d2e] text-white' : 'text-gray-400 hover:text-gray-600'}`}>
-                                System Reports
+                    {/* Header */}
+                    <div className="px-8 pt-7 pb-5 bg-white border-b border-gray-100 shrink-0">
+                        <h1 className="text-xl font-bold text-gray-900">Reports</h1>
+                        <p className="text-sm text-gray-400 mt-0.5">Generate and export construction insights</p>
+                    </div>
+
+                    {/* Tab Navigation */}
+                    <div className="bg-white border-b border-gray-100 px-8 flex gap-1 shrink-0">
+                        {[
+                            { id: 'generate', label: 'Generate Report', icon: <Zap size={13} /> },
+                            { id: 'vault',    label: 'Document Vault',  icon: <FolderArchive size={13} /> },
+                            { id: 'history',  label: 'Report History',  icon: <History size={13} /> },
+                        ].map(tab => (
+                            <button key={tab.id} onClick={() => setMainTab(tab.id)}
+                                className={`flex items-center gap-1.5 px-4 py-3 text-xs font-semibold border-b-2 transition-colors ${mainTab === tab.id ? 'border-violet-600 text-violet-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                                {tab.icon} {tab.label}
                             </button>
-                            <button onClick={() => setActiveTab('vault')} className={`px-4 py-2 rounded-lg text-xs font-medium transition-all ${activeTab === 'vault' ? 'bg-[#1a1d2e] text-white' : 'text-gray-400 hover:text-gray-600'}`}>
-                                Document Vault
-                            </button>
-                        </div>
+                        ))}
+                    </div>
 
-                        {/* TAB 1: System Reports */}
-                        {activeTab === 'generated' && (
-                            <div className="space-y-6">
-                                {/* Report Generators */}
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <GeneratorCard
-                                        title="Daily Progress" desc="Site activities, manpower usage, and milestone completions."
-                                        icon={<Calendar size={16} className="text-violet-500" />}
-                                        onGenerate={openDatePicker}
-                                        showGenerateAll={['Admin'].includes(currentUser?.role)}
-                                        onDownload={() => setShowDailyPicker(true)}
-                                        loading={generating === 'daily'}
-                                    />
-                                    <GeneratorCard
-                                        title="Inventory Report" desc="Stock levels, consumption rates, and procurement needs."
-                                        icon={<Box size={16} className="text-emerald-500" />}
-                                        onGenerate={() => generateInventoryReport(false)}
-                                        showGenerateAll={['Admin'].includes(currentUser?.role)}
-                                        onDownload={openInventoryPicker}
-                                        loading={generating === 'inventory'}
-                                    />
-                                    {['Admin'].includes(currentUser?.role) && (
-                                        <GeneratorCard
-                                            title="Financial Summary" desc="Spending breakdown, invoice status, and budget variances."
-                                            icon={<Wallet size={16} className="text-violet-500" />}
-                                            onGenerate={() => generateFinancialSummary(false)}
-                                            onDownload={openFinancialPicker}
-                                            loading={generating === 'financial'}
-                                        />
-                                    )}
-                                    <GeneratorCard
-                                        title="Personnel Attendance" desc="Monthly aggregate of workforce presence on site."
-                                        icon={<Users size={16} className="text-blue-500" />}
-                                        showGenerateAll={['Admin'].includes(currentUser?.role)}
-                                        onGenerate={() => setShowGlobalAttPicker(true)}
-                                        onDownload={() => { setAttSelectedProject(''); setShowAttPicker(true); }}
-                                        loading={generating === 'attendance'}
-                                    />
-                                </div>
+                    {/* Scrollable Body */}
+                    <div className="flex-1 overflow-y-auto p-8">
 
-                                {/* History Table */}
-                                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                                    <div className="px-6 py-4 border-b border-gray-50">
-                                        <h3 className="text-sm font-semibold text-gray-900">Report History</h3>
+                        {/* ── GENERATE TAB ── */}
+                        {mainTab === 'generate' && (
+                            <div className="max-w-5xl space-y-8">
+
+                                {/* Phase 01 */}
+                                <section>
+                                    <div className="flex items-start gap-4 mb-5">
+                                        <div className="shrink-0">
+                                            <span className="text-[10px] font-bold tracking-widest text-violet-600 uppercase bg-violet-50 border border-violet-100 px-2.5 py-1 rounded-full">Phase 01</span>
+                                        </div>
+                                        <div>
+                                            <h2 className="text-sm font-bold text-gray-900">Select Report Type</h2>
+                                            <p className="text-xs text-gray-400 mt-0.5">Choose a report template to initialize the generation engine.</p>
+                                        </div>
                                     </div>
-                                    <table className="w-full text-left text-sm">
+
+                                    <div className="grid grid-cols-4 gap-4">
+                                        {REPORT_TYPES.map(type => {
+                                            const Icon     = type.icon;
+                                            const selected = reportType === type.id;
+                                            return (
+                                                <button key={type.id} onClick={() => setReportType(type.id)}
+                                                    className={`relative text-left p-5 rounded-2xl border-2 transition-all duration-150 hover:shadow-sm ${selected ? 'border-violet-400 bg-white shadow-md shadow-violet-100' : 'border-gray-100 bg-white hover:border-gray-200'}`}>
+                                                    {selected && <div className="absolute top-0 left-0 right-0 h-0.5 bg-violet-500 rounded-t-2xl" />}
+                                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
+                                                        style={{ backgroundColor: selected ? type.bg : '#f5f5f7' }}>
+                                                        <Icon size={20} style={{ color: selected ? type.color : '#9ca3af' }} />
+                                                    </div>
+                                                    <h3 className="text-sm font-bold text-gray-900 mb-1.5">{type.label}</h3>
+                                                    <p className="text-[11px] leading-relaxed" style={{ color: selected ? type.color + 'cc' : '#9ca3af' }}>{type.desc}</p>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+
+                                {/* Phase 02 */}
+                                <section>
+                                    <div className="flex items-start gap-4 mb-5">
+                                        <div className="shrink-0">
+                                            <span className="text-[10px] font-bold tracking-widest text-violet-600 uppercase bg-violet-50 border border-violet-100 px-2.5 py-1 rounded-full">Phase 02</span>
+                                        </div>
+                                        <div>
+                                            <h2 className="text-sm font-bold text-gray-900">Configuration</h2>
+                                            <p className="text-xs text-gray-400 mt-0.5">Define the parameters and select your export format.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-5 gap-5">
+
+                                        {/* Project Parameters */}
+                                        <div className="col-span-3 bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                                            <div className="flex items-center gap-2 mb-5">
+                                                <div className="w-7 h-7 bg-gray-50 rounded-lg flex items-center justify-center border border-gray-100">
+                                                    <Box size={14} className="text-gray-400" />
+                                                </div>
+                                                <h3 className="text-sm font-bold text-gray-800">Project Parameters</h3>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Select Project</label>
+                                                    <select value={formProject} onChange={e => setFormProject(e.target.value)}
+                                                        className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-xl text-sm text-gray-700 outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 transition-all">
+                                                        <option value="">All Projects</option>
+                                                        {projects.map(p => <option key={p._id} value={p._id}>{p.title}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Site Manager</label>
+                                                    <div className="w-full bg-gray-50 border border-gray-100 px-3 py-2.5 rounded-xl text-sm text-gray-500 cursor-default select-none">
+                                                        {siteManager}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-4">
+                                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                                                    Date Range {reportType === 'personnel' ? '(Month / Year used for Attendance)' : ''}
+                                                </label>
+                                                <div className="flex items-center gap-3">
+                                                    <input type="date" value={formDateFrom} onChange={e => setFormDateFrom(e.target.value)}
+                                                        className="flex-1 bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-xl text-sm text-gray-700 outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 transition-all" />
+                                                    <span className="text-gray-300 font-medium text-sm">to</span>
+                                                    <input type="date" value={formDateTo} onChange={e => setFormDateTo(e.target.value)}
+                                                        className="flex-1 bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-xl text-sm text-gray-700 outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 transition-all" />
+                                                </div>
+                                                <p className="text-[10px] text-gray-300 mt-1.5">Leave empty to include all dates.</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Export Format + Generate */}
+                                        <div className="col-span-2 bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col">
+                                            <div className="flex items-center gap-2 mb-5">
+                                                <div className="w-7 h-7 bg-gray-50 rounded-lg flex items-center justify-center border border-gray-100">
+                                                    <Download size={14} className="text-gray-400" />
+                                                </div>
+                                                <h3 className="text-sm font-bold text-gray-800">Export Format</h3>
+                                            </div>
+
+                                            <div className="space-y-2.5 flex-1">
+                                                {EXPORT_FORMATS.map(fmt => {
+                                                    const FmtIcon  = fmt.icon;
+                                                    const selected = exportFormat === fmt.id;
+                                                    return (
+                                                        <button key={fmt.id} onClick={() => setExportFormat(fmt.id)}
+                                                            className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left group ${selected ? 'border-violet-400 bg-violet-50/30' : 'border-gray-100 hover:border-gray-200 bg-gray-50/30'}`}>
+                                                            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                                                                style={{ backgroundColor: fmt.color + '18' }}>
+                                                                <FmtIcon size={17} style={{ color: fmt.color }} />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-semibold text-gray-900">{fmt.label}</p>
+                                                                <p className="text-[10px] text-gray-400">{fmt.sublabel}</p>
+                                                            </div>
+                                                            <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${selected ? 'border-violet-500' : 'border-gray-300'}`}>
+                                                                {selected && <div className="w-2 h-2 rounded-full bg-violet-500" />}
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            <button onClick={handleGenerateReport} disabled={isGenerating}
+                                                className="w-full mt-5 py-3.5 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white font-bold text-sm rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-violet-100">
+                                                {isGenerating
+                                                    ? <><Loader2 size={15} className="animate-spin" /> Generating…</>
+                                                    : <><ArrowRight size={15} /> GENERATE REPORT</>
+                                                }
+                                            </button>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        )}
+
+                        {/* ── VAULT TAB ── */}
+                        {mainTab === 'vault' && (
+                            <div className="max-w-4xl">
+                                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                                    <div className="px-6 py-5 border-b border-gray-50 flex items-center justify-between">
+                                        <div>
+                                            <h3 className="text-sm font-bold text-gray-900">Project Documents</h3>
+                                            <p className="text-[11px] text-gray-400 mt-0.5">{uploadedDocs.length} files uploaded</p>
+                                        </div>
+                                        <button onClick={() => setShowUploadModal(true)}
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-semibold rounded-xl transition-colors">
+                                            <UploadCloud size={13} /> Upload
+                                        </button>
+                                    </div>
+                                    <table className="w-full">
                                         <thead>
                                             <tr className="border-b border-gray-50">
-                                                <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Report</th>
-                                                <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Project</th>
-                                                <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Date</th>
-                                                <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Status</th>
-                                                <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Action</th>
+                                                <th className="py-3 px-6 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-left">File</th>
+                                                <th className="py-3 px-6 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-left">Project</th>
+                                                <th className="py-3 px-6 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-left">Uploaded by</th>
+                                                <th className="py-3 px-6 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-left">Date</th>
+                                                <th className="py-3 px-6 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-50">
-                                            {systemReports.length > 0 ? (
-                                                systemReports.map(report => (
-                                                    <tr key={report.id} className="hover:bg-gray-50/50 transition-colors">
-                                                        <td className="py-3 px-6 flex items-center gap-3">
-                                                            <div className="w-8 h-8 bg-violet-50 rounded-lg flex items-center justify-center"><FileIcon size={14} className="text-violet-500" /></div>
+                                            {uploadedDocs.length > 0 ? uploadedDocs.map(doc => (
+                                                <tr key={doc.id} className="hover:bg-gray-50/50 transition-colors">
+                                                    <td className="py-3.5 px-6">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 bg-violet-50 rounded-lg flex items-center justify-center">
+                                                                <FilePdf size={14} className="text-violet-500" />
+                                                            </div>
                                                             <div>
-                                                                <p className="text-sm font-medium text-gray-900">{report.name}</p>
-                                                                <p className="text-[11px] text-gray-300">{report.size}</p>
+                                                                <p className="text-sm font-semibold text-gray-900 max-w-[200px] truncate">{doc.name}</p>
+                                                                <p className="text-[10px] text-gray-300">{doc.type}</p>
                                                             </div>
-                                                        </td>
-                                                        <td className="py-3 px-6 text-xs text-gray-500">{report.project}</td>
-                                                        <td className="py-3 px-6 text-xs text-gray-400">{report.date}</td>
-                                                        <td className="py-3 px-6"><span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${report.status === 'Ready' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{report.status}</span></td>
-                                                        <td className="py-3 px-6 text-right">
-                                                            <div className="flex justify-end gap-1 opacity-100 transition-opacity">
-                                                                <button onClick={() => downloadReport(report)} className="text-gray-400 hover:text-gray-800 p-1.5 rounded-lg hover:bg-gray-100 transition-colors" title="Download">
-                                                                    <Download size={14} />
-                                                                </button>
-                                                                <button onClick={() => setReportToDelete(report)} className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Delete">
-                                                                    <Trash2 size={14} />
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            ) : (
-                                                <tr>
-                                                    <td colSpan="5" className="py-16 text-center text-gray-300 text-sm">
-                                                        {isLoading ? null : "No generated reports yet"}
+                                                        </div>
                                                     </td>
+                                                    <td className="py-3.5 px-6 text-xs text-gray-500">{doc.project}</td>
+                                                    <td className="py-3.5 px-6 text-xs text-gray-500">{doc.uploadedBy}</td>
+                                                    <td className="py-3.5 px-6 text-xs text-gray-400">{doc.date}</td>
+                                                    <td className="py-3.5 px-6 text-right">
+                                                        <div className="flex justify-end gap-1">
+                                                            {doc.originalUrl && (
+                                                                <a href={doc.originalUrl} target="_blank" rel="noopener noreferrer" title="View"
+                                                                    className="text-gray-400 hover:text-violet-600 p-1.5 rounded-lg hover:bg-violet-50 transition-colors">
+                                                                    <Eye size={13} />
+                                                                </a>
+                                                            )}
+                                                            {doc.originalUrl && (
+                                                                <a href={doc.originalUrl} download target="_blank" rel="noopener noreferrer" title="Download"
+                                                                    className="text-gray-400 hover:text-gray-800 p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+                                                                    <Download size={13} />
+                                                                </a>
+                                                            )}
+                                                            <button onClick={() => handleDeleteDocument(doc)} title="Delete"
+                                                                className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors">
+                                                                <Trash2 size={13} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )) : (
+                                                <tr>
+                                                    <td colSpan="5" className="py-16 text-center text-gray-300 text-sm">No documents uploaded yet</td>
                                                 </tr>
                                             )}
                                         </tbody>
                                     </table>
                                 </div>
-
-                                {/* CTA Banner */}
-                                <div className="bg-gradient-to-br from-[#1a1d2e] to-[#252840] rounded-2xl p-6 text-white relative overflow-hidden">
-                                    <div className="relative z-10">
-                                        <h2 className="text-base font-semibold mb-1">Need a Custom Report?</h2>
-                                        <p className="text-white/40 text-sm mb-4 max-w-md">Build specialized visualizations and data exports for your stakeholders.</p>
-                                        <button className="bg-white text-gray-900 text-xs font-medium py-2 px-4 rounded-lg hover:bg-gray-100 transition-colors">Request Custom Build</button>
-                                    </div>
-                                    <PieChart size={140} className="absolute -right-6 -bottom-6 text-white/[0.03]" />
-                                </div>
                             </div>
                         )}
 
-                        {/* TAB 2: Document Vault */}
-                        {activeTab === 'vault' && (
-                            <div className="space-y-4">
-                                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                                    <div className="px-6 py-4 border-b border-gray-50 flex justify-between items-center">
-                                        <div>
-                                            <h3 className="text-sm font-semibold text-gray-900">Project Documents</h3>
-                                            <p className="text-[11px] text-gray-400 mt-0.5">{uploadedDocs.length} files uploaded</p>
-                                        </div>
-                                        <button onClick={() => setShowUploadModal(true)} className="bg-[#1a1d2e] hover:bg-[#252840] text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-medium transition-colors">
-                                            <UploadCloud size={13} /> Upload
-                                        </button>
+                        {/* ── HISTORY TAB ── */}
+                        {mainTab === 'history' && (
+                            <div className="max-w-4xl">
+                                {systemReports.length === 0 ? (
+                                    <div className="text-center py-24 text-gray-300">
+                                        <History size={40} className="mx-auto mb-3 opacity-30" />
+                                        <p className="text-sm">No reports generated yet.</p>
+                                        <button onClick={() => setMainTab('generate')} className="mt-4 text-xs text-violet-500 hover:underline">Generate your first report →</button>
                                     </div>
-                                    <table className="w-full text-left text-sm">
-                                        <thead>
-                                            <tr className="border-b border-gray-50">
-                                                <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">File</th>
-                                                <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Project</th>
-                                                <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Uploaded By</th>
-                                                <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Date</th>
-                                                <th className="py-3 px-6 text-[11px] font-semibold text-gray-400 uppercase tracking-wider text-right">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-50">
-                                            {uploadedDocs.length > 0 ? (
-                                                uploadedDocs.map(doc => (
-                                                    <tr key={doc.id} className="hover:bg-gray-50/50 transition-colors group">
-                                                        <td className="py-3 px-6">
+                                ) : (
+                                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                                        <div className="px-6 py-5 border-b border-gray-50 flex items-center justify-between">
+                                            <div>
+                                                <h3 className="text-sm font-bold text-gray-900">Generated Reports</h3>
+                                                <p className="text-[11px] text-gray-400 mt-0.5">{systemReports.length} report{systemReports.length !== 1 ? 's' : ''} in history</p>
+                                            </div>
+                                        </div>
+                                        <table className="w-full">
+                                            <thead>
+                                                <tr className="border-b border-gray-50">
+                                                    <th className="py-3 px-6 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-left">Report</th>
+                                                    <th className="py-3 px-6 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-left">Project</th>
+                                                    <th className="py-3 px-6 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-left">Date</th>
+                                                    <th className="py-3 px-6 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-left">Size</th>
+                                                    <th className="py-3 px-6 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-50">
+                                                {systemReports.map(report => (
+                                                    <tr key={report.id} className="hover:bg-gray-50/50 transition-colors">
+                                                        <td className="py-3.5 px-6">
                                                             <div className="flex items-center gap-3">
-                                                                <div className="w-8 h-8 bg-violet-50 rounded-lg flex items-center justify-center"><FilePdf size={14} className="text-violet-500" /></div>
-                                                                <div>
-                                                                    <p className="text-sm font-medium text-gray-900 max-w-[250px] truncate">{doc.name}</p>
-                                                                    <p className="text-[11px] text-gray-300">{doc.type}</p>
+                                                                <div className="w-8 h-8 bg-violet-50 rounded-lg flex items-center justify-center">
+                                                                    <FilePdf size={14} className="text-violet-500" />
                                                                 </div>
+                                                                <p className="text-sm font-semibold text-gray-900">{report.name}</p>
                                                             </div>
                                                         </td>
-                                                        <td className="py-3 px-6 text-xs text-gray-500">{doc.project}</td>
-                                                        <td className="py-3 px-6 text-xs text-gray-500">{doc.uploadedBy}</td>
-                                                        <td className="py-3 px-6 text-xs text-gray-400">{doc.date}</td>
-                                                        <td className="py-3 px-6 text-right">
+                                                        <td className="py-3.5 px-6 text-xs text-gray-500">{report.project}</td>
+                                                        <td className="py-3.5 px-6 text-xs text-gray-400">{report.date}</td>
+                                                        <td className="py-3.5 px-6 text-xs text-gray-400">{report.size}</td>
+                                                        <td className="py-3.5 px-6 text-right">
                                                             <div className="flex justify-end gap-1">
-                                                                {doc.originalUrl && (
-                                                                    <a
-                                                                        href={doc.originalUrl}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        title="View document"
-                                                                        className="text-gray-400 hover:text-violet-600 p-1.5 rounded-lg hover:bg-violet-50 transition-colors"
-                                                                    >
-                                                                        <Eye size={13} />
-                                                                    </a>
-                                                                )}
-                                                                {doc.originalUrl && (
-                                                                    <a
-                                                                        href={doc.originalUrl}
-                                                                        download
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        title="Download document"
-                                                                        className="text-gray-400 hover:text-gray-800 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                                                                    >
-                                                                        <Download size={13} />
-                                                                    </a>
-                                                                )}
-                                                                <button
-                                                                    onClick={() => handleDeleteDocument(doc)}
-                                                                    title="Delete document"
-                                                                    className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
-                                                                >
+                                                                <button onClick={() => downloadReport(report)} title="Download"
+                                                                    className="text-gray-400 hover:text-gray-800 p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+                                                                    <Download size={13} />
+                                                                </button>
+                                                                <button onClick={() => { setReportToDelete(report); setReportDeleteConfirmText(''); }} title="Delete"
+                                                                    className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors">
                                                                     <Trash2 size={13} />
                                                                 </button>
                                                             </div>
                                                         </td>
                                                     </tr>
-                                                ))
-                                            ) : (
-                                                <tr>
-                                                    <td colSpan="5" className="py-16 text-center text-gray-300 text-sm">
-                                                        {isLoading ? null : "No documents uploaded yet"}
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
                             </div>
                         )}
-                    </div>
-                </main >
-            </div >
 
-            {/* ─── GLOBAL DATE PICKER MODAL ─── */}
-            {
-                showDatePicker && (
-                    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
-                        <div className="absolute inset-0" onClick={() => setShowDatePicker(false)}></div>
-                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 flex flex-col" style={{ maxHeight: '80vh' }}>
-                            <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50 shrink-0">
-                                <div>
-                                    <h3 className="font-semibold text-base text-gray-900">Select Log Date</h3>
-                                    <p className="text-xs text-gray-400 mt-0.5">Choose a date to gather all project logs for</p>
-                                </div>
-                                <button onClick={() => setShowDatePicker(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
+                    </div>
+                </main>
+            </div>
+
+            {/* ── UPLOAD MODAL ── */}
+            {showUploadModal && (
+                <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
+                    <div className="absolute inset-0" onClick={() => !uploading && setShowUploadModal(false)} />
+                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100">
+                        <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50">
+                            <div>
+                                <h3 className="font-bold text-base text-gray-900">Upload Document</h3>
+                                <p className="text-xs text-gray-400 mt-0.5">Add a new file to the Document Vault</p>
                             </div>
-                            <div className="p-6 overflow-y-auto flex-1">
-                                {loadingDates ? (
-                                    <div className="flex items-center justify-center py-12 gap-2 text-gray-400 text-sm"><Loader2 size={16} className="animate-spin" /> Loading dates...</div>
-                                ) : logDates.length === 0 ? (
-                                    <div className="text-center py-12 text-gray-300 text-sm">No daily logs found across any project</div>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {logDates.map(entry => (
-                                            <button
-                                                key={entry.dateKey}
-                                                onClick={() => generateGlobalDailyLogsForDate(entry)}
-                                                className="w-full flex items-center gap-4 p-3 rounded-xl border border-gray-100 hover:border-violet-200 hover:bg-violet-50/30 transition-all text-left group"
-                                            >
-                                                <div className="w-12 h-12 bg-violet-50 rounded-xl flex flex-col items-center justify-center shrink-0">
-                                                    <span className="text-sm font-bold text-violet-600">{new Date(entry.dateKey).getDate()}</span>
-                                                    <span className="text-[9px] font-medium text-violet-400 uppercase">{new Date(entry.dateKey).toLocaleDateString('en-IN', { month: 'short' })}</span>
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium text-gray-900">{entry.day || new Date(entry.dateKey).toLocaleDateString('en-IN', { weekday: 'long' })}</p>
-                                                    <p className="text-xs text-gray-400 mt-0.5 truncate">
-                                                        {entry.logs.length} {entry.logs.length === 1 ? 'project' : 'projects'} • {entry.totalLaborers} laborers
-                                                    </p>
-                                                </div>
-                                                <Download size={14} className="text-gray-200 group-hover:text-violet-500 transition-colors shrink-0" />
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+                            <button onClick={() => !uploading && setShowUploadModal(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50"><X size={18} /></button>
                         </div>
-                    </div>
-                )
-            }
-
-            {/* ─── DAILY PROJECT PICKER MODAL ─── */}
-            {
-                showDailyPicker && (
-                    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
-                        <div className="absolute inset-0" onClick={() => setShowDailyPicker(false)}></div>
-                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 flex flex-col" style={{ maxHeight: '80vh' }}>
-                            <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50 shrink-0">
-                                <div>
-                                    <h3 className="font-semibold text-base text-gray-900">Project Logs Selector</h3>
-                                    <p className="text-xs text-gray-400 mt-0.5">Select a project to download its daily progress logs</p>
-                                </div>
-                                <button onClick={() => setShowDailyPicker(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
+                        <form onSubmit={handleDocumentUpload} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Project</label>
+                                <select required value={uploadProject} onChange={e => setUploadProject(e.target.value)}
+                                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-xl text-sm text-gray-700 outline-none focus:ring-2 focus:ring-violet-200">
+                                    <option value="">Select a project…</option>
+                                    {projects.map(p => <option key={p._id} value={p._id}>{p.title}</option>)}
+                                </select>
                             </div>
-                            <div className="px-6 py-4 overflow-y-auto flex-1">
-                                <div className="space-y-2">
-                                    {projects.map(p => (
-                                        <button
-                                            key={p._id}
-                                            onClick={() => setDailySelectedProject(p._id)}
-                                            className={`w-full flex items-center gap-4 p-3 rounded-xl border transition-all text-left group ${dailySelectedProject === p._id
-                                                ? 'border-violet-300 bg-violet-50/50 ring-1 ring-violet-200'
-                                                : 'border-gray-100 hover:border-violet-200 hover:bg-violet-50/30'
-                                                }`}
-                                        >
-                                            <div className="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center shrink-0">
-                                                <Calendar size={16} className="text-violet-500" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-gray-900 truncate">{p.title}</p>
-                                                <p className="text-xs text-gray-400 mt-0.5">{p.status || 'Planning'}</p>
-                                            </div>
-                                            {dailySelectedProject === p._id && <CheckCircle2 size={16} className="text-violet-500 shrink-0" />}
-                                        </button>
-                                    ))}
-                                </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">File</label>
+                                <input required type="file" onChange={e => setUploadFile(e.target.files[0])}
+                                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2 rounded-xl text-sm text-gray-700 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-violet-50 file:text-violet-600 hover:file:bg-violet-100 cursor-pointer" />
                             </div>
-                            <div className="px-6 py-4 border-t border-gray-50 flex justify-end gap-2 shrink-0 bg-white">
-                                <button onClick={() => setShowDailyPicker(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">Cancel</button>
-                                <button
-                                    onClick={downloadProjectDailyLogs}
-                                    disabled={!dailySelectedProject || generating === 'daily'}
-                                    className="px-4 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40 flex items-center gap-1.5"
-                                >
-                                    {generating === 'daily' ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Download PDF
+                            <div className="pt-2 flex justify-end gap-2 border-t border-gray-50">
+                                <button type="button" onClick={() => setShowUploadModal(false)} disabled={uploading} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">Cancel</button>
+                                <button type="submit" disabled={uploading || !uploadProject || !uploadFile}
+                                    className="px-5 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 disabled:opacity-50">
+                                    {uploading ? <><Loader2 size={12} className="animate-spin" /> Uploading…</> : <><UploadCloud size={12} /> Upload</>}
                                 </button>
                             </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ── DELETE DOCUMENT MODAL ── */}
+            {documentToDelete && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 backdrop-blur-sm bg-black/30">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm border border-gray-100 p-6 text-center">
+                        <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <AlertCircle size={28} className="text-red-500" />
+                        </div>
+                        <h3 className="text-base font-bold text-gray-900 mb-2">Delete Document?</h3>
+                        <p className="text-sm text-gray-500 mb-6">Are you sure you want to permanently delete "<strong>{documentToDelete.name}</strong>"?</p>
+                        <div className="flex gap-3">
+                            <button onClick={() => setDocumentToDelete(null)} className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-xl">Cancel</button>
+                            <button onClick={confirmDeleteDocument} className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-xl">Delete</button>
                         </div>
                     </div>
-                )
-            }
+                </div>
+            )}
 
-            {/* ─── INVENTORY PICKER MODAL ─── */}
-            {
-                showInvPicker && (
-                    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
-                        <div className="absolute inset-0" onClick={() => setShowInvPicker(false)}></div>
-                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100">
-                            <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50">
-                                <div>
-                                    <h3 className="font-semibold text-base text-gray-900">Inventory Report</h3>
-                                    <p className="text-xs text-gray-400 mt-0.5">Select a site and date range</p>
-                                </div>
-                                <button onClick={() => setShowInvPicker(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
+            {/* ── DELETE REPORT MODAL ── */}
+            {reportToDelete && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 backdrop-blur-sm bg-black/30">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-red-100 overflow-hidden">
+                        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                            <h3 className="font-bold text-red-600 flex items-center gap-2"><AlertCircle size={18} /> Delete Report</h3>
+                            <button onClick={() => { setReportToDelete(null); setReportDeleteConfirmText(''); }} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+                        </div>
+                        <div className="p-6">
+                            <div className="bg-red-50 text-red-700 text-sm p-4 rounded-xl mb-5">
+                                <p className="font-semibold mb-1">This action cannot be undone.</p>
+                                <p>This will permanently delete <strong>{reportToDelete.name}</strong> from your history.</p>
                             </div>
-                            <div className="p-6 space-y-4">
-                                {loadingInv ? (
-                                    <div className="flex items-center justify-center py-12 gap-2 text-gray-400 text-sm"><Loader2 size={16} className="animate-spin" /> Loading...</div>
-                                ) : (
-                                    <>
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-500 mb-1.5">Site / Project</label>
-                                            <select
-                                                value={invSelectedProject}
-                                                onChange={e => { setInvSelectedProject(e.target.value); handleInvProjectChange(e.target.value); }}
-                                                className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300"
-                                            >
-                                                <option value="">Select a project...</option>
-                                                {projects.map(p => <option key={p._id} value={p._id}>{p.title} — {p.address || 'N/A'}</option>)}
-                                            </select>
-                                        </div>
-                                        {invAvailDates.length > 0 && (
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">From Date</label>
-                                                    <select value={invDateFrom} onChange={e => setInvDateFrom(e.target.value)}
-                                                        className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
-                                                        <option value="">Earliest</option>
-                                                        {invAvailDates.map(d => <option key={d} value={d}>{new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</option>)}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">To Date</label>
-                                                    <select value={invDateTo} onChange={e => setInvDateTo(e.target.value)}
-                                                        className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
-                                                        <option value="">Latest</option>
-                                                        {invAvailDates.map(d => <option key={d} value={d}>{new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</option>)}
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        )}
-                                        {invSelectedProject && invAvailDates.length === 0 && (
-                                            <p className="text-xs text-gray-300 text-center py-4">No inventory transactions found for this project</p>
-                                        )}
-                                        <div className="pt-2 flex justify-end gap-2">
-                                            <button onClick={() => setShowInvPicker(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">Cancel</button>
-                                            <button
-                                                onClick={downloadFilteredInventory}
-                                                disabled={!invSelectedProject}
-                                                className="px-4 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40 flex items-center gap-1.5"
-                                            >
-                                                <Download size={12} /> Download PDF
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
+                            <p className="text-sm font-semibold text-gray-700 mb-3">Type <strong>{reportToDelete.name}</strong> to confirm.</p>
+                            <input type="text" value={reportDeleteConfirmText} onChange={e => setReportDeleteConfirmText(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:border-red-400 outline-none mb-5 text-sm" />
+                            <button onClick={confirmDeleteReport} disabled={reportDeleteConfirmText !== reportToDelete.name}
+                                className="w-full py-3 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white font-bold rounded-xl transition-all disabled:opacity-40 border border-red-200">
+                                I understand, delete this report
+                            </button>
                         </div>
                     </div>
-                )
-            }
-
-            {/* ─── FINANCIAL PICKER MODAL ─── */}
-            {
-                showFinPicker && (
-                    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
-                        <div className="absolute inset-0" onClick={() => setShowFinPicker(false)}></div>
-                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 flex flex-col" style={{ maxHeight: '80vh' }}>
-                            <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50 shrink-0">
-                                <div>
-                                    <h3 className="font-semibold text-base text-gray-900">Financial Summary</h3>
-                                    <p className="text-xs text-gray-400 mt-0.5">Select a project to download its financial report</p>
-                                </div>
-                                <button onClick={() => setShowFinPicker(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
-                            </div>
-                            <div className="px-6 py-4 overflow-y-auto flex-1">
-                                <div className="space-y-2">
-                                    {projects.map(p => {
-                                        const budget = Number(p.budget) || 0;
-                                        const unit = p.budgetUnit || 'Lakhs';
-                                        const budgetStr = budget > 0 ? `₹${budget.toLocaleString('en-IN')} ${unit}` : 'No budget set';
-                                        return (
-                                            <button
-                                                key={p._id}
-                                                onClick={() => setFinSelectedProject(p._id)}
-                                                className={`w-full flex items-center gap-4 p-3 rounded-xl border transition-all text-left group ${finSelectedProject === p._id
-                                                    ? 'border-violet-300 bg-violet-50/50 ring-1 ring-violet-200'
-                                                    : 'border-gray-100 hover:border-violet-200 hover:bg-violet-50/30'
-                                                    }`}
-                                            >
-                                                <div className="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center shrink-0">
-                                                    <Wallet size={16} className="text-violet-500" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium text-gray-900 truncate">{p.title}</p>
-                                                    <p className="text-xs text-gray-400 mt-0.5">{budgetStr} • {p.status || 'Planning'}</p>
-                                                </div>
-                                                {finSelectedProject === p._id && <CheckCircle2 size={16} className="text-violet-500 shrink-0" />}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                            <div className="px-6 py-4 border-t border-gray-50 flex justify-end gap-2 shrink-0 bg-white">
-                                <button onClick={() => setShowFinPicker(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">Cancel</button>
-                                <button
-                                    onClick={downloadProjectFinancial}
-                                    disabled={!finSelectedProject}
-                                    className="px-4 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40 flex items-center gap-1.5"
-                                >
-                                    <Download size={12} /> Download PDF
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
-            {/* ─── ATTENDANCE PICKER MODAL ─── */}
-            {
-                showAttPicker && (
-                    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
-                        <div className="absolute inset-0" onClick={() => setShowAttPicker(false)}></div>
-                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 flex flex-col">
-                            <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50 shrink-0">
-                                <div>
-                                    <h3 className="font-semibold text-base text-gray-900">Personnel Attendance</h3>
-                                    <p className="text-xs text-gray-400 mt-0.5">Generate aggregate attendance report</p>
-                                </div>
-                                <button onClick={() => setShowAttPicker(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
-                            </div>
-                            <div className="p-6 space-y-4">
-                                <div className="mb-1 flex gap-2 w-full p-1 bg-gray-50 rounded-xl border border-gray-100">
-                                    <button onClick={() => setAttType('monthly')} className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${attType === 'monthly' ? 'bg-white shadow-sm text-gray-900 border border-gray-200' : 'text-gray-500 hover:text-gray-700'}`}>Monthly</button>
-                                    <button onClick={() => setAttType('yearly')} className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${attType === 'yearly' ? 'bg-white shadow-sm text-gray-900 border border-gray-200' : 'text-gray-500 hover:text-gray-700'}`}>Yearly</button>
-                                </div>
-                                <div className="mt-2">
-                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Site / Project</label>
-                                    <select
-                                        value={attSelectedProject}
-                                        onChange={e => setAttSelectedProject(e.target.value)}
-                                        className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300"
-                                    >
-                                        <option value="">Select a project...</option>
-                                        {projects.map(p => <option key={p._id} value={p._id}>{p.title}</option>)}
-                                    </select>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3 mt-3">
-                                    {attType === 'monthly' && (
-                                        <>
-                                            <div>
-                                                <label className="block text-xs font-medium text-gray-500 mb-1.5">From Month</label>
-                                                <select value={attMonth} onChange={e => { const v = Number(e.target.value); setAttMonth(v); if (attEndMonth < v) setAttEndMonth(v); }}
-                                                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
-                                                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                                                        <option key={m} value={m}>{new Date(2000, m - 1).toLocaleString('en-US', { month: 'long' })}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-medium text-gray-500 mb-1.5">To Month</label>
-                                                <select value={attEndMonth} onChange={e => setAttEndMonth(Number(e.target.value))}
-                                                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
-                                                    {Array.from({ length: 12 }, (_, i) => i + 1).filter(m => m >= attMonth).map(m => (
-                                                        <option key={m} value={m}>{new Date(2000, m - 1).toLocaleString('en-US', { month: 'long' })}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        </>
-                                    )}
-                                    <div className={attType === 'yearly' ? 'col-span-2' : ''}>
-                                        <label className="block text-xs font-medium text-gray-500 mb-1.5">Year</label>
-                                        <select value={attYear} onChange={e => setAttYear(Number(e.target.value))}
-                                            className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
-                                            {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
-                                                <option key={y} value={y}>{y}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="pt-2 flex justify-end gap-2 border-t border-gray-50 mt-4">
-                                    <button onClick={() => setShowAttPicker(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">Cancel</button>
-                                    <button
-                                        onClick={generateAttendanceReport}
-                                        disabled={!attSelectedProject || generating === 'attendance'}
-                                        className="px-4 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40 flex items-center gap-1.5"
-                                    >
-                                        {generating === 'attendance' ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Download PDF
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
-            {/* ─── GLOBAL ATTENDANCE PICKER MODAL ─── */}
-            {
-                showGlobalAttPicker && (
-                    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
-                        <div className="absolute inset-0" onClick={() => setShowGlobalAttPicker(false)}></div>
-                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 flex flex-col">
-                            <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50 shrink-0">
-                                <div>
-                                    <h3 className="font-semibold text-base text-gray-900">Global Personnel Attendance</h3>
-                                    <p className="text-xs text-gray-400 mt-0.5">Generate aggregate attendance for all projects</p>
-                                </div>
-                                <button onClick={() => setShowGlobalAttPicker(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
-                            </div>
-                            <div className="p-6 space-y-4">
-                                <div className="mb-1 flex gap-2 w-full p-1 bg-gray-50 rounded-xl border border-gray-100">
-                                    <button onClick={() => setAttType('monthly')} className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${attType === 'monthly' ? 'bg-white shadow-sm text-gray-900 border border-gray-200' : 'text-gray-500 hover:text-gray-700'}`}>Monthly</button>
-                                    <button onClick={() => setAttType('yearly')} className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${attType === 'yearly' ? 'bg-white shadow-sm text-gray-900 border border-gray-200' : 'text-gray-500 hover:text-gray-700'}`}>Yearly</button>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3 mt-3">
-                                    {attType === 'monthly' && (
-                                        <>
-                                            <div>
-                                                <label className="block text-xs font-medium text-gray-500 mb-1.5">From Month</label>
-                                                <select value={attMonth} onChange={e => { const v = Number(e.target.value); setAttMonth(v); if (attEndMonth < v) setAttEndMonth(v); }}
-                                                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
-                                                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                                                        <option key={m} value={m}>{new Date(2000, m - 1).toLocaleString('en-US', { month: 'long' })}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-medium text-gray-500 mb-1.5">To Month</label>
-                                                <select value={attEndMonth} onChange={e => setAttEndMonth(Number(e.target.value))}
-                                                    className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
-                                                    {Array.from({ length: 12 }, (_, i) => i + 1).filter(m => m >= attMonth).map(m => (
-                                                        <option key={m} value={m}>{new Date(2000, m - 1).toLocaleString('en-US', { month: 'long' })}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        </>
-                                    )}
-                                    <div className={attType === 'yearly' ? 'col-span-2' : ''}>
-                                        <label className="block text-xs font-medium text-gray-500 mb-1.5">Year</label>
-                                        <select value={attYear} onChange={e => setAttYear(Number(e.target.value))}
-                                            className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
-                                            {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
-                                                <option key={y} value={y}>{y}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="pt-2 flex justify-end gap-2 border-t border-gray-50 mt-4">
-                                    <button onClick={() => setShowGlobalAttPicker(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">Cancel</button>
-                                    <button
-                                        onClick={generateGlobalAttendanceReport}
-                                        disabled={generating === 'attendance'}
-                                        className="px-4 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-40 flex items-center gap-1.5"
-                                    >
-                                        {generating === 'attendance' ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Download PDF
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
-            {/* ─── UPLOAD DOCUMENT MODAL ─── */}
-            {
-                showUploadModal && (
-                    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/30">
-                        <div className="absolute inset-0" onClick={() => !uploading && setShowUploadModal(false)}></div>
-                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100">
-                            <div className="flex justify-between items-center px-6 py-5 border-b border-gray-50">
-                                <div>
-                                    <h3 className="font-semibold text-base text-gray-900">Upload Document</h3>
-                                    <p className="text-xs text-gray-400 mt-0.5">Add a new file to the Document Vault</p>
-                                </div>
-                                <button onClick={() => !uploading && setShowUploadModal(false)} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"><X size={18} /></button>
-                            </div>
-                            <form onSubmit={handleDocumentUpload} className="p-6 space-y-4">
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">Project</label>
-                                    <select required value={uploadProject} onChange={e => setUploadProject(e.target.value)}
-                                        className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-lg text-sm text-gray-700 outline-none focus:ring-1 focus:ring-gray-300">
-                                        <option value="">Select a project...</option>
-                                        {projects.map(p => <option key={p._id} value={p._id}>{p.title}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">File</label>
-                                    <input required type="file" onChange={e => setUploadFile(e.target.files[0])}
-                                        className="w-full bg-gray-50 border border-gray-200 px-3 py-2 rounded-lg text-sm text-gray-700 outline-none file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-violet-50 file:text-violet-600 hover:file:bg-violet-100 transition-all cursor-pointer" />
-                                </div>
-                                <div className="pt-2 flex justify-end gap-2 border-t border-gray-50 mt-2">
-                                    <button type="button" onClick={() => setShowUploadModal(false)} disabled={uploading} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">Cancel</button>
-                                    <button type="submit" disabled={uploading || !uploadProject || !uploadFile} className="px-5 py-2 bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50">
-                                        {uploading ? <Loader2 size={12} className="animate-spin" /> : <UploadCloud size={12} />} Upload
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )
-            }
-
-            {/* ─── CONFIRM DELETE MODAL ─── */}
-            {
-                documentToDelete && (
-                    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 backdrop-blur-sm bg-black/30">
-                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
-                            <div className="p-6 text-center">
-                                <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <AlertCircle size={32} className="text-red-500" />
-                                </div>
-                                <h3 className="text-lg font-medium text-gray-900 mb-2">Delete Document?</h3>
-                                <p className="text-sm text-gray-500 mb-6">
-                                    Are you sure you want to permanently delete "{documentToDelete.name}"? This action cannot be undone.
-                                </p>
-                                <div className="flex gap-3 w-full">
-                                    <button
-                                        onClick={() => setDocumentToDelete(null)}
-                                        className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-xl transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={confirmDeleteDocument}
-                                        className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-xl shadow-sm transition-colors"
-                                    >
-                                        Yes, Delete
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
-            {/* ─── CONFIRM DELETE REPORT MODAL (GITHUB STYLE) ─── */}
-            {
-                reportToDelete && (
-                    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 backdrop-blur-sm bg-black/30">
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-red-100">
-                            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-                                <h3 className="font-semibold text-red-600 flex items-center gap-2">
-                                    <AlertCircle size={20} /> Delete Report
-                                </h3>
-                                <button onClick={() => { setReportToDelete(null); setReportDeleteConfirmText(''); }} className="text-gray-400 hover:text-gray-600 transition-colors">
-                                    <X size={20} />
-                                </button>
-                            </div>
-                            <div className="p-6">
-                                <div className="bg-red-50 text-red-700 text-sm p-4 rounded-xl mb-6">
-                                    <p className="font-semibold mb-1">Warning: Unexpected bad things will happen if you don't read this!</p>
-                                    <p>This action <strong>CANNOT</strong> be undone. This will permanently delete the <strong>{reportToDelete.name}</strong> report from your history.</p>
-                                </div>
-
-                                <p className="text-sm font-medium text-gray-700 mb-3">
-                                    Please type <strong>{reportToDelete.name}</strong> to confirm.
-                                </p>
-                                <input
-                                    type="text"
-                                    value={reportDeleteConfirmText}
-                                    onChange={(e) => setReportDeleteConfirmText(e.target.value)}
-                                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:border-red-400 focus:ring-2 focus:ring-red-100 outline-none transition-all mb-6 text-sm"
-                                />
-                                <button
-                                    onClick={confirmDeleteReport}
-                                    disabled={reportDeleteConfirmText !== reportToDelete.name}
-                                    className="w-full py-3 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-red-200 disabled:hover:bg-red-50 disabled:hover:text-red-600"
-                                >
-                                    I understand the consequences, delete this report
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
+                </div>
+            )}
         </>
     );
 };
-
-const NavItem = ({ icon, text, active, href }) => (
-    <a href={href || "#"} className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-[13px] group ${active ? 'bg-white/[0.08] text-white' : 'text-white/30 hover:bg-white/[0.04] hover:text-white/60'}`}>
-        <span className={`transition-colors ${active ? 'text-violet-400' : 'text-white/20 group-hover:text-white/40'}`}>{icon}</span>
-        <span className="font-medium">{text}</span>
-        {active && <div className="ml-auto w-1 h-4 rounded-full bg-gradient-to-b from-violet-400 to-blue-500"></div>}
-    </a>
-);
-
-const GeneratorCard = ({ title, desc, icon, onGenerate, onDownload, loading, showGenerateAll }) => (
-    <div className="bg-white rounded-2xl border border-gray-100 p-5 flex flex-col hover:border-gray-200 transition-colors">
-        <div className="w-9 h-9 bg-gray-50 rounded-lg flex items-center justify-center mb-3">{icon}</div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-1">{title}</h3>
-        <p className="text-xs text-gray-400 leading-relaxed mb-4 flex-1">{desc}</p>
-        <div className="space-y-2">
-            {showGenerateAll !== false && (
-                <button onClick={onGenerate} disabled={loading} className="w-full bg-[#1a1d2e] hover:bg-[#252840] text-white text-xs font-medium py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5">
-                    {loading ? <><Loader2 size={12} className="animate-spin" /> Generating...</> : 'Generate All Files'}
-                </button>
-            )}
-            <button onClick={onDownload} disabled={loading} className={`w-full text-xs font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 ${showGenerateAll === false ? 'bg-[#1a1d2e] text-white hover:bg-[#252840]' : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
-                <Download size={12} /> Specific Project Report
-            </button>
-        </div>
-    </div>
-);
 
 export default Reports;
