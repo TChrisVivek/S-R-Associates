@@ -193,10 +193,13 @@ export default function Budget() {
             <div className="flex-1 flex flex-col overflow-hidden" style={{ backgroundColor: '#f5f6f8' }}>
 
                 {/* Page header */}
-                <header className="shrink-0 h-[60px] px-8 flex items-center justify-between" style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #e5e7eb' }}>
+                <header className="shrink-0 px-8 py-5 flex items-center justify-between bg-white border-b border-gray-200">
                     <div>
-                        <h1 className="text-[16px] font-semibold text-gray-900 tracking-[-0.01em]">Budget Portfolio</h1>
-                        <p className="text-[11.5px] text-gray-400 mt-0.5 tracking-[0.01em]">Financial overview & expense management</p>
+                        <div className="flex items-center gap-2 mb-1">
+                            <div className="w-1 h-5 rounded-full bg-gradient-to-b from-violet-500 to-blue-500" />
+                            <h1 className="text-xl font-bold text-gray-900">Budget Portfolio</h1>
+                        </div>
+                        <p className="text-sm text-gray-400 ml-3">Financial overview &amp; expense management</p>
                     </div>
                     {canAdd && (
                         <button onClick={() => openCreate()}

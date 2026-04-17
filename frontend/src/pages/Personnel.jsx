@@ -201,8 +201,11 @@ const Personnel = () => {
             <main className="flex-1 overflow-y-auto bg-[#f6f7f9]">
                 <header className="sticky top-0 z-10 px-8 py-5 flex justify-between items-center bg-[#f6f7f9]/90 backdrop-blur-sm border-b border-gray-100">
                     <div>
-                        <h1 className="text-xl font-semibold text-gray-900 tracking-tight">Personnel</h1>
-                        <p className="text-[13px] text-gray-400 mt-0.5">{stats.total} team members across all sites</p>
+                        <div className="flex items-center gap-2 mb-1">
+                            <div className="w-1 h-5 rounded-full bg-gradient-to-b from-violet-500 to-blue-500" />
+                            <h1 className="text-xl font-bold text-gray-900">Personnel</h1>
+                        </div>
+                        <p className="text-sm text-gray-400 ml-3">Team members across all project sites</p>
                     </div>
                     <div className="flex items-center gap-3">
                         <div className="relative">

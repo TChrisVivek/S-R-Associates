@@ -385,130 +385,165 @@ const Reports = () => {
         const projList = projectId ? projects.filter(p => p._id === projectId) : projects;
         let isFirstPage = true;
 
+        const CATEGORIES = ['Inventory / Materials', 'Labor', 'Vendor', 'Equipment', 'Material', 'Miscellaneous', 'Extension'];
+        const CAT_COLORS = {
+            'Inventory / Materials': [109, 40, 217],
+            Labor:        [22, 163, 74],
+            Vendor:       [37, 99, 235],
+            Equipment:    [217, 119, 6],
+            Material:     [14, 165, 233],
+            Miscellaneous:[107, 114, 128],
+            Extension:    [220, 38, 38],
+        };
+
         for (const p of projList) {
             if (!isFirstPage) doc.addPage();
             isFirstPage = false;
             let y = addPdfHeader(doc, `Financial Summary — ${p.title}`);
 
-            const budget     = Number(p.budget) || 0;
-            const unit       = p.budgetUnit || 'Lakhs';
-            const budgetStr  = budget > 0 ? `Rs.${budget.toLocaleString('en-IN')} ${unit}` : 'N/A';
-            const startDate  = p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
-            const endDate    = p.endDate   ? new Date(p.endDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
-
+            // ── Project info bar ──────────────────────────────────────────────
+            const budget    = Number(p.budget) || 0;
+            const unit      = p.budgetUnit || 'Lakhs';
+            const budgetStr = budget > 0 ? `Rs.${budget.toLocaleString('en-IN')} ${unit}` : 'N/A';
             autoTable(doc, {
                 startY: y,
                 body: [
-                    ['Project', p.title || 'N/A'], ['Type', p.type || 'N/A'], ['Status', p.status || 'N/A'],
-                    ['Client', p.client || 'N/A'], ['Manager', p.manager || 'N/A'],
-                    ['Site', p.address || 'N/A'], ['Budget', budgetStr],
-                    ['Start Date', startDate], ['Target End', endDate],
+                    ['Project', p.title || 'N/A'],  ['Status', p.status || 'N/A'],
+                    ['Client', p.client || 'N/A'],   ['Manager', p.manager || 'N/A'],
+                    ['Budget', budgetStr],             ['Site', p.address || 'N/A'],
+                    ['Start Date', p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : 'N/A'],
+                    ['Target End', p.endDate   ? new Date(p.endDate).toLocaleDateString('en-IN',   { day:'2-digit', month:'short', year:'numeric' }) : 'N/A'],
                 ],
                 theme: 'plain',
                 columnStyles: {
-                    0: { fontStyle: 'bold', cellWidth: 50, textColor: [100, 100, 100], fontSize: 9 },
+                    0: { fontStyle: 'bold', cellWidth: 40, textColor: [100, 100, 100], fontSize: 8 },
                     1: { fontSize: 9, textColor: [40, 40, 40] }
                 },
                 margin: { left: 14, right: 14 },
-                styles: { cellPadding: 3 },
-                didParseCell: (data) => {
-                    if (data.row.index === 6 && data.column.index === 1) {
-                        data.cell.styles.textColor = [22, 163, 74];
-                        data.cell.styles.fontStyle = 'bold';
-                    }
-                }
+                styles: { cellPadding: 2.5 },
             });
-            y = doc.lastAutoTable.finalY + 10;
+            y = doc.lastAutoTable.finalY + 8;
 
-            // ── Expenses (sorted by date desc) ───────────────────────────────
+            // ── Fetch all cost data ───────────────────────────────────────────
+            const costs = { 'Inventory / Materials': 0, Labor: 0, Vendor: 0, Equipment: 0, Material: 0, Miscellaneous: 0, Extension: 0 };
+            let expenses = [];
+
             try {
-                const expRes   = await api.get('/expenses', { params: { project: p._id } });
-                const expenses = (expRes.data || []).sort((a, b) => new Date(b.expenseDate) - new Date(a.expenseDate));
-                if (expenses.length > 0) {
-                    if (y > 220) { doc.addPage(); y = 20; }
-                    doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 29, 46);
-                    doc.text('Project Expenses', 14, y); y += 6;
-                    const CATEGORY_COLORS = {
-                        Vendor: [37, 99, 235], Labor: [22, 163, 74], Equipment: [217, 119, 6],
-                        Material: [109, 40, 217], Miscellaneous: [107, 114, 128], Extension: [220, 38, 38]
-                    };
-                    let totalApproved = 0;
-                    const expData = expenses.map(e => {
-                        if (e.status === 'Approved') totalApproved += Number(e.amount);
-                        return [
-                            e.expenseDate ? new Date(e.expenseDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '—',
-                            e.title || '—', e.category || '—',
-                            `Rs.${Number(e.amount).toLocaleString('en-IN')}`,
-                            e.invoiceNumber || '—', e.status || '—'
-                        ];
-                    });
-                    autoTable(doc, {
-                        startY: y,
-                        head: [['Date', 'Title', 'Category', 'Amount', 'Invoice #', 'Status']],
-                        body: expData,
-                        theme: 'grid',
-                        headStyles: { fillColor: [26, 29, 46], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
-                        bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
-                        alternateRowStyles: { fillColor: [250, 250, 252] },
-                        margin: { left: 14, right: 14 },
-                        styles: { cellPadding: 3.5, lineColor: [230, 230, 230], lineWidth: 0.1 },
-                        columnStyles: {
-                            0: { cellWidth: 24, halign: 'center' },
-                            2: { cellWidth: 28, halign: 'center' },
-                            3: { cellWidth: 30, halign: 'right', fontStyle: 'bold' },
-                            4: { cellWidth: 28, halign: 'center' },
-                            5: { cellWidth: 22, halign: 'center', fontStyle: 'bold' }
-                        },
-                        didParseCell: (data) => {
-                            if (data.section === 'body' && data.column.index === 2) {
-                                const clr = CATEGORY_COLORS[data.cell.raw] || [107, 114, 128];
-                                data.cell.styles.textColor = clr;
-                            }
-                            if (data.section === 'body' && data.column.index === 5) {
-                                const s = data.cell.raw;
-                                data.cell.styles.textColor = s === 'Approved' ? [22, 163, 74] : s === 'Rejected' ? [220, 38, 38] : [217, 119, 6];
-                            }
+                const invRes = await api.get(`/projects/${p._id}/inventory`);
+                (invRes.data?.materials || invRes.data || []).forEach(m =>
+                    (m.logs || []).forEach(l => { if (l.type === 'delivery' && l.totalCost) costs['Inventory / Materials'] += Number(l.totalCost); })
+                );
+            } catch {}
+
+            try {
+                const expRes = await api.get('/expenses', { params: { project: p._id } });
+                expenses = (expRes.data || []).sort((a, b) => new Date(b.expenseDate) - new Date(a.expenseDate));
+                expenses.forEach(e => {
+                    const cat = e.category || 'Miscellaneous';
+                    if (costs[cat] !== undefined) costs[cat] += Number(e.amount);
+                    else costs.Miscellaneous += Number(e.amount);
+                });
+            } catch {}
+
+            const totalSpent = Object.values(costs).reduce((s, v) => s + v, 0);
+
+            // ── Cost Breakdown Summary Table ──────────────────────────────────
+            if (y > 220) { doc.addPage(); y = 20; }
+            doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 29, 46);
+            doc.text('Cost Breakdown by Category', 14, y); y += 5;
+
+            const breakdownData = CATEGORIES
+                .filter(cat => costs[cat] > 0)
+                .map(cat => {
+                    const pct = totalSpent > 0 ? ((costs[cat] / totalSpent) * 100).toFixed(1) : '0.0';
+                    return [cat, `Rs.${costs[cat].toLocaleString('en-IN')}`, `${pct}%`];
+                });
+
+            if (breakdownData.length > 0) {
+                autoTable(doc, {
+                    startY: y,
+                    head: [['Category', 'Amount (Rs)', '% of Total']],
+                    body: [
+                        ...breakdownData,
+                        ['TOTAL SPENT', `Rs.${totalSpent.toLocaleString('en-IN')}`, '100%'],
+                    ],
+                    theme: 'grid',
+                    headStyles: { fillColor: [26, 29, 46], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
+                    bodyStyles: { fontSize: 9 },
+                    alternateRowStyles: { fillColor: [250, 250, 252] },
+                    margin: { left: 14, right: 14 },
+                    styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
+                    columnStyles: {
+                        0: { cellWidth: 70, fontStyle: 'bold' },
+                        1: { cellWidth: 50, halign: 'right' },
+                        2: { cellWidth: 30, halign: 'center' },
+                    },
+                    didParseCell: (data) => {
+                        const lastRow = breakdownData.length;
+                        if (data.section === 'body' && data.row.index === lastRow) {
+                            // Total row
+                            data.cell.styles.fillColor = [26, 29, 46];
+                            data.cell.styles.textColor = [255, 255, 255];
+                            data.cell.styles.fontStyle = 'bold';
+                        } else if (data.section === 'body' && data.column.index === 0) {
+                            const cat = CATEGORIES.find(c => data.cell.raw?.startsWith(c));
+                            if (cat) data.cell.styles.textColor = CAT_COLORS[cat] || [40, 40, 40];
                         }
-                    });
-                    y = doc.lastAutoTable.finalY + 6;
-                    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(26, 29, 46);
-                    doc.text(`Total: ${expenses.length} expense(s)`, 14, y);
-                    doc.text(`Approved Total: Rs.${totalApproved.toLocaleString('en-IN')}`, 196, y, { align: 'right' });
-                    y += 10;
-                }
-            } catch (e) { /* skip */ }
+                    }
+                });
+                y = doc.lastAutoTable.finalY + 10;
+            } else {
+                doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+                doc.setTextColor(150, 150, 150); doc.text('No costs recorded yet.', 14, y + 4); y += 14;
+            }
 
-            // ── Material costs ───────────────────────────────────────────────
-            try {
-                const invRes    = await api.get(`/projects/${p._id}/inventory`);
-                const materials = invRes.data?.materials || invRes.data || [];
-                if (materials.length > 0) {
-                    if (y > 240) { doc.addPage(); y = 20; }
-                    doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.text('Material Cost Breakdown', 14, y);
-                    y += 6;
-                    let totalCost = 0;
-                    const costData = materials.map(m => {
-                        let c = 0;
-                        (m.logs || []).forEach(l => { if (l.type === 'delivery' && l.totalCost) c += Number(l.totalCost); });
-                        totalCost += c;
-                        return [m.name || 'N/A', m.unit || '', String(m.inflow || 0), String(m.outflow || 0), String(m.balance || 0), c > 0 ? `Rs.${c.toLocaleString('en-IN')}` : '-'];
-                    });
-                    autoTable(doc, {
-                        startY: y,
-                        head: [['Material', 'Unit', 'Inflow', 'Outflow', 'Balance', 'Cost']],
-                        body: costData,
-                        theme: 'grid',
-                        headStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
-                        bodyStyles: { fontSize: 8 },
-                        alternateRowStyles: { fillColor: [250, 250, 252] },
-                        margin: { left: 14, right: 14 },
-                        styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
-                    });
-                    y = doc.lastAutoTable.finalY + 8;
-                    doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
-                    doc.text(`Total Material Cost: Rs.${totalCost.toLocaleString('en-IN')}`, 196, y, { align: 'right' });
-                }
-            } catch (e) { /* skip */ }
+            // ── Expense Detail List ───────────────────────────────────────────
+            if (expenses.length > 0) {
+                if (y > 210) { doc.addPage(); y = 20; }
+                doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 29, 46);
+                doc.text('Expense Details', 14, y); y += 5;
+                let approved = 0;
+                const expData = expenses.map(e => {
+                    if (e.status === 'Approved') approved += Number(e.amount);
+                    return [
+                        e.expenseDate ? new Date(e.expenseDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '—',
+                        e.title || '—', e.category || '—',
+                        `Rs.${Number(e.amount).toLocaleString('en-IN')}`,
+                        e.invoiceNumber || '—', e.status || '—'
+                    ];
+                });
+                autoTable(doc, {
+                    startY: y,
+                    head: [['Date', 'Title', 'Category', 'Amount', 'Invoice #', 'Status']],
+                    body: expData,
+                    theme: 'grid',
+                    headStyles: { fillColor: [14, 116, 144], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold', halign: 'center' },
+                    bodyStyles: { fontSize: 7.5, textColor: [50, 50, 50] },
+                    alternateRowStyles: { fillColor: [240, 249, 255] },
+                    margin: { left: 14, right: 14 },
+                    styles: { cellPadding: 3, lineColor: [220, 220, 220], lineWidth: 0.1 },
+                    columnStyles: {
+                        0: { cellWidth: 24, halign: 'center' },
+                        2: { cellWidth: 27, halign: 'center' },
+                        3: { cellWidth: 30, halign: 'right', fontStyle: 'bold' },
+                        4: { cellWidth: 27, halign: 'center' },
+                        5: { cellWidth: 22, halign: 'center', fontStyle: 'bold' }
+                    },
+                    didParseCell: (data) => {
+                        if (data.section === 'body' && data.column.index === 2)
+                            data.cell.styles.textColor = CAT_COLORS[data.cell.raw] || [107, 114, 128];
+                        if (data.section === 'body' && data.column.index === 5) {
+                            const s = data.cell.raw;
+                            data.cell.styles.textColor = s === 'Approved' ? [22, 163, 74] : s === 'Rejected' ? [220, 38, 38] : [217, 119, 6];
+                        }
+                    }
+                });
+                y = doc.lastAutoTable.finalY + 6;
+                doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(26, 29, 46);
+                doc.text(`${expenses.length} expense(s)`, 14, y);
+                doc.text(`Approved: Rs.${approved.toLocaleString('en-IN')}`, 196, y, { align: 'right' });
+            }
+
             addPdfFooter(doc);
         }
 
@@ -516,6 +551,8 @@ const Reports = () => {
         doc.save(`Financial_${label.replace(/\s+/g, '_')}.pdf`);
         addReportToHistory(doc, `Financial — ${label}`, label);
     };
+
+
 
     const generateAttendancePDF = async ({ projectId, month, endMonth, year }) => {
         const doc      = new jsPDF();
@@ -614,7 +651,7 @@ const Reports = () => {
                 value: `${co}  —  Engineers & Contractors`,
                 font:  { bold: true, size: 11, color: { argb: WHITE } },
                 fill:  { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK } },
-                alignment: { horizontal: 'left', vertical: 'middle', indent: 1, wrapText: false },
+                alignment: { horizontal: 'center', vertical: 'middle', wrapText: false },
             });
             bannerCell.border = { outline: true, top: { style: 'medium', color: { argb: DARK } }, bottom: { style: 'thin', color: { argb: VIOLET } }, left: { style: 'medium', color: { argb: DARK } }, right: { style: 'medium', color: { argb: DARK } } };
             ws.getRow(1).height = 28;
@@ -626,7 +663,7 @@ const Reports = () => {
                 value: reportTitle,
                 font:  { bold: true, size: 13, color: { argb: DARK } },
                 fill:  { type: 'pattern', pattern: 'solid', fgColor: { argb: VIOLET_LITE } },
-                alignment: { horizontal: 'left', vertical: 'middle', indent: 1, wrapText: false },
+                alignment: { horizontal: 'center', vertical: 'middle', wrapText: false },
             });
             titleCell.border = { left: { style: 'medium', color: { argb: DARK } }, right: { style: 'medium', color: { argb: DARK } } };
             ws.getRow(2).height = 26;
@@ -638,7 +675,7 @@ const Reports = () => {
                 value: subtitle || `Generated on ${genDate}`,
                 font:  { size: 9, italic: true, color: { argb: TEXT_GRAY } },
                 fill:  { type: 'pattern', pattern: 'solid', fgColor: { argb: VIOLET_LITE } },
-                alignment: { horizontal: 'left', vertical: 'middle', indent: 1, wrapText: false },
+                alignment: { horizontal: 'center', vertical: 'middle', wrapText: false },
             });
             subCell.border = { left: { style: 'medium', color: { argb: DARK } }, right: { style: 'medium', color: { argb: DARK } }, bottom: { style: 'thin', color: { argb: 'CCCCCC' } } };
             ws.getRow(3).height = 18;
@@ -754,62 +791,87 @@ const Reports = () => {
                 }
             }
         } else if (reportType === 'financial') {
-            const finRows = projList.map(p => [
-                p.title, p.client || '—', p.manager || '—',
-                p.budget ? Number(p.budget) : 0, p.budgetUnit || 'Lakhs',
-                p.status || '—', p.type || '—',
-                p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN') : '—',
-                p.endDate   ? new Date(p.endDate).toLocaleDateString('en-IN')   : '—',
-            ]);
-            addSheet(
-                'Financial Summary',
-                'Financial Summary Report',
-                `Generated: ${genDate}  |  Scope: ${label}`,
-                ['Project', 'Client', 'Manager', 'Budget', 'Unit', 'Status', 'Type', 'Start Date', 'End Date'],
-                finRows
-            );
-            // Expenses sheet — sorted by date desc
-            const expRows = [];
+            const EXP_CATS = ['Labor', 'Vendor', 'Equipment', 'Material', 'Miscellaneous', 'Extension'];
+
+            // Build per-project cost data
+            const breakdownRows = [];
+            const expRows       = [];
+            const costRows      = [];
+
             for (const p of projList) {
+                const costs = { 'Inventory / Materials': 0, Labor: 0, Vendor: 0, Equipment: 0, Material: 0, Miscellaneous: 0, Extension: 0 };
+
+                // Inventory delivery costs
                 try {
-                    const res    = await api.get('/expenses', { params: { project: p._id } });
+                    const invRes = await api.get(`/projects/${p._id}/inventory`);
+                    (invRes.data?.materials || invRes.data || []).forEach(m => {
+                        (m.logs || []).forEach(l => { if (l.type === 'delivery' && l.totalCost) costs['Inventory / Materials'] += Number(l.totalCost); });
+                        let mc = 0;
+                        (m.logs || []).forEach(l => { if (l.type === 'delivery' && l.totalCost) mc += Number(l.totalCost); });
+                        costRows.push([p.title, m.name, m.unit, m.inflow || 0, m.outflow || 0, m.balance || 0, mc]);
+                    });
+                } catch {}
+
+                // Expense costs by category
+                try {
+                    const res = await api.get('/expenses', { params: { project: p._id } });
                     const sorted = (res.data || []).sort((a, b) => new Date(b.expenseDate) - new Date(a.expenseDate));
+                    sorted.forEach(e => {
+                        const cat = e.category || 'Miscellaneous';
+                        if (costs[cat] !== undefined) costs[cat] += Number(e.amount);
+                        else costs.Miscellaneous += Number(e.amount);
+                    });
                     if (sorted.length > 0) {
-                        expRows.push([p.title, '', '', '', '', '']); // project section header
+                        expRows.push([p.title, '', '', '', '', '']); // section header
                         sorted.forEach(e => expRows.push([
                             e.expenseDate ? new Date(e.expenseDate).toLocaleDateString('en-IN') : '—',
                             e.title || '—', e.category || '—',
-                            Number(e.amount) || 0,
-                            e.invoiceNumber || '—', e.status || '—'
+                            Number(e.amount) || 0, e.invoiceNumber || '—', e.status || '—'
                         ]));
                     }
                 } catch {}
+
+                const total = Object.values(costs).reduce((s, v) => s + v, 0);
+                breakdownRows.push([
+                    p.title,
+                    p.status || '—',
+                    p.budget ? `${Number(p.budget).toLocaleString('en-IN')} ${p.budgetUnit || 'Lakhs'}` : '—',
+                    costs['Inventory / Materials'] || 0,
+                    costs.Labor        || 0,
+                    costs.Vendor       || 0,
+                    costs.Equipment    || 0,
+                    costs.Material     || 0,
+                    costs.Miscellaneous|| 0,
+                    costs.Extension    || 0,
+                    total,
+                ]);
             }
+
+            // Sheet 1 — Cost Breakdown (pivot)
+            addSheet(
+                'Cost Breakdown',
+                'Project Cost Breakdown by Category',
+                `Generated: ${genDate}  |  Scope: ${label}`,
+                ['Project', 'Status', 'Budget', 'Inventory (Rs)', 'Labor (Rs)', 'Vendor (Rs)', 'Equipment (Rs)', 'Material (Rs)', 'Misc (Rs)', 'Extension (Rs)', 'Total Spent (Rs)'],
+                breakdownRows
+            );
+
+            // Sheet 2 — Expense Detail
             if (expRows.length > 0) {
                 addSheet(
-                    'Expenses',
-                    'Project Expenses',
-                    `Sorted by date (newest first)  |  Generated: ${genDate}`,
+                    'Expense Details',
+                    'Expense Details (Sorted Newest First)',
+                    `Generated: ${genDate}`,
                     ['Date', 'Title', 'Category', 'Amount (Rs)', 'Invoice #', 'Status'],
                     expRows
                 );
             }
-            // Material costs sheet
-            const costRows = [];
-            for (const p of projList) {
-                try {
-                    const res = await api.get(`/projects/${p._id}/inventory`);
-                    (res.data?.materials || res.data || []).forEach(m => {
-                        let cost = 0;
-                        (m.logs || []).forEach(l => { if (l.type === 'delivery' && l.totalCost) cost += Number(l.totalCost); });
-                        costRows.push([p.title, m.name, m.unit, m.inflow || 0, m.outflow || 0, m.balance || 0, cost]);
-                    });
-                } catch {}
-            }
+
+            // Sheet 3 — Material / Inventory breakdown
             if (costRows.length > 0) {
                 addSheet(
-                    'Material Costs',
-                    'Material Cost Breakdown',
+                    'Inventory Costs',
+                    'Inventory Material Cost Breakdown',
                     `Generated: ${genDate}`,
                     ['Project', 'Material', 'Unit', 'Inflow', 'Outflow', 'Balance', 'Total Cost (Rs)'],
                     costRows
@@ -1084,37 +1146,53 @@ const Reports = () => {
                 <main className="flex-1 flex flex-col overflow-hidden">
 
                     {/* Header */}
-                    <div className="px-8 pt-7 pb-5 bg-white border-b border-gray-100 shrink-0">
-                        <h1 className="text-xl font-bold text-gray-900">Reports</h1>
-                        <p className="text-sm text-gray-400 mt-0.5">Generate and export construction insights</p>
-                    </div>
+                    <div className="px-8 pt-6 pb-0 bg-white border-b border-gray-100 shrink-0">
+                        <div className="flex items-end justify-between pb-5">
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="w-1 h-5 rounded-full bg-gradient-to-b from-violet-500 to-blue-500" />
+                                    <h1 className="text-xl font-bold text-gray-900">Reports</h1>
+                                </div>
+                                <p className="text-sm text-gray-400 ml-3">Generate, export and archive construction insights</p>
+                            </div>
+                            <div className="flex items-center gap-3 mb-1">
+                                <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-xl border border-gray-100">
+                                    <span className="text-xs font-semibold text-gray-600">{projects.length} Projects</span>
+                                </div>
+                                <div className="flex items-center gap-2 px-3 py-1.5 bg-violet-50 rounded-xl border border-violet-100">
+                                    <FileText size={12} className="text-violet-500" />
+                                    <span className="text-xs font-semibold text-violet-600">{systemReports.length} Reports</span>
+                                </div>
+                            </div>
+                        </div>
 
-                    {/* Tab Navigation */}
-                    <div className="bg-white border-b border-gray-100 px-8 flex gap-1 shrink-0">
-                        {[
-                            { id: 'generate', label: 'Generate Report', icon: <Zap size={13} /> },
-                            { id: 'vault',    label: 'Document Vault',  icon: <Archive size={13} /> },
-                            { id: 'history',  label: 'Report History',  icon: <History size={13} /> },
-                        ].map(tab => (
-                            <button key={tab.id} onClick={() => setMainTab(tab.id)}
-                                className={`flex items-center gap-1.5 px-4 py-3 text-xs font-semibold border-b-2 transition-colors ${mainTab === tab.id ? 'border-violet-600 text-violet-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
-                                {tab.icon} {tab.label}
-                            </button>
-                        ))}
+                        {/* Tab Navigation */}
+                        <div className="flex gap-1">
+                            {[
+                                { id: 'generate', label: 'Generate Report', icon: <Zap size={13} /> },
+                                { id: 'vault',    label: 'Document Vault',  icon: <Archive size={13} /> },
+                                { id: 'history',  label: 'Report History',  icon: <History size={13} /> },
+                            ].map(tab => (
+                                <button key={tab.id} onClick={() => setMainTab(tab.id)}
+                                    className={`flex items-center gap-1.5 px-4 py-3 text-xs font-semibold border-b-2 transition-all ${mainTab === tab.id ? 'border-violet-600 text-violet-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                                    {tab.icon} {tab.label}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Scrollable Body */}
-                    <div className="flex-1 overflow-y-auto p-8">
+                    <div className="flex-1 overflow-y-auto p-8 bg-[#f7f7fa]">
 
                         {/* ── GENERATE TAB ── */}
                         {mainTab === 'generate' && (
-                            <div className="max-w-5xl space-y-8">
+                            <div className="max-w-5xl space-y-6">
 
                                 {/* Phase 01 */}
-                                <section>
-                                    <div className="flex items-start gap-4 mb-5">
-                                        <div className="shrink-0">
-                                            <span className="text-[10px] font-bold tracking-widest text-violet-600 uppercase bg-violet-50 border border-violet-100 px-2.5 py-1 rounded-full">Phase 01</span>
+                                <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className="w-8 h-8 rounded-full bg-violet-600 flex items-center justify-center shrink-0 shadow-md shadow-violet-200">
+                                            <span className="text-white text-xs font-bold">1</span>
                                         </div>
                                         <div>
                                             <h2 className="text-sm font-bold text-gray-900">Select Report Type</h2>
@@ -1128,14 +1206,18 @@ const Reports = () => {
                                             const selected = reportType === type.id;
                                             return (
                                                 <button key={type.id} onClick={() => setReportType(type.id)}
-                                                    className={`relative text-left p-5 rounded-2xl border-2 transition-all duration-150 hover:shadow-sm ${selected ? 'border-violet-400 bg-white shadow-md shadow-violet-100' : 'border-gray-100 bg-white hover:border-gray-200'}`}>
-                                                    {selected && <div className="absolute top-0 left-0 right-0 h-0.5 bg-violet-500 rounded-t-2xl" />}
-                                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
-                                                        style={{ backgroundColor: selected ? type.bg : '#f5f5f7' }}>
-                                                        <Icon size={20} style={{ color: selected ? type.color : '#9ca3af' }} />
+                                                    className={`relative text-left p-5 rounded-2xl border-2 transition-all duration-200 ${selected ? 'border-violet-400 bg-violet-50/40 shadow-md shadow-violet-100/60' : 'border-gray-100 bg-gray-50/60 hover:border-gray-200 hover:bg-white hover:shadow-sm'}`}>
+                                                    {selected && (
+                                                        <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center">
+                                                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                                        </div>
+                                                    )}
+                                                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-3.5 transition-all ${selected ? 'shadow-sm' : ''}`}
+                                                        style={{ backgroundColor: selected ? type.bg : '#f0f0f3' }}>
+                                                        <Icon size={21} style={{ color: selected ? type.color : '#adb5bd' }} />
                                                     </div>
-                                                    <h3 className="text-sm font-bold text-gray-900 mb-1.5">{type.label}</h3>
-                                                    <p className="text-[11px] leading-relaxed" style={{ color: selected ? type.color + 'cc' : '#9ca3af' }}>{type.desc}</p>
+                                                    <h3 className={`text-sm font-bold mb-1.5 transition-colors ${selected ? 'text-gray-900' : 'text-gray-700'}`}>{type.label}</h3>
+                                                    <p className="text-[11px] leading-relaxed" style={{ color: selected ? type.color + 'cc' : '#adb5bd' }}>{type.desc}</p>
                                                 </button>
                                             );
                                         })}
@@ -1144,12 +1226,12 @@ const Reports = () => {
 
                                 {/* Phase 02 */}
                                 <section>
-                                    <div className="flex items-start gap-4 mb-5">
-                                        <div className="shrink-0">
-                                            <span className="text-[10px] font-bold tracking-widest text-violet-600 uppercase bg-violet-50 border border-violet-100 px-2.5 py-1 rounded-full">Phase 02</span>
+                                    <div className="flex items-center gap-3 mb-4 px-1">
+                                        <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center shrink-0 shadow-sm">
+                                            <span className="text-white text-xs font-bold">2</span>
                                         </div>
                                         <div>
-                                            <h2 className="text-sm font-bold text-gray-900">Configuration</h2>
+                                            <h2 className="text-sm font-bold text-gray-900">Configuration & Export</h2>
                                             <p className="text-xs text-gray-400 mt-0.5">Define the parameters and select your export format.</p>
                                         </div>
                                     </div>
@@ -1176,7 +1258,10 @@ const Reports = () => {
                                                 </div>
                                                 <div>
                                                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Site Manager</label>
-                                                    <div className="w-full bg-gray-50 border border-gray-100 px-3 py-2.5 rounded-xl text-sm text-gray-500 cursor-default select-none">
+                                                    <div className="w-full bg-gray-50 border border-gray-100 px-3 py-2.5 rounded-xl text-sm text-gray-500 cursor-default select-none flex items-center gap-2">
+                                                        <div className="w-5 h-5 rounded-full bg-violet-100 flex items-center justify-center shrink-0">
+                                                            <Users size={11} className="text-violet-500" />
+                                                        </div>
                                                         {siteManager}
                                                     </div>
                                                 </div>
@@ -1184,16 +1269,16 @@ const Reports = () => {
 
                                             <div className="mt-4">
                                                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
-                                                    Date Range {reportType === 'personnel' ? '(Month / Year used for Attendance)' : ''}
+                                                    Date Range {reportType === 'personnel' ? <span className="text-violet-400 normal-case font-normal">(month/year used for Attendance)</span> : ''}
                                                 </label>
                                                 <div className="flex items-center gap-3">
                                                     <input type="date" value={formDateFrom} onChange={e => setFormDateFrom(e.target.value)}
                                                         className="flex-1 bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-xl text-sm text-gray-700 outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 transition-all" />
-                                                    <span className="text-gray-300 font-medium text-sm">to</span>
+                                                    <span className="text-gray-300 font-medium text-sm shrink-0">→</span>
                                                     <input type="date" value={formDateTo} onChange={e => setFormDateTo(e.target.value)}
                                                         className="flex-1 bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-xl text-sm text-gray-700 outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 transition-all" />
                                                 </div>
-                                                <p className="text-[10px] text-gray-300 mt-1.5">Leave empty to include all dates.</p>
+                                                <p className="text-[10px] text-gray-300 mt-1.5">Leave empty to include all available data.</p>
                                             </div>
                                         </div>
 
@@ -1221,8 +1306,8 @@ const Reports = () => {
                                                                 <p className="text-sm font-semibold text-gray-900">{fmt.label}</p>
                                                                 <p className="text-[10px] text-gray-400">{fmt.sublabel}</p>
                                                             </div>
-                                                            <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${selected ? 'border-violet-500' : 'border-gray-300'}`}>
-                                                                {selected && <div className="w-2 h-2 rounded-full bg-violet-500" />}
+                                                            <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${selected ? 'border-violet-500 bg-violet-500' : 'border-gray-300'}`}>
+                                                                {selected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                                                             </div>
                                                         </button>
                                                     );
@@ -1230,10 +1315,10 @@ const Reports = () => {
                                             </div>
 
                                             <button onClick={handleGenerateReport} disabled={isGenerating}
-                                                className="w-full mt-5 py-3.5 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white font-bold text-sm rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-violet-100">
+                                                className="w-full mt-5 py-3.5 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white font-bold text-sm rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-violet-200 hover:shadow-violet-300 hover:shadow-xl active:scale-[0.98]">
                                                 {isGenerating
                                                     ? <><Loader2 size={15} className="animate-spin" /> Generating…</>
-                                                    : <><ArrowRight size={15} /> GENERATE REPORT</>
+                                                    : <><Zap size={15} /> Generate Report</>
                                                 }
                                             </button>
                                         </div>
@@ -1241,6 +1326,7 @@ const Reports = () => {
                                 </section>
                             </div>
                         )}
+
 
                         {/* ── VAULT TAB ── */}
                         {mainTab === 'vault' && (
