@@ -237,7 +237,26 @@ exports.getAttendanceReport = async (req, res) => {
             report[record.personnel_id].totalDays += record.count;
         });
 
-        res.json(Object.values(report));
+        const result = Object.values(report);
+
+        // Fallback: if no attendance logs exist, return personnel assigned to the project
+        // with 0 counts so the report isn't blank
+        if (result.length === 0) {
+            const fallbackPersonnel = await Personnel.find({ project_id: projectId });
+            const fallback = fallbackPersonnel.map(p => ({
+                id: p._id,
+                name: p.name,
+                role: p.role || 'Personnel',
+                totalDays: 0,
+                'On Site': 0,
+                'Remote': 0,
+                'Off Duty': 0,
+                'On Leave': 0
+            }));
+            return res.json(fallback);
+        }
+
+        res.json(result);
 
     } catch (error) {
         console.error("Error generating attendance report:", error);

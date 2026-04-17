@@ -106,7 +106,15 @@ const Reports = () => {
                             projectId: project._id,
                             name: bp.name || 'Unknown Document',
                             url: bp.url,
-                            originalUrl: bp.originalUrl || bp.url.replace("-1.jpg", ".pdf"),
+                            // Fix Cloudinary PDF URL: Cloudinary converts PDFs to images,
+                            // but the original PDF is accessible via /raw/upload/ path
+                            originalUrl: bp.originalUrl
+                                || (bp.url && bp.url.includes('cloudinary.com')
+                                    ? bp.url
+                                        .replace('/image/upload/', '/raw/upload/')
+                                        .replace(/\-\d+\.jpg$/, '')
+                                        .replace(/\.jpg$/, '')
+                                    : bp.url),
                             project: project.title || 'Unknown Project',
                             uploadedBy: project.manager || 'System',
                             date: bp.uploadedAt ? new Date(bp.uploadedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Unknown Date',
