@@ -137,7 +137,9 @@ const deleteExpense = async (req, res) => {
     try {
         const expense = await Expense.findById(req.params.id);
         if (!expense) {
-            return res.status(404).json({ message: 'Expense not found' });
+            // Treat as success — expense may have already been cascade-deleted
+            // when its parent project was removed. No need to error the client.
+            return res.status(200).json({ message: 'Expense already deleted', id: req.params.id });
         }
         await expense.deleteOne();
         res.status(200).json({ message: 'Expense deleted successfully', id: req.params.id });

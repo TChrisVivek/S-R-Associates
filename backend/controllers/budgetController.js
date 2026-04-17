@@ -29,12 +29,15 @@ const getBudgetDashboard = async (req, res) => {
 
         // ── 2. Fetch Expenses ──
         const expenseQuery = { ...(selectedProjectId ? { project: selectedProjectId } : {}) };
-        const allExpenses = await Expense.find(expenseQuery)
+        const allExpensesRaw = await Expense.find(expenseQuery)
             .populate('project', 'title budget budgetUnit')
             .populate('submittedBy', 'username');
 
+        // Filter out orphaned expenses (project was deleted but expense record survived)
+        const allExpenses = allExpensesRaw.filter(e => e.project !== null);
+
         const approvedExpenses = allExpenses.filter(e => e.status === 'Approved');
-        const pendingExpenses = allExpenses.filter(e => e.status === 'Pending');
+        const pendingExpenses  = allExpenses.filter(e => e.status === 'Pending');
 
         // ── 3. Total Budget ──
         const totalBudget = projects.reduce((sum, p) => sum + toRawAmount(p.budget, p.budgetUnit), 0);
@@ -232,3 +235,4 @@ const getBudgetDashboard = async (req, res) => {
 };
 
 module.exports = { getBudgetDashboard };
+
