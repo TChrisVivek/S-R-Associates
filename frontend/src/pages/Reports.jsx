@@ -274,12 +274,12 @@ const Reports = () => {
                     bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
                     alternateRowStyles: { fillColor: [250, 250, 252] },
                     margin: { left: 14, right: 14 },
-                    styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
+                    styles: { cellPadding: 3, lineColor: [230, 230, 230], lineWidth: 0.1, overflow: 'linebreak' },
                     columnStyles: {
-                        0: { fontStyle: 'bold', cellWidth: 25 },
-                        1: { cellWidth: 15, halign: 'center' },
-                        2: { cellWidth: 25 },
-                        3: { cellWidth: 20, halign: 'center' },
+                        0: { fontStyle: 'bold', cellWidth: 26, halign: 'center' },
+                        1: { cellWidth: 24, halign: 'center' },
+                        2: { cellWidth: 24, halign: 'center' },
+                        3: { cellWidth: 22, halign: 'center' },
                         4: { cellWidth: 'auto' }
                     }
                 });
@@ -373,11 +373,11 @@ const Reports = () => {
                     bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
                     alternateRowStyles: { fillColor: [250, 250, 252] },
                     margin: { left: 14, right: 14 },
-                    styles: { cellPadding: 3, lineColor: [230, 230, 230], lineWidth: 0.1 },
+                    styles: { cellPadding: 3, lineColor: [230, 230, 230], lineWidth: 0.1, overflow: 'linebreak' },
                     columnStyles: {
-                        0: { fontStyle: 'bold', cellWidth: 40 },
-                        1: { cellWidth: 25 },
-                        2: { cellWidth: 20, halign: 'center' },
+                        0: { fontStyle: 'bold', cellWidth: 50 },
+                        1: { cellWidth: 28, halign: 'center' },
+                        2: { cellWidth: 24, halign: 'center' },
                         3: { cellWidth: 'auto' }
                     }
                 });
