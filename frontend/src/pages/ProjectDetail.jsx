@@ -688,6 +688,7 @@ const ProjectDetail = () => {
                                             <option value="Residential">Residential</option>
                                             <option value="Commercial">Commercial</option>
                                             <option value="Renovation">Renovation</option>
+                                            <option value="Interior">Interior</option>
                                         </select>
                                     </div>
                                     <div>

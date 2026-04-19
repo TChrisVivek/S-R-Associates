@@ -12,7 +12,7 @@ const projectSchema = new mongoose.Schema({
     floors: Number,
     type: {
         type: String,
-        enum: ['Residential', 'Commercial', 'Renovation'],
+        enum: ['Residential', 'Commercial', 'Renovation', 'Interior'],
         default: 'Residential'
     },
     budget: Number,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, Home, Building2, Hammer, CheckCircle2, Calendar, Loader2, Plus, FileText, Trash2, ImagePlus } from 'lucide-react';
+import { X, Upload, Home, Building2, Hammer, Sofa, CheckCircle2, Calendar, Loader2, Plus, FileText, Trash2, ImagePlus } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import api from '../api/axios';
@@ -370,7 +370,7 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                             Project Type
                         </h3>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <ProjectTypeCard
                                 icon={<Home size={24} />}
                                 title="Residential"
@@ -391,6 +391,13 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                 subtitle="Remodel & Retrofit"
                                 selected={formData.type === 'Renovation'}
                                 onClick={() => handleTypeSelect('Renovation')}
+                            />
+                            <ProjectTypeCard
+                                icon={<Sofa size={24} />}
+                                title="Interior"
+                                subtitle="Design & Décor"
+                                selected={formData.type === 'Interior'}
+                                onClick={() => handleTypeSelect('Interior')}
                             />
                         </div>
                     </section>
