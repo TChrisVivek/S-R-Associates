@@ -45,6 +45,7 @@ exports.createProject = async (req, res) => {
         }
 
         const project = new Project(req.body);
+        // assignedPersonnel is accepted directly from req.body as an array of IDs
         await project.save();
 
         if (req.user && req.user._id) {
@@ -589,5 +590,35 @@ exports.deleteProjectBlueprint = async (req, res) => {
     } catch (error) {
         console.error("Delete Blueprint Error:", error);
         res.status(500).json({ message: "Error deleting blueprint" });
+    }
+};
+
+// ─── Assign / update personnel list for a project ───────────────────────────
+exports.assignPersonnel = async (req, res) => {
+    try {
+        const { id: projectId } = req.params;
+        const { personnelIds } = req.body; // array of Personnel ObjectId strings
+
+        if (!Array.isArray(personnelIds)) {
+            return res.status(400).json({ message: 'personnelIds must be an array' });
+        }
+
+        const project = await Project.findByIdAndUpdate(
+            projectId,
+            { $set: { assignedPersonnel: personnelIds } },
+            { new: true }
+        );
+
+        if (!project) return res.status(404).json({ message: 'Project not found' });
+
+        if (req.user && req.user._id) {
+            logActivity(req.user._id, 'ASSIGNED_PERSONNEL', 'Project',
+                `Updated personnel assignment for project: ${project.title} (${personnelIds.length} members)`, project._id);
+        }
+
+        res.json({ message: 'Personnel assigned successfully', assignedPersonnel: project.assignedPersonnel });
+    } catch (error) {
+        console.error('Assign Personnel Error:', error);
+        res.status(500).json({ message: 'Error assigning personnel', error: error.message });
     }
 };

@@ -555,57 +555,76 @@ const Reports = () => {
 
 
     const generateAttendancePDF = async ({ projectId, month, endMonth, year }) => {
-        const doc      = new jsPDF();
-        const projList = projectId ? projects.filter(p => p._id === projectId) : projects.filter(p => !['Completed', 'On Hold'].includes(p.status));
+        const doc        = new jsPDF();
         const monthNames = [];
-        let isFirstPage = true;
+        let isFirstPage  = true;
 
         for (let m = month; m <= endMonth; m++) {
             const mName = new Date(year, m - 1).toLocaleString('en-US', { month: 'long' });
             monthNames.push(mName);
 
-            for (const p of projList) {
-                const res  = await api.get('/personnel/attendance-report', { params: { projectId: p._id, month: m, year } });
-                const data = res.data || [];
+            // Single API call per month — no projectId = all projects
+            const params = { month: m, year };
+            if (projectId) params.projectId = projectId;
+            const res  = await api.get('/personnel/attendance-report', { params });
+            const rows = res.data || [];
 
-                if (!isFirstPage) doc.addPage();
-                isFirstPage = false;
+            if (!isFirstPage) doc.addPage();
+            isFirstPage = false;
 
-                let y = addPdfHeader(doc, projectId ? `Attendance Report: ${mName} ${year}` : `Global Attendance: ${mName} ${year}`);
-                doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 29, 46);
-                doc.text(`Project: ${p.title}`, 14, y);
-                y += 8;
+            const title = projectId
+                ? `Personnel Attendance: ${mName} ${year}`
+                : `Personnel Attendance — All Projects: ${mName} ${year}`;
 
-                if (data.length === 0) {
-                    doc.setFontSize(10); doc.setFont('helvetica', 'italic'); doc.setTextColor(150, 150, 150);
-                    doc.text('No attendance data found for this period.', 14, y);
-                } else {
-                    const tableData = data.map(person => [
-                        person.name, person.role || 'Personnel',
-                        String(person['On Site'] || 0), String(person['Remote'] || 0),
-                        String(person['On Leave'] || 0), String(person['Off Duty'] || 0),
-                        String(person.totalDays || 0)
-                    ]);
-                    autoTable(doc, {
-                        startY: y,
-                        head: [['Name', 'Role', 'On Site Days', 'Remote Days', 'Leave Days', 'Off Duty', 'Total']],
-                        body: tableData,
-                        theme: 'grid',
-                        headStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
-                        bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
-                        alternateRowStyles: { fillColor: [250, 250, 252] },
-                        margin: { left: 14, right: 14 },
-                        styles: { cellPadding: 4, lineColor: [230, 230, 230], lineWidth: 0.1 },
-                        columnStyles: {
-                            0: { fontStyle: 'bold', textColor: [26, 29, 46] },
-                            2: { halign: 'center', fontStyle: 'bold', textColor: [22, 163, 74] },
-                            3: { halign: 'center' }, 4: { halign: 'center', textColor: [234, 138, 0] },
-                            5: { halign: 'center' }, 6: { halign: 'center', fontStyle: 'bold' }
+            let y = addPdfHeader(doc, title);
+
+            if (rows.length === 0) {
+                doc.setFontSize(10); doc.setFont('helvetica', 'italic'); doc.setTextColor(150, 150, 150);
+                doc.text('No personnel data found.', 14, y);
+            } else {
+                const tableData = rows.map(r => [
+                    r.name,
+                    r.role || 'Personnel',
+                    r.project || '—',
+                    String(r['On Site'] || 0),
+                    String(r['Remote']  || 0),
+                    String(r['On Leave']|| 0),
+                    String(r['Off Duty']|| 0),
+                    String(r.totalDays  || 0)
+                ]);
+                autoTable(doc, {
+                    startY: y,
+                    head: [['Name', 'Role', 'Project', 'On Site', 'Remote', 'Leave', 'Off Duty', 'Total']],
+                    body: tableData,
+                    theme: 'grid',
+                    headStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold', halign: 'center' },
+                    bodyStyles: { fontSize: 7.5, textColor: [50, 50, 50] },
+                    alternateRowStyles: { fillColor: [250, 250, 252] },
+                    margin: { left: 14, right: 14 },
+                    styles: { cellPadding: 3, lineColor: [230, 230, 230], lineWidth: 0.1 },
+                    columnStyles: {
+                        0: { fontStyle: 'bold', textColor: [26, 29, 46], cellWidth: 35 },
+                        1: { cellWidth: 28 },
+                        2: { cellWidth: 38, fontStyle: 'italic' },
+                        3: { halign: 'center', fontStyle: 'bold', textColor: [22, 163, 74] },
+                        4: { halign: 'center' },
+                        5: { halign: 'center', textColor: [234, 138, 0] },
+                        6: { halign: 'center' },
+                        7: { halign: 'center', fontStyle: 'bold' }
+                    },
+                    didParseCell: (data) => {
+                        // Gray out unassigned rows
+                        if (data.section === 'body') {
+                            const row = rows[data.row.index];
+                            if (row && !row.isAssigned) {
+                                data.cell.styles.textColor = [170, 170, 170];
+                                data.cell.styles.fillColor = [248, 248, 248];
+                            }
                         }
-                    });
-                }
-                addPdfFooter(doc);
+                    }
+                });
             }
+            addPdfFooter(doc);
         }
 
         const periodStr = month === endMonth ? `${monthNames[0]} ${year}` : `${monthNames[0]}-${monthNames[monthNames.length - 1]} ${year}`;
@@ -879,27 +898,29 @@ const Reports = () => {
             }
         } else if (reportType === 'personnel') {
             for (let m = month; m <= endMonth; m++) {
-                const mName = new Date(year, m - 1).toLocaleString('en-US', { month: 'long' });
-                const rows  = [];
-                for (const p of projList) {
-                    const res  = await api.get('/personnel/attendance-report', { params: { projectId: p._id, month: m, year } });
-                    const data = res.data || [];
-                    if (data.length > 0) {
-                        rows.push([`${p.title}`, '', '', '', '', '', '']); // section header
-                        data.forEach(per => rows.push([
-                            per.name, per.role || '—',
-                            per['On Site'] || 0, per['Remote'] || 0,
-                            per['On Leave'] || 0, per['Off Duty'] || 0,
-                            per.totalDays || 0
-                        ]));
-                    }
-                }
+                const mName  = new Date(year, m - 1).toLocaleString('en-US', { month: 'long' });
+                const params = { month: m, year };
+                if (projectId) params.projectId = projectId;
+                const res  = await api.get('/personnel/attendance-report', { params });
+                const rows = res.data || [];
+
+                const dataRows = rows.map(r => [
+                    r.name,
+                    r.role || '—',
+                    r.project || '—',
+                    r['On Site']  || 0,
+                    r['Remote']   || 0,
+                    r['On Leave'] || 0,
+                    r['Off Duty'] || 0,
+                    r.totalDays   || 0
+                ]);
+
                 addSheet(
                     `${mName.slice(0, 3)} ${year}`.slice(0, 31),
                     `Personnel Attendance — ${mName} ${year}`,
                     `Scope: ${label}  |  Generated: ${genDate}`,
-                    ['Name', 'Role', 'On Site Days', 'Remote Days', 'Leave Days', 'Off Duty', 'Total Recorded'],
-                    rows
+                    ['Name', 'Role', 'Project', 'On Site Days', 'Remote Days', 'Leave Days', 'Off Duty', 'Total Recorded'],
+                    dataRows
                 );
             }
         }
@@ -992,16 +1013,17 @@ const Reports = () => {
                 } catch {}
             }
         } else if (reportType === 'personnel') {
-            dataRows.push(['Project', 'Name', 'Role', 'On Site Days', 'Remote Days', 'Leave Days', 'Off Duty', 'Total Recorded']);
-            for (const p of projList) {
-                const res  = await api.get('/personnel/attendance-report', { params: { projectId: p._id, month, year } });
-                (res.data || []).forEach(per => dataRows.push([
-                    p.title, per.name, per.role || '',
-                    per['On Site'] || 0, per['Remote'] || 0,
-                    per['On Leave'] || 0, per['Off Duty'] || 0,
-                    per.totalDays || 0
-                ]));
-            }
+            dataRows.push(['Name', 'Role', 'Project', 'On Site Days', 'Remote Days', 'Leave Days', 'Off Duty', 'Total Recorded']);
+            const params = { month, year };
+            if (projectId) params.projectId = projectId;
+            const res  = await api.get('/personnel/attendance-report', { params });
+            (res.data || []).forEach(r => dataRows.push([
+                r.name, r.role || '',
+                r.project || '—',
+                r['On Site']  || 0, r['Remote']   || 0,
+                r['On Leave'] || 0, r['Off Duty']  || 0,
+                r.totalDays   || 0
+            ]));
         }
 
         dataRows.forEach(r => lines.push(toRow(r)));

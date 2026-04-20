@@ -141,6 +141,7 @@ const getBudgetDashboard = async (req, res) => {
             .map(e => ({
                 id: e._id,
                 description: e.title,
+                note: e.description || '',
                 invoice: e.invoiceNumber || 'No invoice',
                 project: e.project ? e.project.title : 'Deleted Project',
                 category: e.category,
@@ -165,7 +166,8 @@ const getBudgetDashboard = async (req, res) => {
                 project: e.project,
                 invoiceNumber: e.invoiceNumber,
                 receipt: e.receipt,
-                expenseDate: e.expenseDate
+                expenseDate: e.expenseDate,
+                description: e.description || ''
             }
         }));
 

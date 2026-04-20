@@ -21,6 +21,10 @@ const projectSchema = new mongoose.Schema({
     endDate: Date,
     manager: String, // You might want to link this to a User ObjectId later
     contractor: String,
+    assignedPersonnel: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Personnel'
+    }],
     status: {
         type: String,
         enum: ['Planning', 'In Progress', 'On Track', 'Delayed', 'Completed'],

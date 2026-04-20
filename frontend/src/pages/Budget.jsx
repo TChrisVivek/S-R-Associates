@@ -19,6 +19,8 @@ import { uploadToCloudinary } from '../utils/cloudinaryUpload';
 const CAT_COLORS = {
     Vendor: '#7c3aed', Labor: '#6366f1', Material: '#0ea5e9',
     Equipment: '#a78bfa', Extension: '#e879f9', Miscellaneous: '#94a3b8',
+    'Food Allowance': '#f59e0b', 'Travel Allowance': '#10b981',
+    'Fuel Allowance': '#ef4444', 'Bonus': '#ec4899',
 };
 const STATUS_CFG = {
     Approved: { pill: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60', dot: 'bg-emerald-500' },
@@ -57,7 +59,7 @@ export default function Budget() {
 
     function blankForm(pid = '') {
         return { title: '', amount: '', category: 'Vendor', project: pid,
-                 invoiceNumber: '', receipt: '', expenseDate: isoToday() };
+                 invoiceNumber: '', receipt: '', expenseDate: isoToday(), description: '' };
     }
     function isoToday() { return new Date().toISOString().split('T')[0]; }
 
@@ -123,6 +125,7 @@ export default function Budget() {
             project: d.project?._id || d.project || '',
             invoiceNumber: d.invoiceNumber || '', receipt: d.receipt || '',
             expenseDate: d.expenseDate ? new Date(d.expenseDate).toISOString().split('T')[0] : isoToday(),
+            description: d.description || '',
         });
         loadProjects(); setModalOpen(true);
     };
@@ -302,6 +305,16 @@ export default function Budget() {
                                     </div>
                                 </FormField>
                             </div>
+                            {/* Description / Notes */}
+                            <FormField label="Notes / Description">
+                                <textarea
+                                    value={form.description}
+                                    onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+                                    className={inputCls + ' resize-none'}
+                                    rows={2}
+                                    placeholder="Optional short note about this expense…"
+                                />
+                            </FormField>
                             <div className="flex justify-end gap-2.5 pt-2 mt-2 border-t border-gray-100">
                                 <button type="button" onClick={closeModal}
                                     className="px-4 py-2 text-[13px] font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
@@ -515,6 +528,7 @@ function ProjectsTab({ data, onAddExpense, isAdmin, canAdd, onDelete, cache, set
                                                                         <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${sc.dot || 'bg-gray-300'}`} />
                                                                         <div>
                                                                             <p className="text-[13px] font-medium text-gray-900">{ex.title}</p>
+                                                                            {ex.description && <p className="text-[10.5px] text-gray-400 mt-0.5 italic">{ex.description}</p>}
                                                                             {ex.invoiceNumber && <p className="text-[10.5px] text-gray-400 mt-0.5">{ex.invoiceNumber}</p>}
                                                                         </div>
                                                                         {ex.receipt && <ProofLink href={ex.receipt} />}
@@ -624,11 +638,12 @@ function ExpensesTab({ data, isAdmin, onDelete, confirmDel }) {
                                             <td className="py-3 pl-6 pr-4">
                                                 <div className="flex items-center gap-2.5">
                                                     <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${sc.dot || 'bg-gray-300'}`} />
-                                                    <div>
+                                                <div>
                                                         <p className="text-[13px] font-medium text-gray-900">{tx.description}</p>
+                                                        {tx.note && <p className="text-[10.5px] text-gray-400 mt-0.5 italic">{tx.note}</p>}
                                                         {tx.invoice !== 'No invoice' && <p className="text-[10.5px] text-gray-400 mt-0.5">{tx.invoice}</p>}
                                                         {tx.receipt && <ProofLink href={tx.receipt} />}
-                                                    </div>
+                                                </div>
                                                 </div>
                                             </td>
                                             <td className="py-3 px-4 text-[12.5px] text-gray-600 max-w-[130px] truncate">{tx.project}</td>
@@ -797,7 +812,18 @@ const SelFilter = ({ label, value, onChange, opts }) => (
 );
 
 const CatChip = ({ cat }) => {
-    const m = { Vendor: 'bg-violet-50 text-violet-700', Labor: 'bg-indigo-50 text-indigo-700', Material: 'bg-sky-50 text-sky-700', Equipment: 'bg-purple-50 text-purple-700', Extension: 'bg-fuchsia-50 text-fuchsia-700', Miscellaneous: 'bg-slate-50 text-slate-600' };
+    const m = {
+        Vendor:           'bg-violet-50 text-violet-700',
+        Labor:            'bg-indigo-50 text-indigo-700',
+        Material:         'bg-sky-50 text-sky-700',
+        Equipment:        'bg-purple-50 text-purple-700',
+        Extension:        'bg-fuchsia-50 text-fuchsia-700',
+        Miscellaneous:    'bg-slate-50 text-slate-600',
+        'Food Allowance':   'bg-amber-50 text-amber-700',
+        'Travel Allowance': 'bg-emerald-50 text-emerald-700',
+        'Fuel Allowance':   'bg-red-50 text-red-700',
+        'Bonus':            'bg-pink-50 text-pink-700',
+    };
     return <span className={`text-[10.5px] font-semibold px-2 py-0.5 rounded-md ${m[cat] || m.Miscellaneous}`}>{cat}</span>;
 };
 

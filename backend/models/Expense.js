@@ -17,10 +17,14 @@ const expenseSchema = new mongoose.Schema({
     },
     category: {
         type: String,
-        enum: ['Vendor', 'Labor', 'Equipment', 'Material', 'Miscellaneous', 'Extension'],
+        enum: [
+            'Vendor', 'Labor', 'Equipment', 'Material', 'Miscellaneous', 'Extension',
+            'Food Allowance', 'Travel Allowance', 'Fuel Allowance', 'Bonus'
+        ],
         default: 'Vendor',
         required: true
     },
+
     project: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Project',

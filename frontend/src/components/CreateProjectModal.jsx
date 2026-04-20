@@ -27,6 +27,7 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
     const [coverPreview, setCoverPreview] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [personnel, setPersonnel] = useState([]);
+    const [selectedPersonnel, setSelectedPersonnel] = useState([]);
     const [errors, setErrors] = useState({});
 
     useEffect(() => {
@@ -137,6 +138,7 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                 ...formData,
                 image: imageUrl,
                 blueprints: uploadedBlueprints,
+                assignedPersonnel: selectedPersonnel,
                 // Ensure numeric values are numbers, default to 0 if empty
                 siteSize: Number(formData.siteSize) || 0,
                 floors: Number(formData.floors) || 0,
@@ -163,6 +165,7 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                 setUploadedFiles([]);
                 setCoverImage(null);
                 setCoverPreview(null);
+                setSelectedPersonnel([]);
             }
 
         } catch (error) {
@@ -477,13 +480,13 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                         </div>
                     </section>
 
-                    {/* Team Assignment - Visual Only */}
+                    {/* Team Assignment */}
                     <section>
                         <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-2 mb-4">
                             <span className="p-1.5 bg-violet-50 text-violet-500 rounded-lg"><UsersIcon size={16} /></span>
                             Team Assignment
                         </h3>
-                        <div>
+                        <div className="space-y-4">
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Site Manager <span className="text-red-500">*</span></label>
                                 <select
@@ -498,6 +501,63 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                     ))}
                                 </select>
                                 {errors.manager && <p className="mt-1 text-[11px] text-red-500">{errors.manager}</p>}
+                            </div>
+
+                            {/* Personnel Multi-Select */}
+                            <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                                    Assign Personnel to Project
+                                    <span className="ml-2 text-violet-500 font-semibold">
+                                        {selectedPersonnel.length > 0 ? `${selectedPersonnel.length} selected` : 'None selected'}
+                                    </span>
+                                </label>
+                                {personnel.length === 0 ? (
+                                    <p className="text-xs text-gray-400 italic py-2">No personnel found. Add team members first from the Personnel page.</p>
+                                ) : (
+                                    <div className="border border-gray-200 rounded-xl overflow-hidden max-h-52 overflow-y-auto">
+                                        {personnel.map(p => {
+                                            const isSelected = selectedPersonnel.includes(p._id);
+                                            return (
+                                                <div
+                                                    key={p._id}
+                                                    onClick={() => {
+                                                        setSelectedPersonnel(prev =>
+                                                            isSelected ? prev.filter(id => id !== p._id) : [...prev, p._id]
+                                                        );
+                                                    }}
+                                                    className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors border-b border-gray-50 last:border-0 ${
+                                                        isSelected ? 'bg-violet-50' : 'hover:bg-gray-50'
+                                                    }`}
+                                                >
+                                                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                                                        isSelected ? 'bg-violet-500 border-violet-500' : 'border-gray-300'
+                                                    }`}>
+                                                        {isSelected && (
+                                                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                                                                <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                            </svg>
+                                                        )}
+                                                    </div>
+                                                    <img
+                                                        src={p.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}&background=random&size=32`}
+                                                        alt={p.name}
+                                                        className="w-7 h-7 rounded-lg object-cover"
+                                                    />
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className={`text-xs font-medium truncate ${isSelected ? 'text-violet-800' : 'text-gray-800'}`}>{p.name}</p>
+                                                        <p className="text-[10px] text-gray-400 truncate">{p.role}</p>
+                                                    </div>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                                                        p.status === 'On Site' ? 'bg-emerald-50 text-emerald-600' :
+                                                        p.status === 'Remote' ? 'bg-violet-50 text-violet-600' :
+                                                        p.status === 'On Leave' ? 'bg-amber-50 text-amber-600' :
+                                                        'bg-gray-100 text-gray-500'
+                                                    }`}>{p.status || 'On Site'}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </section>

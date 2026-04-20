@@ -22,6 +22,7 @@ router.post('/:id/tasks', verifyToken, checkRole('Admin', 'Site Manager'), proje
 router.delete('/:id/tasks/:taskId', verifyToken, checkRole('Admin', 'Site Manager'), projectController.deleteCriticalTask);
 router.put('/:id/stats', verifyToken, checkRole('Admin', 'Site Manager'), projectController.updateProjectStats);
 router.put('/:id/settings', verifyToken, checkRole('Admin', 'Site Manager'), projectController.updateProjectSettings);
+router.put('/:id/assign-personnel', verifyToken, checkRole('Admin', 'Site Manager'), projectController.assignPersonnel);
 router.get('/:id/blueprint-tasks', verifyToken, projectController.getBlueprintAndTasks);
 router.post('/:id/blueprint-tasks', verifyToken, checkRole('Admin', 'Site Manager'), projectController.addBlueprintTask);
 router.delete('/:id/blueprint-tasks/:taskId', verifyToken, checkRole('Admin', 'Site Manager'), projectController.deleteBlueprintTask);

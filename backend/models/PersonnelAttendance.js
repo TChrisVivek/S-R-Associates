@@ -25,6 +25,7 @@ const personnelAttendanceSchema = new mongoose.Schema({
 });
 
 // Create a compound index so a person only has one attendance record per day
+// (personnel_id + date, not per-project — a person has one status per day)
 personnelAttendanceSchema.index({ personnel_id: 1, date: 1 }, { unique: true });
 
 module.exports = mongoose.model('PersonnelAttendance', personnelAttendanceSchema);
