@@ -76,13 +76,12 @@ const MaterialInventoryTab = ({ projectId }) => {
             }
 
             // Add icon fallback based on unit if it's a new material
-            const unit = payload.unit;
+            const unit = (payload.unit || '').toUpperCase().trim();
             let iconType = 'box';
-            if (unit === 'BAGS') iconType = 'bag';
-            if (unit === 'METRIC TONS') iconType = 'grid';
-            if (unit === 'CUBIC FT') iconType = 'layers';
-            if (unit === 'UNITS') iconType = 'brick';
-            if (unit === 'NUMBERS') iconType = 'box';
+            if (unit === 'BAGS' || unit === 'BAG') iconType = 'bag';
+            else if (unit === 'METRIC TONS' || unit === 'TONS' || unit === 'MT') iconType = 'grid';
+            else if (unit === 'CUBIC FT' || unit === 'CU FT' || unit === 'CFT') iconType = 'layers';
+            else if (unit === 'UNITS' || unit === 'UNIT') iconType = 'brick';
             payload.iconType = iconType;
 
             await api.post(`/projects/${projectId}/materials/delivery`, payload);
@@ -312,13 +311,26 @@ const MaterialInventoryTab = ({ projectId }) => {
                                     </div>
                                     <div className="md:col-span-3">
                                         <label className="block text-xs font-medium text-gray-700 mb-2">Unit</label>
-                                        <select name="unit" className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-gray-300 focus:ring-2 focus:ring-violet-100 outline-none transition-all shadow-sm appearance-none">
-                                            <option value="BAGS">Bags</option>
-                                            <option value="METRIC TONS">Tons</option>
-                                            <option value="CUBIC FT">Cu Ft</option>
-                                            <option value="UNITS">Units</option>
-                                            <option value="NUMBERS">Numbers</option>
-                                        </select>
+                                        <input
+                                            type="text"
+                                            name="unit"
+                                            list="unitsList"
+                                            required
+                                            placeholder="e.g. Bags, Tons…"
+                                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-gray-300 focus:ring-2 focus:ring-violet-100 outline-none transition-all shadow-sm"
+                                        />
+                                        <datalist id="unitsList">
+                                            <option value="Bags" />
+                                            <option value="Metric Tons" />
+                                            <option value="Cubic Ft" />
+                                            <option value="Units" />
+                                            <option value="Numbers" />
+                                            <option value="Litres" />
+                                            <option value="Metres" />
+                                            <option value="Sq Ft" />
+                                            <option value="Kg" />
+                                            <option value="Pieces" />
+                                        </datalist>
                                     </div>
                                 </div>
                             </div>

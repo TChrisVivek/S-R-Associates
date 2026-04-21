@@ -26,7 +26,7 @@ const materialSchema = new mongoose.Schema({
     outflow: { type: Number, default: 0 },
     balance: { type: Number, default: 0 },
     unitPrice: { type: Number, default: 0 },
-    iconType: { type: String, enum: ['bag', 'grid', 'layers', 'brick'], default: 'box' },
+    iconType: { type: String, enum: ['bag', 'grid', 'layers', 'brick', 'box'], default: 'box' },
     logs: [logSchema]
 }, {
     timestamps: true
