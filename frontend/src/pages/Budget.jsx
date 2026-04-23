@@ -274,7 +274,7 @@ export default function Budget() {
                                     <input type="text" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} className={inputCls} placeholder="e.g. Cement delivery" required />
                                 </FormField>
                                 <FormField label="Amount (₹)" required>
-                                    <input type="number" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} className={inputCls} placeholder="50000" min="0" step="0.01" required />
+                                    <input type="number" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} className={inputCls} placeholder="50000.00" min="0" step="any" required />
                                 </FormField>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
