@@ -19,7 +19,7 @@ const expenseSchema = new mongoose.Schema({
         type: String,
         enum: [
             'Vendor', 'Labor', 'Equipment', 'Material', 'Miscellaneous', 'Extension',
-            'Food Allowance', 'Travel Allowance', 'Fuel Allowance', 'Bonus'
+            'Food Allowance', 'Travel Allowance', 'Fuel Allowance', 'Bonus', 'GST'
         ],
         default: 'Vendor',
         required: true

@@ -32,6 +32,7 @@ router.get('/:id/inventory', verifyToken, inventoryController.getProjectInventor
 router.get('/:id/personnel', verifyToken, personnelController.getProjectPersonnel);
 router.post('/:id/materials/delivery', verifyToken, checkRole('Admin', 'Site Manager'), inventoryController.logDelivery);
 router.post('/:id/materials/usage', verifyToken, checkRole('Admin', 'Site Manager', 'Contractor'), inventoryController.logUsage);
+router.patch('/:id/materials/:materialId/threshold', verifyToken, checkRole('Admin', 'Site Manager'), inventoryController.updateMaterialThreshold);
 
 // Daily Logs Routes
 router.get('/:id/daily-logs', verifyToken, dailyLogController.getProjectDailyLogs);

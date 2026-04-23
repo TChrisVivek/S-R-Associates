@@ -14,6 +14,7 @@ const MaterialInventoryTab = ({ projectId }) => {
     const [inventoryData, setInventoryData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [thresholdEditing, setThresholdEditing] = useState({}); // { materialId: draftValue }
     const { user: currentUser } = useAuth();
 
     // Modal States
@@ -131,6 +132,25 @@ const MaterialInventoryTab = ({ projectId }) => {
         }
     };
 
+    // Save low-stock threshold for a material
+    const saveThreshold = async (materialId, value) => {
+        const parsed = parseFloat(value);
+        if (isNaN(parsed) || parsed < 0) {
+            showToast('Enter a valid non-negative number', 'error');
+            setThresholdEditing(prev => { const n = { ...prev }; delete n[materialId]; return n; });
+            return;
+        }
+        try {
+            await api.patch(`/projects/${projectId}/materials/${materialId}/threshold`, { lowStockThreshold: parsed });
+            showToast('Min stock threshold updated!', 'success');
+            fetchInventory();
+        } catch {
+            showToast('Failed to update threshold', 'error');
+        } finally {
+            setThresholdEditing(prev => { const n = { ...prev }; delete n[materialId]; return n; });
+        }
+    };
+
     // Icon Helper based on material type
     const getMaterialIcon = (type) => {
         switch (type) {
@@ -192,6 +212,7 @@ const MaterialInventoryTab = ({ projectId }) => {
                                 <th className="py-4 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">Total<br />Outflow</th>
                                 <th className="py-4 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">Current<br />Balance</th>
                                 <th className="py-4 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Inventory<br />Value</th>
+                                <th className="py-4 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">Min<br />Stock</th>
                                 <th className="py-4 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider text-right">Status</th>
                             </tr>
                         </thead>
@@ -216,6 +237,37 @@ const MaterialInventoryTab = ({ projectId }) => {
                                         {mat.balance}
                                     </td>
                                     <td className="py-4 px-6 font-medium text-gray-700">{mat.value}</td>
+                                    <td className="py-4 px-6 text-center">
+                                        {currentUser?.role === 'Admin' || currentUser?.role === 'Site Manager' ? (
+                                            thresholdEditing[mat.id] !== undefined ? (
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    step="1"
+                                                    autoFocus
+                                                    value={thresholdEditing[mat.id]}
+                                                    onChange={e => setThresholdEditing(prev => ({ ...prev, [mat.id]: e.target.value }))}
+                                                    onBlur={() => saveThreshold(mat.id, thresholdEditing[mat.id])}
+                                                    onKeyDown={e => {
+                                                        if (e.key === 'Enter') saveThreshold(mat.id, thresholdEditing[mat.id]);
+                                                        if (e.key === 'Escape') setThresholdEditing(prev => { const n = { ...prev }; delete n[mat.id]; return n; });
+                                                    }}
+                                                    onClick={e => e.stopPropagation()}
+                                                    className="w-20 text-center px-2 py-1 text-sm border border-violet-400 rounded-lg outline-none ring-2 ring-violet-100 font-medium text-gray-800"
+                                                />
+                                            ) : (
+                                                <button
+                                                    onClick={e => { e.stopPropagation(); setThresholdEditing(prev => ({ ...prev, [mat.id]: mat.lowStockThreshold })); }}
+                                                    title="Click to set low stock threshold"
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-dashed border-gray-300 text-xs font-semibold text-gray-500 hover:border-violet-400 hover:text-violet-600 hover:bg-violet-50 transition-all"
+                                                >
+                                                    {mat.lowStockThreshold}
+                                                </button>
+                                            )
+                                        ) : (
+                                            <span className="text-sm font-medium text-gray-500">{mat.lowStockThreshold}</span>
+                                        )}
+                                    </td>
                                     <td className="py-4 px-6 text-right">
                                         <span className={`inline-block px-3 py-1 rounded-md text-[10px] font-semibold tracking-wider uppercase ${mat.status === 'OUT OF STOCK' ? 'bg-red-50 text-red-600' : mat.status === 'LOW STOCK' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'
                                             }`}>
@@ -586,7 +638,7 @@ const MaterialInventoryTab = ({ projectId }) => {
                                                         {isDelivery ? (
                                                             <div>
                                                                 <p className="font-medium text-gray-900">{log.supplier || 'Unknown Supplier'}</p>
-                                                                <p className="text-xs text-gray-500 mt-0.5">Cost: <span className="font-medium text-gray-700">₹ {log.totalCost?.toLocaleString() || '0'}</span></p>
+                                                                <p className="text-xs text-gray-500 mt-0.5">Cost: <span className="font-medium text-gray-700">₹ {log.totalCost?.toLocaleString('en-IN') || '0'}</span></p>
                                                             </div>
                                                         ) : (
                                                             <div>

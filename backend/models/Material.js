@@ -27,6 +27,7 @@ const materialSchema = new mongoose.Schema({
     balance: { type: Number, default: 0 },
     unitPrice: { type: Number, default: 0 },
     iconType: { type: String, enum: ['bag', 'grid', 'layers', 'brick', 'box'], default: 'box' },
+    lowStockThreshold: { type: Number, default: 50, min: 0 },
     logs: [logSchema]
 }, {
     timestamps: true
@@ -34,10 +35,9 @@ const materialSchema = new mongoose.Schema({
 
 // Auto-calculate status based on balance
 materialSchema.virtual('status').get(function () {
-    // 10% of total inflow as a simple low stock threshold, or hardcoded 100 for now
     if (this.balance <= 0) return 'OUT OF STOCK';
     if (this.inflow > 0 && this.balance < (this.inflow * 0.1)) return 'LOW STOCK';
-    if (this.balance < 50) return 'LOW STOCK';
+    if (this.balance < (this.lowStockThreshold ?? 50)) return 'LOW STOCK';
     return 'OPTIMAL';
 });
 

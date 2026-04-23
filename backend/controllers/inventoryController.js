@@ -37,26 +37,30 @@ const getProjectInventory = async (req, res) => {
                 id: mat._id.toString(),
                 name: mat.name,
                 unit: mat.unit,
-                inflow: mat.inflow.toLocaleString(),
-                outflow: mat.outflow.toLocaleString(),
-                balance: mat.balance.toLocaleString(),
-                value: `₹ ${matValue.toLocaleString()}`,
+                inflow: mat.inflow.toLocaleString('en-IN'),
+                outflow: mat.outflow.toLocaleString('en-IN'),
+                balance: mat.balance.toLocaleString('en-IN'),
+                value: `₹ ${matValue.toLocaleString('en-IN')}`,
                 status: mat.status,
                 iconType: mat.iconType,
+                lowStockThreshold: mat.lowStockThreshold ?? 50,
                 logs: mat.logs // Exposing the full chronological history to the frontend
             };
         });
 
-        let formattedInflow = `₹ ${monthlyInflow.toLocaleString()}`;
-        if (monthlyInflow >= 100000) {
+        let formattedInflow = `₹ ${monthlyInflow.toLocaleString('en-IN')}`;
+        if (monthlyInflow >= 10000000) {
+            formattedInflow = `₹ ${(monthlyInflow / 10000000).toFixed(2)} Cr`;
+        } else if (monthlyInflow >= 100000) {
             formattedInflow = `₹ ${(monthlyInflow / 100000).toFixed(1)} L`;
         } else if (monthlyInflow >= 1000) {
             formattedInflow = `₹ ${(monthlyInflow / 1000).toFixed(1)} K`;
         }
 
         const realTimeInventoryData = {
-            lastUpdated: new Date().toLocaleString(),
-            totalValue: `₹ ${totalValue.toLocaleString()}`,
+            lastUpdated: new Date().toLocaleString('en-IN'),
+            totalValue: `₹ ${totalValue.toLocaleString('en-IN')}`,
+
             summary: {
                 pendingOrders: pendingOrders.toString(),
                 outOfStock: `${outOfStock} Item${outOfStock !== 1 ? 's' : ''}`,
@@ -197,4 +201,31 @@ const logUsage = async (req, res) => {
     }
 };
 
-module.exports = { getProjectInventory, logDelivery, logUsage };
+const updateMaterialThreshold = async (req, res) => {
+    const { id: projectId, materialId } = req.params;
+    const { lowStockThreshold } = req.body;
+
+    try {
+        const threshold = parseFloat(lowStockThreshold);
+        if (isNaN(threshold) || threshold < 0) {
+            return res.status(400).json({ message: 'Threshold must be a non-negative number' });
+        }
+
+        const material = await Material.findOne({ _id: materialId, project_id: projectId });
+        if (!material) return res.status(404).json({ message: 'Material not found' });
+
+        material.lowStockThreshold = threshold;
+        await material.save();
+
+        res.json({
+            id: material._id.toString(),
+            lowStockThreshold: material.lowStockThreshold,
+            status: material.status
+        });
+    } catch (error) {
+        console.error('Error updating material threshold:', error);
+        res.status(500).json({ message: 'Error updating threshold' });
+    }
+};
+
+module.exports = { getProjectInventory, logDelivery, logUsage, updateMaterialThreshold };

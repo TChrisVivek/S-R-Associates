@@ -20,7 +20,7 @@ const CAT_COLORS = {
     Vendor: '#7c3aed', Labor: '#6366f1', Material: '#0ea5e9',
     Equipment: '#a78bfa', Extension: '#e879f9', Miscellaneous: '#94a3b8',
     'Food Allowance': '#f59e0b', 'Travel Allowance': '#10b981',
-    'Fuel Allowance': '#ef4444', 'Bonus': '#ec4899',
+    'Fuel Allowance': '#ef4444', 'Bonus': '#ec4899', 'GST': '#0d9488',
 };
 const STATUS_CFG = {
     Approved: { pill: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60', dot: 'bg-emerald-500' },
@@ -650,7 +650,7 @@ function ExpensesTab({ data, isAdmin, onDelete, confirmDel }) {
                                             <td className="py-3 px-4"><CatChip cat={tx.category} /></td>
                                             <td className="py-3 px-4"><StatusChip status={tx.status} /></td>
                                             <td className="py-3 px-4 text-[12px] text-gray-500 whitespace-nowrap tabular-nums">{dt}</td>
-                                            <td className="py-3 pl-4 pr-6 text-right text-[13.5px] font-semibold text-gray-900 tabular-nums whitespace-nowrap">{tx.amount}</td>
+                                            <td className="py-3 pl-4 pr-6 text-right text-[13.5px] font-semibold text-gray-900 tabular-nums whitespace-nowrap">{fmtAmt(tx.rawAmount ?? tx.amount)}</td>
                                             {isAdmin && <td className="py-3 pr-3">
                                                 <button
                                                     onClick={() => onDelete(tx.id)}
@@ -823,6 +823,7 @@ const CatChip = ({ cat }) => {
         'Travel Allowance': 'bg-emerald-50 text-emerald-700',
         'Fuel Allowance':   'bg-red-50 text-red-700',
         'Bonus':            'bg-pink-50 text-pink-700',
+        'GST':              'bg-teal-50 text-teal-700',
     };
     return <span className={`text-[10.5px] font-semibold px-2 py-0.5 rounded-md ${m[cat] || m.Miscellaneous}`}>{cat}</span>;
 };
