@@ -343,8 +343,13 @@ const Reports = () => {
 
             // Transaction log
             const logRows = [];
+            let totalSpentInPeriod = 0;
+
             materials.forEach(m => {
                 filterByDate(m.logs || [], 'date', dateFrom, dateTo).forEach(log => {
+                    if (log.type === 'delivery' && log.totalCost) {
+                        totalSpentInPeriod += Number(log.totalCost);
+                    }
                     logRows.push([
                         new Date(log.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }),
                         m.name || 'N/A',
@@ -356,6 +361,11 @@ const Reports = () => {
                 });
             });
 
+            // Format total spent
+            let fmtTotal = `Rs.${totalSpentInPeriod.toLocaleString('en-IN')}`;
+            if (totalSpentInPeriod >= 10000000) fmtTotal = `Rs.${(totalSpentInPeriod / 10000000).toFixed(2)} Cr`;
+            else if (totalSpentInPeriod >= 100000) fmtTotal = `Rs.${(totalSpentInPeriod / 100000).toFixed(2)} L`;
+
             if (logRows.length > 0) {
                 if (y > 240) { doc.addPage(); y = 20; }
                 doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.text('Transaction Log', 14, y);
@@ -364,12 +374,22 @@ const Reports = () => {
                     startY: y,
                     head: [['Date', 'Material', 'Type', 'Qty', 'Supplier/Purpose', 'Cost']],
                     body: logRows,
+                    foot: [['', '', '', '', 'TOTAL SPENT ON INVENTORY', fmtTotal]],
                     theme: 'grid',
                     headStyles: { fillColor: [26, 29, 46], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
                     bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
+                    footStyles: { fillColor: [109, 40, 217], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'right' },
                     alternateRowStyles: { fillColor: [250, 250, 252] },
                     margin: { left: 14, right: 14 },
                     styles: { cellPadding: 3, lineColor: [230, 230, 230], lineWidth: 0.1 },
+                    didParseCell: (data) => {
+                        if (data.section === 'foot') {
+                            if (data.column.index < 4) {
+                                data.cell.styles.fillColor = [109, 40, 217];
+                                data.cell.styles.textColor = [109, 40, 217]; // invisible text for empty cells
+                            }
+                        }
+                    }
                 });
             }
             addPdfFooter(doc);
@@ -1117,7 +1137,7 @@ const Reports = () => {
     if (isLoading) return <GlobalLoader />;
 
     const NAV_ITEMS = [
-        { icon: <LayoutDashboard size={16} />, text: 'Dashboard',  href: '/dashboard' },
+        { icon: <LayoutDashboard size={16} />, text: 'Dashboard',  href: '/' },
         { icon: <FolderOpen size={16} />,      text: 'Projects',   href: '/projects' },
         { icon: <Users size={16} />,           text: 'Personnel',  href: '/personnel' },
         { icon: <PieChart size={16} />,        text: 'Budget',     href: '/budget' },
@@ -1280,7 +1300,22 @@ const Reports = () => {
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div>
                                                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Select Project</label>
-                                                    <select value={formProject} onChange={e => setFormProject(e.target.value)}
+                                                    <select value={formProject} onChange={e => {
+                                                        const pid = e.target.value;
+                                                        setFormProject(pid);
+                                                        if (pid) {
+                                                            const proj = projects.find(p => p._id === pid);
+                                                            if (proj?.startDate) {
+                                                                setFormDateFrom(new Date(proj.startDate).toISOString().split('T')[0]);
+                                                            } else {
+                                                                setFormDateFrom('');
+                                                            }
+                                                        } else {
+                                                            // Switched to "All Projects" — clear date range
+                                                            setFormDateFrom('');
+                                                            setFormDateTo('');
+                                                        }
+                                                    }}
                                                         className="w-full bg-gray-50 border border-gray-200 px-3 py-2.5 rounded-xl text-sm text-gray-700 outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-400 transition-all">
                                                         <option value="">All Projects</option>
                                                         {projects.map(p => <option key={p._id} value={p._id}>{p.title}</option>)}

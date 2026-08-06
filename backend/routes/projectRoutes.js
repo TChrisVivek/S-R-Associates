@@ -1,17 +1,18 @@
 const express = require('express');
 const router = express.Router();
-// Multer has been removed as file uploads are now handled directly from frontend to Cloudinary
 
-// Routes
+// Controllers
 const projectController = require('../controllers/projectController');
-const inventoryController = require('../controllers/inventoryController');
-const dailyLogController = require('../controllers/dailyLogController');
 const personnelController = require('../controllers/personnelController');
+const blockController = require('../controllers/blockController');
 const { verifyToken } = require('../middleware/authMiddleware');
 const { checkRole } = require('../middleware/roleMiddleware');
 
-// Routes
-// Routes protected by verified token
+// Block sub-router (handles /api/projects/:id/blocks/... routes)
+const blockRoutes = require('./blockRoutes');
+router.use('/:projectId/blocks', blockRoutes);
+
+// ─── Project-level routes ─────────────────────────────────────────────────────
 router.post('/upload', verifyToken, checkRole('Admin', 'Site Manager'), projectController.uploadBlueprint);
 router.post('/', verifyToken, checkRole('Admin', 'Site Manager'), projectController.createProject);
 router.get('/', verifyToken, projectController.getAllProjects);
@@ -23,19 +24,12 @@ router.delete('/:id/tasks/:taskId', verifyToken, checkRole('Admin', 'Site Manage
 router.put('/:id/stats', verifyToken, checkRole('Admin', 'Site Manager'), projectController.updateProjectStats);
 router.put('/:id/settings', verifyToken, checkRole('Admin', 'Site Manager'), projectController.updateProjectSettings);
 router.put('/:id/assign-personnel', verifyToken, checkRole('Admin', 'Site Manager'), projectController.assignPersonnel);
-router.get('/:id/blueprint-tasks', verifyToken, projectController.getBlueprintAndTasks);
-router.post('/:id/blueprint-tasks', verifyToken, checkRole('Admin', 'Site Manager'), projectController.addBlueprintTask);
-router.delete('/:id/blueprint-tasks/:taskId', verifyToken, checkRole('Admin', 'Site Manager'), projectController.deleteBlueprintTask);
-router.post('/:id/blueprints', verifyToken, checkRole('Admin', 'Site Manager'), projectController.uploadProjectBlueprint);
-router.delete('/:id/blueprints/:blueprintId', verifyToken, checkRole('Admin', 'Site Manager'), projectController.deleteProjectBlueprint);
-router.get('/:id/inventory', verifyToken, inventoryController.getProjectInventory);
 router.get('/:id/personnel', verifyToken, personnelController.getProjectPersonnel);
-router.post('/:id/materials/delivery', verifyToken, checkRole('Admin', 'Site Manager'), inventoryController.logDelivery);
-router.post('/:id/materials/usage', verifyToken, checkRole('Admin', 'Site Manager', 'Contractor'), inventoryController.logUsage);
-router.patch('/:id/materials/:materialId/threshold', verifyToken, checkRole('Admin', 'Site Manager'), inventoryController.updateMaterialThreshold);
 
-// Daily Logs Routes
-router.get('/:id/daily-logs', verifyToken, dailyLogController.getProjectDailyLogs);
-router.post('/:id/daily-logs', verifyToken, checkRole('Admin', 'Site Manager', 'Contractor'), dailyLogController.createDailyLog);
+// ─── Project-level Inventory (shared across all blocks) ───────────────────────
+router.get('/:projectId/inventory', verifyToken, blockController.getProjectInventory);
+router.post('/:projectId/materials/delivery', verifyToken, checkRole('Admin', 'Site Manager'), blockController.logProjectDelivery);
+router.post('/:projectId/materials/usage', verifyToken, checkRole('Admin', 'Site Manager', 'Contractor'), blockController.logProjectUsage);
+router.patch('/:projectId/materials/:materialId/threshold', verifyToken, checkRole('Admin', 'Site Manager'), blockController.updateProjectMaterialThreshold);
 
 module.exports = router;

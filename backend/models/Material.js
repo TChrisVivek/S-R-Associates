@@ -20,6 +20,11 @@ const materialSchema = new mongoose.Schema({
         ref: 'Project',
         required: true
     },
+    block_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Block',
+        required: false // Optional for backward compat; populated by migration
+    },
     name: { type: String, required: true },
     unit: { type: String, required: true },
     inflow: { type: Number, default: 0 },

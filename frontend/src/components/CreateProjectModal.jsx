@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, Home, Building2, Hammer, Sofa, CheckCircle2, Calendar, Loader2, Plus, FileText, Trash2, ImagePlus } from 'lucide-react';
+import { X, Upload, Home, Building2, Hammer, Sofa, CheckCircle2, Calendar, Loader2, Plus, FileText, Trash2, ImagePlus, Layers } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import api from '../api/axios';
@@ -14,14 +14,15 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
         address: '',
         siteSize: '',
         floors: '',
-        type: 'Residential', // Default
+        type: 'Residential',
         budget: '',
-        budgetUnit: 'Lakhs', // Default unit
+        budgetUnit: 'Lakhs',
         startDate: null,
         endDate: null,
         manager: '',
         contractor: ''
     });
+    const [blockMode, setBlockMode] = useState('single');
     const [uploadedFiles, setUploadedFiles] = useState([]);
     const [coverImage, setCoverImage] = useState(null);
     const [coverPreview, setCoverPreview] = useState(null);
@@ -136,14 +137,13 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
             // 3. Create Project
             const projectPayload = {
                 ...formData,
+                blockMode,
                 image: imageUrl,
                 blueprints: uploadedBlueprints,
                 assignedPersonnel: selectedPersonnel,
-                // Ensure numeric values are numbers, default to 0 if empty
                 siteSize: Number(formData.siteSize) || 0,
                 floors: Number(formData.floors) || 0,
                 budget: Number(formData.budget) || 0,
-                // Ensure dates are valid Date objects or null
                 startDate: formData.startDate || null,
                 endDate: formData.endDate || null,
             };
@@ -161,6 +161,7 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                     type: 'Residential', budget: '', budgetUnit: 'Lakhs',
                     startDate: null, endDate: null, manager: '', contractor: ''
                 });
+                setBlockMode('single');
                 setErrors({});
                 setUploadedFiles([]);
                 setCoverImage(null);
@@ -558,6 +559,34 @@ const CreateProjectModal = ({ isOpen, onClose, onCreate }) => {
                                         })}
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Project Structure */}
+                    <section>
+                        <h3 className="text-xs font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                            <span className="p-1.5 bg-violet-50 text-violet-500 rounded-lg"><Layers size={16} /></span>
+                            Project Structure
+                        </h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div
+                                onClick={() => setBlockMode('single')}
+                                className={`relative p-4 rounded-xl border cursor-pointer transition-all ${blockMode === 'single' ? 'border-violet-400 bg-violet-50/30' : 'border-gray-100 hover:border-gray-200'}`}
+                            >
+                                {blockMode === 'single' && <div className="absolute top-3 right-3 text-violet-500"><CheckCircle2 size={16} /></div>}
+                                <div className={`mb-2 ${blockMode === 'single' ? 'text-violet-500' : 'text-gray-400'}`}><Building2 size={24} /></div>
+                                <div className="font-medium text-gray-800 text-xs">Single Building</div>
+                                <div className="text-[11px] text-gray-400 mt-0.5">One unit — direct access to blueprints, logs &amp; inventory</div>
+                            </div>
+                            <div
+                                onClick={() => setBlockMode('multi')}
+                                className={`relative p-4 rounded-xl border cursor-pointer transition-all ${blockMode === 'multi' ? 'border-violet-400 bg-violet-50/30' : 'border-gray-100 hover:border-gray-200'}`}
+                            >
+                                {blockMode === 'multi' && <div className="absolute top-3 right-3 text-violet-500"><CheckCircle2 size={16} /></div>}
+                                <div className={`mb-2 ${blockMode === 'multi' ? 'text-violet-500' : 'text-gray-400'}`}><Layers size={24} /></div>
+                                <div className="font-medium text-gray-800 text-xs">Multiple Blocks</div>
+                                <div className="text-[11px] text-gray-400 mt-0.5">Towers, wings or phases — each tracked independently</div>
                             </div>
                         </div>
                     </section>

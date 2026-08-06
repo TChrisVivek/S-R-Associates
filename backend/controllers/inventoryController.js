@@ -10,6 +10,7 @@ const getProjectInventory = async (req, res) => {
         const materials = await Material.find({ project_id: projectId });
 
         let totalValue = 0;
+        let totalSpent = 0;
         let pendingOrders = 0;
         let outOfStock = 0;
         let monthlyInflow = 0;
@@ -26,6 +27,7 @@ const getProjectInventory = async (req, res) => {
 
             mat.logs.forEach(log => {
                 if (log.type === 'delivery') {
+                    totalSpent += (log.totalCost || 0);
                     const logDate = new Date(log.date);
                     if (logDate.getMonth() === currentMonth && logDate.getFullYear() === currentYear) {
                         monthlyInflow += (log.totalCost || 0);
@@ -57,9 +59,19 @@ const getProjectInventory = async (req, res) => {
             formattedInflow = `₹ ${(monthlyInflow / 1000).toFixed(1)} K`;
         }
 
+        // Format totalSpent
+        let formattedTotalSpent = `₹ ${totalSpent.toLocaleString('en-IN')}`;
+        if (totalSpent >= 10000000) {
+            formattedTotalSpent = `₹ ${(totalSpent / 10000000).toFixed(2)} Cr`;
+        } else if (totalSpent >= 100000) {
+            formattedTotalSpent = `₹ ${(totalSpent / 100000).toFixed(2)} L`;
+        }
+
         const realTimeInventoryData = {
             lastUpdated: new Date().toLocaleString('en-IN'),
             totalValue: `₹ ${totalValue.toLocaleString('en-IN')}`,
+            totalSpent: formattedTotalSpent,
+            totalSpentRaw: totalSpent,
 
             summary: {
                 pendingOrders: pendingOrders.toString(),

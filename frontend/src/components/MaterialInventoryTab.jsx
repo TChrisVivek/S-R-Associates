@@ -10,20 +10,18 @@ import GlobalLoader from './GlobalLoader';
 import { uploadToCloudinary } from '../utils/cloudinaryUpload';
 import { useAuth } from '../context/AuthContext';
 
-const MaterialInventoryTab = ({ projectId }) => {
+const MaterialInventoryTab = ({ projectId, blockId }) => {
     const [inventoryData, setInventoryData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
-    const [thresholdEditing, setThresholdEditing] = useState({}); // { materialId: draftValue }
+    const [thresholdEditing, setThresholdEditing] = useState({});
     const { user: currentUser } = useAuth();
 
-    // Modal States
     const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
     const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
     const [selectedMaterialDetails, setSelectedMaterialDetails] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
 
-    // Form States
     const [selectedMaterialForUsage, setSelectedMaterialForUsage] = useState('');
     const [deliveryChallanFile, setDeliveryChallanFile] = useState(null);
     const [stackPhotoFile, setStackPhotoFile] = useState(null);
@@ -31,15 +29,19 @@ const MaterialInventoryTab = ({ projectId }) => {
     const [usageQty, setUsageQty] = useState('');
     const { showToast, ToastComponent } = useToast();
 
-    // 1. Fetch Real Data
+    // API base: if blockId provided use block-scoped, else use project-level
+    const apiBase = blockId
+        ? `/projects/${projectId}/blocks/${blockId}`
+        : `/projects/${projectId}`;
+
     useEffect(() => {
         fetchInventory();
-    }, [projectId]);
+    }, [blockId, projectId]);
 
     const fetchInventory = async () => {
         setLoading(true);
         try {
-            const response = await api.get(`/projects/${projectId}/inventory`);
+            const response = await api.get(`${apiBase}/inventory`);
             setInventoryData(response.data);
         } catch (error) {
             console.error("Failed to fetch inventory:", error);
@@ -85,7 +87,7 @@ const MaterialInventoryTab = ({ projectId }) => {
             else if (unit === 'UNITS' || unit === 'UNIT') iconType = 'brick';
             payload.iconType = iconType;
 
-            await api.post(`/projects/${projectId}/materials/delivery`, payload);
+            await api.post(`${apiBase}/materials/delivery`, payload);
 
             await fetchInventory();
             setIsDeliveryModalOpen(false);
@@ -116,7 +118,7 @@ const MaterialInventoryTab = ({ projectId }) => {
                 payload.usagePhotoUrl = await uploadToCloudinary(usagePhotoFile);
             }
 
-            await api.post(`/projects/${projectId}/materials/usage`, payload);
+            await api.post(`${apiBase}/materials/usage`, payload);
 
             await fetchInventory();
             setIsUsageModalOpen(false);
@@ -141,7 +143,7 @@ const MaterialInventoryTab = ({ projectId }) => {
             return;
         }
         try {
-            await api.patch(`/projects/${projectId}/materials/${materialId}/threshold`, { lowStockThreshold: parsed });
+            await api.patch(`${apiBase}/materials/${materialId}/threshold`, { lowStockThreshold: parsed });
             showToast('Min stock threshold updated!', 'success');
             fetchInventory();
         } catch {
@@ -283,15 +285,41 @@ const MaterialInventoryTab = ({ projectId }) => {
                     </table>
                 </div>
 
-                {/* Table Footer */}
-                <div className="bg-gray-50/50 p-4 border-t border-gray-100 flex justify-between items-center px-6">
-                    <p className="text-xs font-medium text-gray-400 italic">Last updated: {inventoryData.lastUpdated}</p>
-                    <p className="text-sm font-medium text-gray-900">Total Inventory Value: <span className="text-indigo-600 ml-2">{inventoryData.totalValue}</span></p>
+                {/* Table Footer - Totals */}
+                <div className="bg-gradient-to-r from-violet-50 to-indigo-50 p-4 border-t border-violet-100 px-6">
+                    <div className="flex items-center justify-between flex-wrap gap-4">
+                        <p className="text-xs font-medium text-gray-400 italic">Last updated: {inventoryData.lastUpdated}</p>
+                        <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-indigo-400"></div>
+                                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Inventory Value</span>
+                                <span className="text-sm font-bold text-indigo-700 ml-1">{inventoryData.totalValue}</span>
+                            </div>
+                            <div className="w-px h-5 bg-violet-200"></div>
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-violet-500"></div>
+                                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Spent on Inventory</span>
+                                <span className="text-sm font-bold text-violet-700 ml-1">{inventoryData.totalSpent}</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             {/* --- SUMMARY CARDS (BOTTOM) --- */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+                {/* Total Spent Highlight Card */}
+                <div className="md:col-span-1 bg-gradient-to-br from-violet-600 to-indigo-600 border border-violet-500 rounded-2xl p-6 flex items-center gap-5 shadow-lg shadow-violet-500/20 hover:shadow-xl hover:shadow-violet-500/30 transition-all group">
+                    <div className="p-4 bg-white/20 text-white rounded-xl group-hover:scale-110 transition-transform">
+                        <Wallet size={28} />
+                    </div>
+                    <div>
+                        <p className="text-xs font-semibold text-violet-200 uppercase tracking-wider mb-1">Total Spent</p>
+                        <p className="text-2xl font-bold text-white">{inventoryData.totalSpent}</p>
+                        <p className="text-[10px] text-violet-200 mt-0.5 font-medium">All deliveries · all time</p>
+                    </div>
+                </div>
 
                 <div className="bg-white border border-gray-200 rounded-2xl p-6 flex items-center gap-5 shadow-sm hover:shadow-md transition-all group">
                     <div className="p-4 bg-indigo-50 text-indigo-600 rounded-xl group-hover:scale-110 transition-transform">

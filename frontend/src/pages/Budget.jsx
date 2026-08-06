@@ -5,7 +5,7 @@ import {
     Wallet, Building2, AlertTriangle, Hourglass, FileSpreadsheet,
     Check, X, ChevronRight, BarChart3, Plus, Loader2, Edit2,
     Package, Wrench, HardHat, Image, Trash2, Search,
-    ChevronDown, CircleDot, Activity, ReceiptText,
+    ChevronDown, CircleDot, Activity, ReceiptText, Lock, LockOpen, Eye, EyeOff,
 } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '../api/axios';
@@ -337,15 +337,66 @@ export default function Budget() {
    OVERVIEW TAB
    ═══════════════════════════════════════════════════════════ */
 function OverviewTab({ data }) {
+    const [pinModalOpen, setPinModalOpen] = useState(false);
+    const [isUnlocked,   setIsUnlocked]  = useState(false);
+
+    const PIN_KEY = 'sra_budget_pin';
+    const storedPin = () => localStorage.getItem(PIN_KEY);
+
+    const handleCardClick = () => {
+        if (isUnlocked) return; // already visible
+        setPinModalOpen(true);
+    };
+
+    const handlePinSubmit = (pin) => {
+        const existing = storedPin();
+        if (!existing) {
+            // First time — set the PIN
+            localStorage.setItem(PIN_KEY, pin);
+            setIsUnlocked(true);
+            setPinModalOpen(false);
+        } else if (existing === pin) {
+            setIsUnlocked(true);
+            setPinModalOpen(false);
+        } else {
+            return false; // wrong PIN — signal error to modal
+        }
+        return true;
+    };
+
+    const handleLock = (e) => {
+        e.stopPropagation();
+        setIsUnlocked(false);
+    };
+
+    const isFirstTime = !storedPin();
+
     return (
         <div className="px-8 py-6 space-y-5 max-w-[1180px]">
             {/* KPI row */}
             <div className="grid grid-cols-4 gap-4">
-                <KpiCard icon={<Wallet size={16} />}        pal="violet" label="Total Allocated"  value={data.kpis.totalAllocated.value}  sub={data.kpis.totalAllocated.trend} />
+                <PinProtectedKpiCard
+                    icon={<Wallet size={16} />}
+                    pal="violet"
+                    label="Total Allocated"
+                    value={data.kpis.totalAllocated.value}
+                    sub={data.kpis.totalAllocated.trend}
+                    isUnlocked={isUnlocked}
+                    onCardClick={handleCardClick}
+                    onLock={handleLock}
+                />
                 <KpiCard icon={<Building2 size={16} />}     pal="blue"   label="Actual Spent"      value={data.kpis.actualSpent.value}      sub={data.kpis.actualSpent.subtext} extra={data.kpis.actualSpent.dailyAvg !== '₹0' ? `${data.kpis.actualSpent.dailyAvg} avg / day` : null} />
                 <KpiCard icon={<AlertTriangle size={16} />} pal="red"    label="Overruns"           value={data.kpis.budgetOverruns.value}   sub={data.kpis.budgetOverruns.subtext} />
                 <KpiCard icon={<Hourglass size={16} />}     pal="amber"  label="Pending Approvals"  value={data.kpis.pendingApprovals.value} sub={data.kpis.pendingApprovals.subtext} />
             </div>
+
+            {pinModalOpen && (
+                <PinModal
+                    isFirstTime={isFirstTime}
+                    onSubmit={handlePinSubmit}
+                    onClose={() => setPinModalOpen(false)}
+                />
+            )}
 
             {/* Charts */}
             <div className="grid grid-cols-3 gap-4">
@@ -773,6 +824,206 @@ const KpiCard = ({ icon, pal, label, value, sub, extra }) => {
         </div>
     );
 };
+
+/* ── PIN-Protected KPI Card ─────────────────────────────────── */
+const PinProtectedKpiCard = ({ icon, pal, label, value, sub, isUnlocked, onCardClick, onLock }) => {
+    const map = {
+        violet: { iconBg: 'bg-violet-50', iconTxt: 'text-violet-500', subTxt: 'text-violet-600', border: '#ede9fe', overlay: 'from-violet-50/80 to-white/90' },
+    };
+    const c = map[pal] || map.violet;
+    return (
+        <div
+            className={`bg-white rounded-xl p-5 relative overflow-hidden transition-all duration-300 ${!isUnlocked ? 'cursor-pointer group' : ''}`}
+            style={{ border: `1px solid ${c.border}` }}
+            onClick={!isUnlocked ? onCardClick : undefined}
+        >
+            {/* Header */}
+            <div className="flex items-start justify-between mb-3.5">
+                <p className="text-[10.5px] font-semibold text-gray-400 uppercase tracking-[0.08em] leading-tight">{label}</p>
+                <div className="flex items-center gap-1.5">
+                    {isUnlocked && (
+                        <button
+                            onClick={onLock}
+                            title="Lock this value"
+                            className="w-6 h-6 rounded-md flex items-center justify-center text-violet-400 hover:bg-violet-50 hover:text-violet-600 transition-colors"
+                        >
+                            <Lock size={12} />
+                        </button>
+                    )}
+                    <div className={`w-8 h-8 ${c.iconBg} rounded-lg flex items-center justify-center ${c.iconTxt} shrink-0`}>{icon}</div>
+                </div>
+            </div>
+
+            {/* Value – blurred when locked */}
+            <div className="relative">
+                <p
+                    className="text-[22px] font-semibold text-gray-900 tracking-[-0.02em] leading-none tabular-nums transition-all duration-500"
+                    style={{ filter: isUnlocked ? 'none' : 'blur(8px)', userSelect: isUnlocked ? 'auto' : 'none' }}
+                >
+                    {value}
+                </p>
+                {sub && (
+                    <p
+                        className={`text-[11.5px] mt-2 font-medium ${c.subTxt} transition-all duration-500`}
+                        style={{ filter: isUnlocked ? 'none' : 'blur(6px)' }}
+                    >
+                        {sub}
+                    </p>
+                )}
+            </div>
+
+            {/* Locked overlay */}
+            {!isUnlocked && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 group-hover:bg-violet-50/30 transition-colors">
+                    <div className="w-8 h-8 rounded-full bg-white shadow-sm shadow-violet-200 border border-violet-100 flex items-center justify-center">
+                        <Lock size={14} className="text-violet-500" />
+                    </div>
+                    <span className="text-[10px] font-semibold text-violet-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        Click to unlock
+                    </span>
+                </div>
+            )}
+        </div>
+    );
+};
+
+/* ── PIN Modal ───────────────────────────────────────────────── */
+function PinModal({ isFirstTime, onSubmit, onClose }) {
+    const [pin,      setPin]      = useState('');
+    const [error,    setError]    = useState('');
+    const [shake,    setShake]    = useState(false);
+    const [showPin,  setShowPin]  = useState(false);
+    const inputRef = React.useRef(null);
+
+    useEffect(() => { setTimeout(() => inputRef.current?.focus(), 80); }, []);
+
+    const handleChange = (e) => {
+        const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+        setPin(v);
+        setError('');
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && pin.length === 4) submit();
+    };
+
+    const submit = () => {
+        if (pin.length !== 4) { setError('Enter a 4-digit PIN'); return; }
+        const ok = onSubmit(pin);
+        if (ok === false) {
+            setError('Incorrect PIN. Try again.');
+            setPin('');
+            setShake(true);
+            setTimeout(() => setShake(false), 600);
+        }
+    };
+
+    return (
+        <div
+            className="fixed inset-0 z-[90] flex items-center justify-center p-4"
+            style={{ backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)' }}
+            onClick={(e) => e.target === e.currentTarget && onClose()}
+        >
+            <div
+                className="bg-white rounded-2xl shadow-2xl shadow-black/15 w-full max-w-[320px] overflow-hidden ring-1 ring-black/[0.04]"
+                style={{
+                    animation: shake ? 'pinShake 0.5s ease' : 'pinFadeIn 0.25s ease',
+                }}
+            >
+                {/* Header */}
+                <div className="px-6 pt-6 pb-4 text-center border-b border-gray-100">
+                    <div className="w-12 h-12 rounded-2xl bg-violet-50 flex items-center justify-center mx-auto mb-3">
+                        <Lock size={20} className="text-violet-600" />
+                    </div>
+                    <h2 className="text-[15px] font-bold text-gray-900">
+                        {isFirstTime ? 'Set a PIN' : 'Enter PIN'}
+                    </h2>
+                    <p className="text-[12px] text-gray-400 mt-1">
+                        {isFirstTime
+                            ? 'Create a 4-digit PIN to protect the Total Allocated budget'
+                            : 'Enter your PIN to reveal the Total Allocated budget'}
+                    </p>
+                </div>
+
+                {/* PIN dots display */}
+                <div className="px-6 pt-5 pb-2">
+                    <div className="flex justify-center gap-3 mb-4">
+                        {[0, 1, 2, 3].map((i) => (
+                            <div
+                                key={i}
+                                className="w-3.5 h-3.5 rounded-full border-2 transition-all duration-200"
+                                style={{
+                                    borderColor: pin.length > i ? '#7c3aed' : '#e5e7eb',
+                                    backgroundColor: pin.length > i ? '#7c3aed' : 'transparent',
+                                    transform: pin.length > i ? 'scale(1.1)' : 'scale(1)',
+                                }}
+                            />
+                        ))}
+                    </div>
+
+                    {/* Hidden input */}
+                    <div className="relative">
+                        <input
+                            ref={inputRef}
+                            type={showPin ? 'text' : 'password'}
+                            inputMode="numeric"
+                            value={pin}
+                            onChange={handleChange}
+                            onKeyDown={handleKeyDown}
+                            maxLength={4}
+                            placeholder="● ● ● ●"
+                            className="w-full text-center text-[20px] tracking-[0.5em] font-bold text-gray-900 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition-all placeholder-gray-200 bg-gray-50"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowPin(s => !s)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                            {showPin ? <EyeOff size={15} /> : <Eye size={15} />}
+                        </button>
+                    </div>
+
+                    {error && (
+                        <p className="text-[11.5px] text-red-500 font-medium text-center mt-2">{error}</p>
+                    )}
+                </div>
+
+                {/* Actions */}
+                <div className="px-6 pb-5 pt-3 flex gap-2.5">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="flex-1 py-2.5 text-[13px] font-medium text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        onClick={submit}
+                        disabled={pin.length !== 4}
+                        className="flex-1 py-2.5 text-[13px] font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm shadow-violet-500/20"
+                    >
+                        <LockOpen size={13} />
+                        {isFirstTime ? 'Set PIN' : 'Unlock'}
+                    </button>
+                </div>
+
+                <style>{`
+                    @keyframes pinFadeIn {
+                        from { opacity: 0; transform: scale(0.95) translateY(8px); }
+                        to   { opacity: 1; transform: scale(1)   translateY(0); }
+                    }
+                    @keyframes pinShake {
+                        0%, 100% { transform: translateX(0); }
+                        15%      { transform: translateX(-8px); }
+                        45%      { transform: translateX(8px); }
+                        75%      { transform: translateX(-5px); }
+                    }
+                `}</style>
+            </div>
+        </div>
+    );
+}
 
 const CardHeader = ({ title, sub }) => (
     <div className="px-5 py-4 border-b border-gray-100">

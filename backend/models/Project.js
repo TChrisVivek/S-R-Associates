@@ -30,16 +30,12 @@ const projectSchema = new mongoose.Schema({
         enum: ['Planning', 'In Progress', 'On Track', 'Delayed', 'Completed'],
         default: 'Planning'
     },
-    image: String, // URL to project image
-    blueprints: [{
-        url: String, // Thumbnail URL
-        originalUrl: String, // Original PDF URL
-        name: String,
-        uploadedAt: {
-            type: Date,
-            default: Date.now
-        }
-    }],
+    blockMode: {
+        type: String,
+        enum: ['single', 'multi'],
+        default: 'single'
+    },
+    image: String, // URL to project cover image
     stats: {
         taskCompleted: { type: Number, default: 0 },
         budgetSpent: { type: Number, default: 0 }

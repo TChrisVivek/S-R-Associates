@@ -6,6 +6,11 @@ const pinSchema = new mongoose.Schema({
         ref: 'Project',
         required: true
     },
+    block_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Block',
+        required: false // Optional for backward compat; populated by migration
+    },
     blueprint_id: {
         type: mongoose.Schema.Types.ObjectId, // Assuming blueprints are sub-docs or just IDs
         required: true
