@@ -15,17 +15,21 @@ connectDB();
 // Middleware
 const allowedOrigins = [
     process.env.CLIENT_URL,
-    'http://localhost:5173', // For local development
     'https://s-r-associates.vercel.app' // Vercel production URL
 ].filter(Boolean).map(url => url.replace(/\/$/, '')); // Remove trailing slashes
 
 app.use(cors({
     origin: function (origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS: ' + origin));
-        }
+        // Allow requests with no origin (e.g. mobile apps, Postman, curl)
+        if (!origin) return callback(null, true);
+
+        // Allow any localhost port for local development
+        if (/^http:\/\/localhost:\d+$/.test(origin)) return callback(null, true);
+
+        // Allow explicitly whitelisted production origins
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+
+        callback(new Error('Not allowed by CORS: ' + origin));
     },
     credentials: true
 }));

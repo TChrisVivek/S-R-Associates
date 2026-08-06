@@ -9,7 +9,7 @@ import GlobalLoader from './GlobalLoader';
 import { uploadMultipleToCloudinary } from '../utils/cloudinaryUpload';
 import { useAuth } from '../context/AuthContext';
 
-const DailyLogsTab = ({ projectId }) => {
+const DailyLogsTab = ({ projectId, blockId }) => {
     const [logData, setLogData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -31,12 +31,12 @@ const DailyLogsTab = ({ projectId }) => {
     // 1. Fetch Real Data
     useEffect(() => {
         fetchLogs();
-    }, [projectId]);
+    }, [blockId]);
 
     const fetchLogs = async () => {
         setLoading(true);
         try {
-            const response = await api.get(`/projects/${projectId}/daily-logs`);
+            const response = await api.get(`/projects/${projectId}/blocks/${blockId}/daily-logs`);
             setLogData(response.data);
         } catch (error) {
             console.error("Failed to fetch logs:", error);
@@ -60,7 +60,7 @@ const DailyLogsTab = ({ projectId }) => {
                 payload.gallery = [];
             }
 
-            await api.post(`/projects/${projectId}/daily-logs`, payload);
+            await api.post(`/projects/${projectId}/blocks/${blockId}/daily-logs`, payload);
 
             await fetchLogs();
             setIsCreateModalOpen(false);

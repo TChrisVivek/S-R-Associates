@@ -7,6 +7,7 @@ import Budget from './pages/Budget';
 import Reports from './pages/Reports';
 import SettingsPage from './pages/Settings';
 import ProjectDetail from './pages/ProjectDetail';
+import BlockDashboard from './pages/BlockDashboard';
 import ProjectPlanManager from './components/ProjectPlanManager';
 import Login from './pages/Login';
 import PendingApproval from './pages/PendingApproval';
@@ -30,6 +31,7 @@ function App() {
         <Route path="/profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
         <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
         <Route path="/projects/:id" element={<ProtectedRoute><ProjectDetail /></ProtectedRoute>} />
+        <Route path="/projects/:projectId/blocks/:blockId" element={<ProtectedRoute><BlockDashboard /></ProtectedRoute>} />
         <Route path="/personnel" element={<ProtectedRoute allowedRoles={['Admin', 'Site Manager']}><Personnel /></ProtectedRoute>} />
         <Route path="/budget" element={<ProtectedRoute allowedRoles={['Admin']}><Budget /></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute allowedRoles={['Admin', 'Site Manager', 'Client']}><Reports /></ProtectedRoute>} />

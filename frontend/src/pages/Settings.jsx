@@ -4,7 +4,9 @@ import {
     LayoutDashboard, FolderOpen, Users, FileText, Settings,
     Save, CreditCard, CloudLightning, Slack, FileJson,
     UserPlus, Loader2, ChevronRight, BarChart3, ImagePlus,
-    Activity, History, X, Trash2, AlertTriangle
+    Activity, History, X, Trash2, AlertTriangle,
+    Server, Info, CheckCircle2, Link2, Zap, Database,
+    HardDrive, Cpu, Globe, Shield, Clock, Package
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
@@ -172,6 +174,7 @@ const SettingsPage = () => {
         { id: 'users', label: 'User Management' },
         { id: 'notifications', label: 'Notifications' },
         { id: 'integrations', label: 'Integrations' },
+        { id: 'system', label: 'System Info' },
     ];
 
     const fetchUserActivities = async (user) => {
@@ -368,11 +371,11 @@ const SettingsPage = () => {
                                                         </td>
                                                         <td className="py-4 px-6">
                                                             {member.role === 'Pending' ? (
-                                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-amber-700 border border-amber-200 bg-amber-50 px-2.5 py-1 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Needs Approval</span>
+                                                                <span className="inline-flex items-center text-[10px] font-bold text-amber-700 border border-amber-200 bg-amber-50 px-2.5 py-1 rounded-full">Needs Approval</span>
                                                             ) : member.role === 'Blocked' ? (
-                                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-red-700 border border-red-200 bg-red-50 px-2.5 py-1 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>Restricted</span>
+                                                                <span className="inline-flex items-center text-[10px] font-bold text-red-700 border border-red-200 bg-red-50 px-2.5 py-1 rounded-full">Restricted</span>
                                                             ) : (
-                                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 px-2.5 py-1 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Active</span>
+                                                                <span className="inline-flex items-center text-[10px] font-bold text-emerald-700 border border-emerald-200 bg-emerald-50 px-2.5 py-1 rounded-full">Active</span>
                                                             )}
                                                         </td>
                                                         <td className="py-4 px-6 text-right">
@@ -425,12 +428,140 @@ const SettingsPage = () => {
                             {activeSection === 'integrations' && (
                                 <div id="integrations" className="bg-white rounded-2xl border border-gray-100 p-6">
                                     <h2 className="text-sm font-semibold text-gray-900 mb-1">App Integrations</h2>
-                                    <p className="text-xs text-gray-400 mb-5">Connect with your tools</p>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <IntegrationCard name="QuickBooks" desc="Accounting & Payroll" icon={<CreditCard size={16} className="text-emerald-500" />} status="Connected" color="bg-emerald-50" />
-                                        <IntegrationCard name="Procore" desc="Project Management" icon={<CloudLightning size={16} className="text-amber-500" />} status="Connect" color="bg-amber-50" />
-                                        <IntegrationCard name="Slack" desc="Communication" icon={<Slack size={16} className="text-violet-500" />} status="Connect" color="bg-violet-50" />
-                                        <IntegrationCard name="Bluebeam" desc="PDF Markup" icon={<FileJson size={16} className="text-red-500" />} status="Connect" color="bg-red-50" />
+                                    <p className="text-xs text-gray-400 mb-5">External tools and services connected to BuildCore</p>
+
+                                    <div className="divide-y divide-gray-100">
+
+                                        {/* WhatsApp Bot — active */}
+                                        <div className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center text-base">📱</div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-900">WhatsApp Bot</p>
+                                                    <p className="text-xs text-gray-400 mt-0.5">Daily site summaries, material alerts and project updates</p>
+                                                </div>
+                                            </div>
+                                            <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg shrink-0">Active</span>
+                                        </div>
+
+                                        {/* QuickBooks */}
+                                        <div className="flex items-center justify-between py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center border border-gray-100">
+                                                    <CreditCard size={16} className="text-gray-400" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-900">QuickBooks</p>
+                                                    <p className="text-xs text-gray-400 mt-0.5">Sync expenses, payroll and invoices with your accounts</p>
+                                                </div>
+                                            </div>
+                                            <span className="text-xs text-gray-400 shrink-0">Coming soon</span>
+                                        </div>
+
+                                        {/* Procore */}
+                                        <div className="flex items-center justify-between py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center border border-gray-100">
+                                                    <CloudLightning size={16} className="text-gray-400" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-900">Procore</p>
+                                                    <p className="text-xs text-gray-400 mt-0.5">Project management, RFIs and document control</p>
+                                                </div>
+                                            </div>
+                                            <span className="text-xs text-gray-400 shrink-0">Coming soon</span>
+                                        </div>
+
+                                        {/* Slack */}
+                                        <div className="flex items-center justify-between py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center border border-gray-100">
+                                                    <Slack size={16} className="text-gray-400" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-900">Slack</p>
+                                                    <p className="text-xs text-gray-400 mt-0.5">Send site alerts and budget warnings to your team channels</p>
+                                                </div>
+                                            </div>
+                                            <span className="text-xs text-gray-400 shrink-0">Coming soon</span>
+                                        </div>
+
+                                        {/* Bluebeam */}
+                                        <div className="flex items-center justify-between py-4 last:pb-0">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center border border-gray-100">
+                                                    <FileJson size={16} className="text-gray-400" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-900">Bluebeam Revu</p>
+                                                    <p className="text-xs text-gray-400 mt-0.5">Mark up and collaborate on blueprint PDFs</p>
+                                                </div>
+                                            </div>
+                                            <span className="text-xs text-gray-400 shrink-0">Coming soon</span>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* System Info */}
+                            {activeSection === 'system' && (
+                                <div id="system" className="space-y-4">
+                                    <div>
+                                        <h2 className="text-sm font-bold text-gray-900">System Information</h2>
+                                        <p className="text-xs text-gray-400 mt-0.5">BuildCore platform details and environment status</p>
+                                    </div>
+
+                                    {/* App Info */}
+                                    <div className="bg-gradient-to-br from-[#1a1d2e] to-[#252840] rounded-2xl p-5 text-white">
+                                        <div className="flex items-center gap-4 mb-4">
+                                            <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
+                                                <Package size={22} className="text-violet-300" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-base font-bold text-white">BuildCore</h3>
+                                                <p className="text-[11px] text-white/40">S R Associates · Engineers &amp; Contractors</p>
+                                            </div>
+                                            <div className="ml-auto">
+                                                <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-full">v2.0 · Live</span>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-3">
+                                            {[{label:'Version', val:'2.0.0'},{label:'Environment', val:'Production'},{label:'Region', val:'Asia South'}].map(i => (
+                                                <div key={i.label} className="bg-white/[0.06] rounded-xl p-3">
+                                                    <p className="text-[9px] text-white/30 uppercase tracking-wider mb-1">{i.label}</p>
+                                                    <p className="text-xs font-semibold text-white">{i.val}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Services Status */}
+                                    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                                        <div className="px-5 py-4 border-b border-gray-100">
+                                            <p className="text-sm font-semibold text-gray-800">Services</p>
+                                            <p className="text-xs text-gray-400 mt-0.5">Current status of all platform services</p>
+                                        </div>
+                                        <div className="divide-y divide-gray-50">
+                                            {[
+                                                { icon: <Server size={15}/>,   label: 'API Server',        note: 'Handles all requests',       status: 'Working fine' },
+                                                { icon: <Database size={15}/>, label: 'Database',          note: 'MongoDB — project & user data', status: 'Working fine' },
+                                                { icon: <Globe size={15}/>,    label: 'File Storage',      note: 'Cloudinary — photos & docs',  status: 'Working fine' },
+                                                { icon: <Shield size={15}/>,   label: 'Login & Security',  note: 'JWT authentication',          status: 'Working fine' },
+                                                { icon: <Zap size={15}/>,      label: 'WhatsApp Bot',      note: 'Automated site updates',      status: 'Running'      },
+                                            ].map(s => (
+                                                <div key={s.label} className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50/50 transition-colors">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center text-gray-500 border border-gray-100">{s.icon}</div>
+                                                        <div>
+                                                            <p className="text-[13px] font-medium text-gray-800">{s.label}</p>
+                                                            <p className="text-[10px] text-gray-400">{s.note}</p>
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-[11px] font-medium text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg">{s.status}</span>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -669,6 +800,36 @@ const IntegrationCard = ({ name, desc, icon, status, color }) => (
             </div>
         </div>
         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${status === 'Connected' ? 'text-emerald-600 bg-emerald-50' : 'text-violet-600 bg-violet-50'}`}>{status}</span>
+    </div>
+);
+
+const RichIntegrationCard = ({ name, desc, icon, iconBg, status, features, statusLabel }) => (
+    <div className={`flex items-start gap-4 p-4 rounded-xl border transition-all ${
+        status === 'connected'
+            ? 'border-emerald-100 bg-emerald-50/30'
+            : 'border-gray-100 hover:border-gray-200 hover:shadow-sm'
+    }`}>
+        <div className={`w-10 h-10 ${iconBg} rounded-xl flex items-center justify-center shrink-0`}>{icon}</div>
+        <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+                <h4 className="text-[13px] font-semibold text-gray-900">{name}</h4>
+                {status === 'connected' && <CheckCircle2 size={12} className="text-emerald-500" />}
+            </div>
+            <p className="text-[11px] text-gray-400 leading-relaxed mb-2">{desc}</p>
+            <div className="flex items-center gap-2 flex-wrap">
+                {features.map(f => (
+                    <span key={f} className="text-[9px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full uppercase tracking-wider">{f}</span>
+                ))}
+            </div>
+        </div>
+        <button className={`shrink-0 flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all ${
+            status === 'connected'
+                ? 'text-emerald-700 bg-emerald-100 hover:bg-emerald-200'
+                : 'text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-100'
+        }`}>
+            {status === 'connected' ? <CheckCircle2 size={11}/> : <Link2 size={11}/>}
+            {statusLabel}
+        </button>
     </div>
 );
 

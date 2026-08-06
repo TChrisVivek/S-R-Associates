@@ -1,7 +1,10 @@
 const path = require('path');
 const fs = require('fs-extra');
 const Project = require('../models/Project');
+const Block = require('../models/Block');
+const DailyLog = require('../models/DailyLog');
 const Material = require('../models/Material');
+const Pin = require('../models/Pin');
 const Personnel = require('../models/Personnel');
 const Expense = require('../models/Expense');
 const logActivity = require('../utils/activityLogger');
@@ -15,7 +18,7 @@ exports.uploadBlueprint = async (req, res) => {
 
         res.json({
             message: "Upload Successful",
-            imageUrl: plan, // Send back the URL directly since Cloudinary handles hosting
+            imageUrl: plan,
             files: [{ name: "Plan", url: plan }]
         });
     } catch (error) {
@@ -26,15 +29,11 @@ exports.uploadBlueprint = async (req, res) => {
 
 exports.createProject = async (req, res) => {
     try {
-        const { title } = req.body;
+        const { title, blockMode } = req.body;
 
-        // 1. Fetch all existing project titles
         const existingProjects = await Project.find({}, 'title');
-
-        // 2. Normalize input title (remove spaces, lowercase)
         const normalizedInput = title.replace(/\s+/g, '').toLowerCase();
 
-        // 3. Check for duplicates
         const isDuplicate = existingProjects.some(p => {
             const normalizedExisting = p.title.replace(/\s+/g, '').toLowerCase();
             return normalizedExisting === normalizedInput;
@@ -45,17 +44,28 @@ exports.createProject = async (req, res) => {
         }
 
         const project = new Project(req.body);
-        // assignedPersonnel is accepted directly from req.body as an array of IDs
         await project.save();
 
+        // Auto-create a Main Block for every project (single mode uses this transparently)
+        const incomingBlueprints = (req.body.blueprints || []).map(bp => ({
+            url: bp.url || bp.originalUrl,
+            originalUrl: bp.originalUrl || bp.url,
+            name: bp.name || 'Document',
+            uploadedAt: new Date()
+        }));
+
+        const mainBlock = new Block({
+            project_id: project._id,
+            name: blockMode === 'multi' ? 'Block A' : 'Main Block',
+            description: blockMode === 'multi' ? 'First block of this project' : 'Default block for this project',
+            status: 'In Progress',
+            blueprints: incomingBlueprints,
+            order: 0
+        });
+        await mainBlock.save();
+
         if (req.user && req.user._id) {
-            logActivity(
-                req.user._id,
-                'CREATED_PROJECT',
-                'Project',
-                `Created new project: ${project.title}`,
-                project._id
-            );
+            logActivity(req.user._id, 'CREATED_PROJECT', 'Project', `Created new project: ${project.title}`, project._id);
         }
 
         res.status(201).json(project);
@@ -69,15 +79,12 @@ exports.getAllProjects = async (req, res) => {
     try {
         let query = {};
 
-        // Resource-level filtering: Clients only see their assigned projects
         if (req.user && req.user.role === 'Client') {
             query.clientId = req.user._id;
         }
 
         const projects = await Project.find(query).sort({ createdAt: -1 });
-        let hasUpdates = false;
 
-        // Auto-update status to "Delayed" if time remaining is 0 or negative
         for (const p of projects) {
             if (p.endDate && p.status !== 'Completed' && p.status !== 'Delayed') {
                 const diffTime = new Date(p.endDate) - new Date();
@@ -85,7 +92,6 @@ exports.getAllProjects = async (req, res) => {
                 if (daysLeft <= 0) {
                     p.status = 'Delayed';
                     await p.save();
-                    hasUpdates = true;
                 }
             }
         }
@@ -103,26 +109,27 @@ exports.deleteProject = async (req, res) => {
         const project = await Project.findByIdAndDelete(projectId);
         if (!project) return res.status(404).json({ message: "Project not found" });
 
-        // Unassign personnel from this project
+        // Unassign personnel
         await Personnel.updateMany(
             { project_id: projectId },
-            {
-                $unset: { project_id: "" },
-                $set: { site: "Unassigned", status: "Off Duty" }
-            }
+            { $unset: { project_id: "" }, $set: { site: "Unassigned", status: "Off Duty" } }
         );
 
-        // Delete all expenses linked to this project (prevents ghost entries on Budget page)
+        // Delete all expenses
         await Expense.deleteMany({ project: projectId });
 
+        // Cascade delete all blocks and their children
+        const blocks = await Block.find({ project_id: projectId });
+        const blockIds = blocks.map(b => b._id);
+        if (blockIds.length > 0) {
+            await DailyLog.deleteMany({ block_id: { $in: blockIds } });
+            await Material.deleteMany({ block_id: { $in: blockIds } });
+            await Pin.deleteMany({ block_id: { $in: blockIds } });
+            await Block.deleteMany({ project_id: projectId });
+        }
+
         if (req.user && req.user._id) {
-            logActivity(
-                req.user._id,
-                'DELETED_PROJECT',
-                'Project',
-                `Deleted project: ${project.title}`,
-                projectId
-            );
+            logActivity(req.user._id, 'DELETED_PROJECT', 'Project', `Deleted project: ${project.title}`, projectId);
         }
 
         res.json({ message: "Project deleted successfully" });
@@ -142,18 +149,15 @@ exports.getProjectById = async (req, res) => {
             return res.status(404).json({ message: "Project not found" });
         }
 
-        // Resource-level check: Clients can only view their own projects
         if (req.user && req.user.role === 'Client' &&
             (!project.clientId || project.clientId.toString() !== req.user._id.toString())) {
             return res.status(403).json({ message: "You do not have access to this project" });
         }
 
-        // Format Date logic
         const formatOptions = { year: 'numeric', month: 'short' };
         const startStr = project.startDate ? new Date(project.startDate).toLocaleDateString('en-US', formatOptions) : 'TBD';
         const endStr = project.endDate ? new Date(project.endDate).toLocaleDateString('en-US', formatOptions) : 'TBD';
 
-        // Days Left Logic
         let daysLeft = 0;
         if (project.endDate) {
             const diffTime = new Date(project.endDate) - new Date();
@@ -165,7 +169,6 @@ exports.getProjectById = async (req, res) => {
             }
         }
 
-        // Format Live Feed
         const formattedFeed = project.liveFeed.map(feed => {
             const feedDate = new Date(feed.createdAt);
             const now = new Date();
@@ -176,16 +179,9 @@ exports.getProjectById = async (req, res) => {
             else if (diffDays === 1) timeStr = `Yesterday, ${feedDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
             else timeStr = `${feedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${feedDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
 
-            return {
-                id: feed._id,
-                title: feed.title,
-                time: timeStr,
-                location: feed.location,
-                image: feed.image
-            };
+            return { id: feed._id, title: feed.title, time: timeStr, location: feed.location, image: feed.image };
         });
 
-        // Format Critical Tasks
         const formattedTasks = project.criticalTasks.map(task => ({
             id: task._id,
             title: task.title,
@@ -195,23 +191,17 @@ exports.getProjectById = async (req, res) => {
             assignee: task.assignee || "Unassigned"
         }));
 
-        // --- DYNAMIC BUDGET CALCULATION (Real-time from Material Deliveries) ---
+        // Dynamic budget from materials (across all blocks)
         let dynamicBudgetSpent = 0;
-
         try {
-            // Only calculate if a budget actually exists
             if (project.budget && project.budget > 0) {
-                // Determine Raw Budget Value
                 let multiplier = 1;
                 const unit = (project.budgetUnit || "Lakhs").toLowerCase();
-
                 if (unit === 'crores') multiplier = 10000000;
                 else if (unit === 'lakhs') multiplier = 100000;
                 else if (unit === 'thousands') multiplier = 1000;
 
                 const rawBudget = project.budget * multiplier;
-
-                // Aggregate Material Deliveries
                 const materials = await Material.find({ project_id: projectId });
                 let totalMaterialSpend = 0;
 
@@ -223,23 +213,17 @@ exports.getProjectById = async (req, res) => {
                     });
                 });
 
-                // Calculate percentage, capped at 100 max visually, rounded to 1 decimal place
                 if (rawBudget > 0) {
                     const percentage = (totalMaterialSpend / rawBudget) * 100;
                     dynamicBudgetSpent = Math.min(Math.round(percentage * 10) / 10, 100);
                 }
 
-                console.log(`[Budget Calc] Project: ${project.title} | Budget: ${project.budget} ${project.budgetUnit} (₹${rawBudget.toLocaleString('en-IN')}) | Material Spend: ₹${totalMaterialSpend.toLocaleString('en-IN')} | Burn Rate: ${dynamicBudgetSpent}%`);
-            } else {
-                console.log(`[Budget Calc] Project: ${project.title} | No budget set, burn rate = 0%`);
+                console.log(`[Budget Calc] Project: ${project.title} | Burn Rate: ${dynamicBudgetSpent}%`);
             }
         } catch (calcError) {
             console.error("Failed to calculate dynamic budget:", calcError);
-            // fallback to 0
         }
 
-
-        // Blend real database data with the required UI structure
         const projectDetails = {
             id: project._id,
             title: project.title,
@@ -251,6 +235,7 @@ exports.getProjectById = async (req, res) => {
             manager: project.manager || "Unassigned",
             contractor: project.contractor || "Unassigned",
             status: project.status || "Planning",
+            blockMode: project.blockMode || 'single',
             phase: project.status.toUpperCase(),
             startDate: project.startDate || null,
             endDate: project.endDate || null,
@@ -263,8 +248,8 @@ exports.getProjectById = async (req, res) => {
                 taskCompleted: project.stats?.taskCompleted || 0,
                 budgetSpent: dynamicBudgetSpent
             },
-            liveFeed: formattedFeed.reverse(), // latest first
-            criticalTasks: formattedTasks.reverse() // latest first
+            liveFeed: formattedFeed.reverse(),
+            criticalTasks: formattedTasks.reverse()
         };
 
         res.json(projectDetails);
@@ -273,8 +258,6 @@ exports.getProjectById = async (req, res) => {
         res.status(500).json({ message: "Server Error fetching project" });
     }
 };
-
-// --- NEW REAL-TIME ENDPOINTS ---
 
 exports.updateProjectStats = async (req, res) => {
     try {
@@ -295,7 +278,7 @@ exports.updateProjectStats = async (req, res) => {
 
 exports.updateProjectSettings = async (req, res) => {
     try {
-        const { title, client, address, siteSize, floors, type, budget, budgetUnit, startDate, endDate, manager, contractor, status, image } = req.body;
+        const { title, client, address, siteSize, floors, type, budget, budgetUnit, startDate, endDate, manager, contractor, status, image, blockMode } = req.body;
         const project = await Project.findById(req.params.id);
 
         if (!project) return res.status(404).json({ message: "Project not found" });
@@ -315,16 +298,24 @@ exports.updateProjectSettings = async (req, res) => {
         if (status !== undefined) project.status = status;
         if (image !== undefined) project.image = image;
 
+        // Block mode upgrade/downgrade logic
+        if (blockMode !== undefined && blockMode !== project.blockMode) {
+            if (blockMode === 'single') {
+                // Only allow downgrade if exactly 1 block exists
+                const blockCount = await Block.countDocuments({ project_id: project._id });
+                if (blockCount > 1) {
+                    return res.status(400).json({
+                        message: `Cannot switch to Single mode: this project has ${blockCount} blocks. Delete blocks until only 1 remains, then switch.`
+                    });
+                }
+            }
+            project.blockMode = blockMode;
+        }
+
         await project.save();
 
         if (req.user && req.user._id) {
-            logActivity(
-                req.user._id,
-                'UPDATED_PROJECT',
-                'Project',
-                `Updated project settings for: ${project.title}`,
-                project._id
-            );
+            logActivity(req.user._id, 'UPDATED_PROJECT', 'Project', `Updated project settings for: ${project.title}`, project._id);
         }
 
         res.status(200).json({ message: "Project settings updated successfully", project });
@@ -334,6 +325,7 @@ exports.updateProjectSettings = async (req, res) => {
     }
 };
 
+
 exports.addCriticalTask = async (req, res) => {
     try {
         const { title, desc, status, icon, assignee } = req.body;
@@ -342,7 +334,6 @@ exports.addCriticalTask = async (req, res) => {
 
         const newTask = { title, desc, status, icon, assignee };
         project.criticalTasks.push(newTask);
-
         await project.save();
 
         if (req.user && req.user._id) {
@@ -387,13 +378,11 @@ exports.addLiveFeedRecord = async (req, res) => {
             return res.status(400).json({ message: "No image URLs provided" });
         }
 
-        const newFeeds = images.map(imgUrl => {
-            return {
-                title: title || "Site Update",
-                location: location || "Remote",
-                image: imgUrl
-            };
-        });
+        const newFeeds = images.map(imgUrl => ({
+            title: title || "Site Update",
+            location: location || "Remote",
+            image: imgUrl
+        }));
 
         project.liveFeed.push(...newFeeds);
         await project.save();
@@ -409,195 +398,10 @@ exports.addLiveFeedRecord = async (req, res) => {
     }
 };
 
-const Pin = require('../models/Pin');
-
-exports.getBlueprintAndTasks = async (req, res) => {
-    const { id: projectId } = req.params;
-
-    try {
-        const project = await Project.findById(projectId);
-        if (!project) return res.status(404).json({ message: "Project not found" });
-
-        // Return ALL blueprints so frontend can switch sheets
-        const allBlueprints = (project.blueprints || []).map((bp, index) => ({
-            id: bp._id.toString(),
-            name: bp.name || `Blueprint ${index + 1}`,
-            imageUrl: bp.url,
-            uploadedAt: bp.uploadedAt
-        }));
-
-        // For backward compatibility, also return the latest as "blueprint"
-        const latestBlueprint = allBlueprints.length > 0 ? allBlueprints[allBlueprints.length - 1] : null;
-
-        const pins = await Pin.find({ project_id: projectId });
-
-        const tasks = pins.map(pin => {
-            let status = "PENDING";
-            if (pin.status === "In Progress") status = "IN PROGRESS";
-            else if (pin.status === "Closed") status = "DONE";
-
-            let color = "#f59e0b"; // PENDING
-            if (status === "IN PROGRESS") color = "#6366f1";
-            else if (status === "DONE") color = "#10b981";
-
-            return {
-                id: pin._id.toString(),
-                blueprint_id: pin.blueprint_id ? pin.blueprint_id.toString() : null,
-                title: pin.title,
-                status: status,
-                assignee: "Unassigned",
-                x: pin.x_cord,
-                y: pin.y_cord,
-                page: pin.page || 1,
-                color: color
-            };
-        });
-
-        res.json({
-            blueprint: latestBlueprint,
-            blueprints: allBlueprints,
-            tasks: tasks.reverse()
-        });
-    } catch (error) {
-        console.error("Error fetching blueprint data:", error);
-        res.status(500).json({ message: "Error fetching blueprint data" });
-    }
-};
-
-exports.addBlueprintTask = async (req, res) => {
-    const { id: projectId } = req.params;
-    const { title, x, y, status, blueprint_id, page } = req.body;
-
-    try {
-        const project = await Project.findById(projectId);
-        if (!project) return res.status(404).json({ message: "Project not found" });
-
-        let dbStatus = "Open";
-        if (status === "IN PROGRESS") dbStatus = "In Progress";
-        else if (status === "DONE") dbStatus = "Closed";
-
-        const newPin = new Pin({
-            project_id: projectId,
-            blueprint_id: blueprint_id || (project.blueprints && project.blueprints.length > 0 ? project.blueprints[0]._id : new require('mongoose').Types.ObjectId()),
-            title: title || "New Task",
-            x_cord: x,
-            y_cord: y,
-            status: dbStatus,
-            page: page || 1
-        });
-
-        await newPin.save();
-
-        if (req.user && req.user._id) {
-            logActivity(req.user._id, 'ADDED_BLUEPRINT_TASK', 'Project', `Added blueprint task "${newPin.title}" to project`, project._id);
-        }
-
-        res.status(201).json({
-            id: newPin._id.toString(),
-            blueprint_id: newPin.blueprint_id.toString(),
-            title: newPin.title,
-            status: status || "PENDING",
-            assignee: "Unassigned",
-            x: newPin.x_cord,
-            y: newPin.y_cord,
-            page: newPin.page,
-            color: "#f59e0b"
-        });
-    } catch (error) {
-        console.error("Error adding blueprint task:", error);
-        res.status(500).json({ message: "Error adding blueprint task" });
-    }
-};
-
-exports.deleteBlueprintTask = async (req, res) => {
-    try {
-        const { id: projectId, taskId } = req.params;
-        const result = await Pin.findByIdAndDelete(taskId);
-
-        if (!result) return res.status(404).json({ message: "Task not found" });
-
-        if (req.user && req.user._id) {
-            logActivity(req.user._id, 'DELETED_BLUEPRINT_TASK', 'Project', `Deleted a blueprint task from project`, projectId);
-        }
-
-        res.status(200).json({ message: "Task deleted successfully", id: taskId });
-    } catch (error) {
-        console.error("Error deleting blueprint task:", error);
-        res.status(500).json({ message: "Error deleting blueprint task" });
-    }
-};
-
-exports.uploadProjectBlueprint = async (req, res) => {
-    const { id: projectId } = req.params;
-
-    try {
-        if (!req.body) {
-            console.error('[Blueprint Upload Error] req.body is undefined. Content-Type:', req.headers['content-type']);
-            return res.status(400).json({ message: 'Request body is undefined. Check Content-Type.' });
-        }
-
-        const { plans } = req.body;
-
-        if (!plans || !Array.isArray(plans) || plans.length === 0) {
-            return res.status(400).json({ message: 'No URLs provided in plans array.' });
-        }
-
-        const project = await Project.findById(projectId);
-        if (!project) return res.status(404).json({ message: "Project not found" });
-
-        const uploadedFiles = plans.map(url => {
-            return {
-                name: "Document",
-                url: url,
-                originalUrl: url,
-                type: 'application/pdf' // Default assumption or derive from URL
-            };
-        });
-
-        project.blueprints.push(...uploadedFiles);
-        await project.save();
-
-        if (req.user && req.user._id) {
-            logActivity(req.user._id, 'UPLOADED_BLUEPRINT', 'Project', `Uploaded ${uploadedFiles.length} blueprint(s) to project: ${project.title}`, project._id);
-        }
-
-        res.status(200).json({
-            message: "Upload Successful",
-            blueprints: project.blueprints
-        });
-
-    } catch (error) {
-        console.error("Project Blueprint Upload Error:", error);
-        res.status(500).json({ message: "Error processing blueprint files" });
-    }
-};
-
-exports.deleteProjectBlueprint = async (req, res) => {
-    try {
-        const { id: projectId, blueprintId } = req.params;
-        const project = await Project.findById(projectId);
-        if (!project) return res.status(404).json({ message: "Project not found" });
-
-        // Remove blueprint by its subdocument ID
-        project.blueprints = project.blueprints.filter(bp => bp._id.toString() !== blueprintId);
-        await project.save();
-
-        if (req.user && req.user._id) {
-            logActivity(req.user._id, 'DELETED_BLUEPRINT', 'Project', `Deleted a blueprint from project: ${project.title}`, project._id);
-        }
-
-        res.status(200).json({ message: "Blueprint deleted successfully" });
-    } catch (error) {
-        console.error("Delete Blueprint Error:", error);
-        res.status(500).json({ message: "Error deleting blueprint" });
-    }
-};
-
-// ─── Assign / update personnel list for a project ───────────────────────────
 exports.assignPersonnel = async (req, res) => {
     try {
         const { id: projectId } = req.params;
-        const { personnelIds } = req.body; // array of Personnel ObjectId strings
+        const { personnelIds } = req.body;
 
         if (!Array.isArray(personnelIds)) {
             return res.status(400).json({ message: 'personnelIds must be an array' });

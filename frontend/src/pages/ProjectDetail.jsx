@@ -2,17 +2,17 @@ import React, { useState, useEffect } from 'react';
 import CompanyLogo from '../components/CompanyLogo';
 import {
     LayoutDashboard, FolderOpen, Users, FileText, Settings,
-    ArrowLeft, MapPin, Grid, Layers, Box, FileClock, MoreVertical, AlertTriangle, ClipboardList, FileSignature, X, Upload, Loader2, Plus, UserPlus, Trash2, ChevronRight, ChevronDown, BarChart3
+    ArrowLeft, MapPin, Grid, Layers, Box, FileClock, MoreVertical, AlertTriangle, ClipboardList, FileSignature, X, Upload, Loader2, Plus, UserPlus, Trash2, ChevronRight, ChevronDown, BarChart3, Building2
 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/Toast';
 import { uploadMultipleToCloudinary, uploadToCloudinary } from '../utils/cloudinaryUpload';
+import ProjectPersonnelTab from '../components/ProjectPersonnelTab';
 import BlueprintTab from '../components/BlueprintTab';
 import MaterialInventoryTab from '../components/MaterialInventoryTab';
 import DailyLogsTab from '../components/DailyLogsTab';
-import ProjectPersonnelTab from '../components/ProjectPersonnelTab';
 import GlobalLoader from '../components/GlobalLoader';
 
 const ProjectDetail = () => {
@@ -23,6 +23,20 @@ const ProjectDetail = () => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
     const { showToast, ToastComponent } = useToast();
+
+    // Blocks state
+    const [blocks, setBlocks] = useState([]);
+    const [blocksLoading, setBlocksLoading] = useState(false);
+    const [isCreateBlockModalOpen, setIsCreateBlockModalOpen] = useState(false);
+    const [newBlockName, setNewBlockName] = useState('');
+    const [newBlockDesc, setNewBlockDesc] = useState('');
+    const [createBlockLoading, setCreateBlockLoading] = useState(false);
+    const [mainBlockId, setMainBlockId] = useState(null); // For single-mode transparent routing
+
+    // Block delete state
+    const [blockToDelete, setBlockToDelete] = useState(null); // { _id, name }
+    const [deleteBlockConfirmText, setDeleteBlockConfirmText] = useState('');
+    const [deleteBlockLoading, setDeleteBlockLoading] = useState(false);
 
     // Company Name State for Sidebar
     const [companyName, setCompanyName] = useState('S R Associates');
@@ -70,6 +84,45 @@ const ProjectDetail = () => {
     useEffect(() => {
         fetchProjectDetails();
     }, [id]);
+
+    const fetchBlocks = async () => {
+        setBlocksLoading(true);
+        try {
+            const res = await api.get(`/projects/${id}/blocks`);
+            setBlocks(res.data);
+            // Cache the first block's ID for single-mode transparent routing
+            if (res.data.length > 0) setMainBlockId(res.data[0]._id);
+        } catch (err) {
+            console.error('Failed to load blocks:', err);
+        } finally {
+            setBlocksLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        // Always pre-fetch blocks (needed for single-mode Blueprint/Logs tabs)
+        fetchBlocks();
+    }, [id]);
+
+    useEffect(() => {
+        if (activeTab === 'blocks') fetchBlocks();
+    }, [activeTab]);
+
+    const handleDeleteBlock = async () => {
+        if (!blockToDelete || deleteBlockConfirmText !== blockToDelete.name) return;
+        setDeleteBlockLoading(true);
+        try {
+            await api.delete(`/projects/${id}/blocks/${blockToDelete._id}`);
+            showToast(`"${blockToDelete.name}" deleted successfully`, 'success');
+            setBlockToDelete(null);
+            setDeleteBlockConfirmText('');
+            fetchBlocks();
+        } catch (err) {
+            showToast('Failed to delete block', 'error');
+        } finally {
+            setDeleteBlockLoading(false);
+        }
+    };
 
     const handleUpdateStats = async (e) => {
         e.preventDefault();
@@ -467,13 +520,23 @@ const ProjectDetail = () => {
                         </div>
                     </div>
 
-                    {/* Navigation Tabs */}
+                    {/* Navigation Tabs — branches on blockMode */}
                     <div className="flex gap-2 border-b border-gray-200 mb-8 overflow-x-auto pb-1 no-scrollbar">
                         <Tab active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={<Grid size={18} />} label="Overview" />
-                        <Tab active={activeTab === 'blueprint'} onClick={() => setActiveTab('blueprint')} icon={<Layers size={18} />} label="Blueprints" />
-                        <Tab active={activeTab === 'inventory'} onClick={() => setActiveTab('inventory')} icon={<Box size={18} />} label="Inventory" />
-                        <Tab active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} icon={<FileClock size={18} />} label="Daily Logs" />
-                        <Tab active={activeTab === 'personnel'} onClick={() => setActiveTab('personnel')} icon={<Users size={18} />} label="Personnel" />
+                        {project.blockMode === 'single' ? (
+                            <>
+                                <Tab active={activeTab === 'blueprint'} onClick={() => setActiveTab('blueprint')} icon={<Layers size={18} />} label="Blueprints" />
+                                <Tab active={activeTab === 'inventory'} onClick={() => setActiveTab('inventory')} icon={<Box size={18} />} label="Inventory" />
+                                <Tab active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} icon={<FileClock size={18} />} label="Daily Logs" />
+                                <Tab active={activeTab === 'personnel'} onClick={() => setActiveTab('personnel')} icon={<Users size={18} />} label="Personnel" />
+                            </>
+                        ) : (
+                            <>
+                                <Tab active={activeTab === 'blocks'} onClick={() => setActiveTab('blocks')} icon={<Building2 size={18} />} label="Blocks" />
+                                <Tab active={activeTab === 'inventory'} onClick={() => setActiveTab('inventory')} icon={<Box size={18} />} label="Inventory" />
+                                <Tab active={activeTab === 'personnel'} onClick={() => setActiveTab('personnel')} icon={<Users size={18} />} label="Personnel" />
+                            </>
+                        )}
                     </div>
 
                     {/* Overview Tab Content */}
@@ -593,19 +656,161 @@ const ProjectDetail = () => {
                         </div>
                     )}
 
-                    {/* Blueprint Tab Content */}
-                    {activeTab === 'blueprint' && (
-                        <BlueprintTab projectId={project.id} />
-                    )}
+                    {/* Blocks Tab Content */}
+                    {activeTab === 'blocks' && (
+                        <div>
+                            <div className="flex justify-between items-center mb-6">
+                                <div>
+                                    <h2 className="text-xl font-semibold text-gray-900">Project Blocks</h2>
+                                    <p className="text-sm text-gray-500 mt-0.5">Each block is an independent unit — Tower, Wing, or Phase.</p>
+                                </div>
+                                {['Admin', 'Site Manager'].includes(currentUser?.role) && (
+                                    <button
+                                        onClick={() => setIsCreateBlockModalOpen(true)}
+                                        className="flex items-center gap-2 bg-[#1a1d2e] hover:bg-[#252840] text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all"
+                                    >
+                                        <Plus size={18} /> Add Block
+                                    </button>
+                                )}
+                            </div>
 
-                    {/* Material Inventory Tab Content */}
-                    {activeTab === 'inventory' && (
-                        <MaterialInventoryTab projectId={project.id} />
-                    )}
+                            {blocksLoading ? (
+                                <div className="flex items-center justify-center py-16 text-gray-400"><Loader2 size={28} className="animate-spin" /></div>
+                            ) : blocks.length === 0 ? (
+                                <div className="bg-white p-16 rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center">
+                                    <div className="w-20 h-20 bg-violet-50 rounded-full flex items-center justify-center mb-4">
+                                        <Building2 size={32} className="text-violet-400" />
+                                    </div>
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Blocks Yet</h3>
+                                    <p className="text-gray-500 max-w-sm mb-6">Add your first block to start tracking blueprints, materials, and daily logs per unit.</p>
+                                    {['Admin', 'Site Manager'].includes(currentUser?.role) && (
+                                        <button onClick={() => setIsCreateBlockModalOpen(true)} className="flex items-center gap-2 bg-[#1a1d2e] text-white px-6 py-3 rounded-xl text-sm font-medium hover:bg-[#252840] transition-all shadow-sm">
+                                            <Plus size={18} /> Create First Block
+                                        </button>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                    {blocks.map((block) => (
+                                        <div
+                                            key={block._id}
+                                            onClick={() => navigate(`/projects/${id}/blocks/${block._id}`)}
+                                            className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all cursor-pointer group"
+                                        >
+                                            <div className="flex items-center gap-4 mb-4">
+                                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center text-white font-bold text-xl shadow-sm">
+                                                    {block.name.charAt(0)}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className="font-semibold text-gray-900 group-hover:text-violet-600 transition-colors truncate">{block.name}</h3>
+                                                    {block.description && <p className="text-xs text-gray-500 truncate mt-0.5">{block.description}</p>}
+                                                </div>
+                                                <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${
+                                                    block.status === 'Completed' ? 'bg-green-50 text-green-600' :
+                                                    block.status === 'In Progress' ? 'bg-violet-50 text-violet-600' :
+                                                    'bg-gray-50 text-gray-400'
+                                                }`}>{block.status || 'Active'}</span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3 text-center border-t border-gray-50 pt-4">
+                                                <div>
+                                                    <p className="text-xs font-medium text-gray-400 mb-1">Blueprints</p>
+                                                    <p className="text-lg font-semibold text-gray-900">{(block.blueprints || []).length}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-medium text-gray-400 mb-1">Logs</p>
+                                                    <p className="text-lg font-semibold text-gray-900">{block.logCount || 0}</p>
+                                                </div>
+                                            </div>
+                                            <div className="mt-4 flex items-center justify-between">
+                                                <span className="text-xs text-gray-400 font-medium">
+                                                    {block.createdAt ? `Added ${new Date(block.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''}
+                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-medium text-violet-500 group-hover:text-violet-700 flex items-center gap-1">
+                                                        Open <ChevronRight size={14} />
+                                                    </span>
+                                                    {['Admin', 'Site Manager'].includes(currentUser?.role) && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setBlockToDelete(block); setDeleteBlockConfirmText(''); }}
+                                                            className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                            title="Delete block"
+                                                        >
+                                                            <Trash2 size={15} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
 
-                    {/* Daily Logs Tab Content */}
-                    {activeTab === 'logs' && (
-                        <DailyLogsTab projectId={project.id} />
+                            {/* Create Block Modal */}
+                            {isCreateBlockModalOpen && (
+                                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+                                    <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-md overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+                                        <div className="px-8 py-6 border-b border-gray-100 relative">
+                                            <button onClick={() => { setIsCreateBlockModalOpen(false); setNewBlockName(''); setNewBlockDesc(''); }} className="absolute top-6 right-6 p-2 rounded-full hover:bg-gray-100 text-gray-400">
+                                                <X size={20} />
+                                            </button>
+                                            <h3 className="text-lg font-semibold text-gray-900">Create New Block</h3>
+                                            <p className="text-gray-500 text-sm mt-1">Add a new building block to this project (e.g. Block A, Tower 2, Clubhouse)</p>
+                                        </div>
+                                        <form onSubmit={async (e) => {
+                                            e.preventDefault();
+                                            if (!newBlockName.trim()) return;
+                                            setCreateBlockLoading(true);
+                                            try {
+                                                await api.post(`/projects/${id}/blocks`, {
+                                                    name: newBlockName.trim(),
+                                                    description: newBlockDesc.trim()
+                                                });
+                                                setIsCreateBlockModalOpen(false);
+                                                setNewBlockName('');
+                                                setNewBlockDesc('');
+                                                fetchBlocks();
+                                                showToast('Block created successfully', 'success');
+                                            } catch (err) {
+                                                showToast('Failed to create block', 'error');
+                                            } finally {
+                                                setCreateBlockLoading(false);
+                                            }
+                                        }} className="p-8 space-y-5">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-500 mb-2">Block Name *</label>
+                                                <input
+                                                    type="text"
+                                                    value={newBlockName}
+                                                    onChange={e => setNewBlockName(e.target.value)}
+                                                    placeholder="e.g. Block A, Tower 1, Basement"
+                                                    required
+                                                    autoFocus
+                                                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-violet-400 focus:ring-2 focus:ring-violet-100 outline-none text-sm"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-500 mb-2">Description <span className="text-gray-300 font-normal">(Optional)</span></label>
+                                                <input
+                                                    type="text"
+                                                    value={newBlockDesc}
+                                                    onChange={e => setNewBlockDesc(e.target.value)}
+                                                    placeholder="e.g. 4 floors, parking level included"
+                                                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-violet-400 focus:ring-2 focus:ring-violet-100 outline-none text-sm"
+                                                />
+                                            </div>
+                                            <div className="flex gap-3 pt-2">
+                                                <button type="button" onClick={() => { setIsCreateBlockModalOpen(false); setNewBlockName(''); setNewBlockDesc(''); }} className="flex-1 py-3 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition">
+                                                    Cancel
+                                                </button>
+                                                <button type="submit" disabled={createBlockLoading || !newBlockName.trim()} className="flex-[2] py-3 text-sm font-medium text-white bg-[#1a1d2e] hover:bg-[#252840] rounded-xl shadow-sm transition flex items-center justify-center gap-2 disabled:opacity-60">
+                                                    {createBlockLoading ? <Loader2 size={18} className="animate-spin" /> : 'Create Block'}
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     )}
 
                     {/* Personnel Tab Content */}
@@ -613,16 +818,74 @@ const ProjectDetail = () => {
                         <ProjectPersonnelTab projectId={project.id} />
                     )}
 
-                    {/* Placeholder for other tabs */}
-                    {(activeTab !== 'overview' && activeTab !== 'blueprint' && activeTab !== 'inventory' && activeTab !== 'logs' && activeTab !== 'personnel') && (
-                        <div className="bg-white p-16 rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center">
-                            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                                <Box size={32} className="text-gray-300" />
+                    {/* Inventory Tab (project-level, shared across all blocks) */}
+                    {activeTab === 'inventory' && (
+                        <MaterialInventoryTab projectId={id} />
+                    )}
+
+                    {/* Single mode — Blueprint Tab (uses Main Block transparently) */}
+                    {activeTab === 'blueprint' && project.blockMode === 'single' && mainBlockId && (
+                        <BlueprintTab projectId={id} blockId={mainBlockId} />
+                    )}
+                    {activeTab === 'blueprint' && project.blockMode === 'single' && !mainBlockId && (
+                        <div className="bg-white p-16 rounded-3xl border border-gray-100 shadow-sm flex items-center justify-center text-gray-400 text-sm"><Loader2 size={20} className="animate-spin mr-2" /> Loading...</div>
+                    )}
+
+                    {/* Single mode — Daily Logs Tab (uses Main Block transparently) */}
+                    {activeTab === 'logs' && project.blockMode === 'single' && mainBlockId && (
+                        <DailyLogsTab projectId={id} blockId={mainBlockId} />
+                    )}
+                    {activeTab === 'logs' && project.blockMode === 'single' && !mainBlockId && (
+                        <div className="bg-white p-16 rounded-3xl border border-gray-100 shadow-sm flex items-center justify-center text-gray-400 text-sm"><Loader2 size={20} className="animate-spin mr-2" /> Loading...</div>
+                    )}
+
+                    {/* Block Delete Confirmation Modal */}
+                    {blockToDelete && (
+                        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+                            <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-md overflow-hidden border border-gray-100">
+                                <div className="px-8 py-6 border-b border-red-50 bg-red-50/50">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
+                                            <Trash2 size={20} className="text-red-500" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-gray-900">Delete Block</h3>
+                                            <p className="text-sm text-gray-500">This action cannot be undone</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="p-8 space-y-4">
+                                    <p className="text-sm text-gray-600">
+                                        All <span className="font-semibold text-red-600">blueprints, daily logs, and pins</span> in <span className="font-semibold">"{blockToDelete.name}"</span> will be permanently deleted.
+                                    </p>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 mb-2">Type <span className="font-bold text-gray-800">{blockToDelete.name}</span> to confirm</label>
+                                        <input
+                                            type="text"
+                                            value={deleteBlockConfirmText}
+                                            onChange={e => setDeleteBlockConfirmText(e.target.value)}
+                                            placeholder={blockToDelete.name}
+                                            autoFocus
+                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:border-red-300 focus:ring-2 focus:ring-red-100 outline-none"
+                                        />
+                                    </div>
+                                    <div className="flex gap-3 pt-2">
+                                        <button
+                                            onClick={() => { setBlockToDelete(null); setDeleteBlockConfirmText(''); }}
+                                            className="flex-1 py-3 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={handleDeleteBlock}
+                                            disabled={deleteBlockLoading || deleteBlockConfirmText !== blockToDelete.name}
+                                            className="flex-[2] py-3 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-xl transition flex items-center justify-center gap-2 disabled:opacity-50"
+                                        >
+                                            {deleteBlockLoading ? <Loader2 size={18} className="animate-spin" /> : <><Trash2 size={16} /> Delete Block</>}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                                {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Module
-                            </h3>
-                            <p className="text-gray-500 max-w-sm">This module is currently under development. Phase 2 rollout is scheduled for next quarter.</p>
                         </div>
                     )}
                 </div>

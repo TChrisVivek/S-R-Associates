@@ -14,7 +14,7 @@ import { useAuth } from '../context/AuthContext';
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
-const BlueprintTab = ({ projectId }) => {
+const BlueprintTab = ({ projectId, blockId }) => {
     // --- REAL-TIME STATE ---
     const [allBlueprints, setAllBlueprints] = useState([]);
     const [activeBlueprintIndex, setActiveBlueprintIndex] = useState(0);
@@ -80,12 +80,12 @@ const BlueprintTab = ({ projectId }) => {
     // 1. Fetch Real Data
     useEffect(() => {
         fetchBlueprintData();
-    }, [projectId]);
+    }, [blockId]);
 
     const fetchBlueprintData = async () => {
         setLoading(true);
         try {
-            const response = await api.get(`/projects/${projectId}/blueprint-tasks`);
+            const response = await api.get(`/projects/${projectId}/blocks/${blockId}/blueprint-tasks`);
             if (response.status === 200) {
                 const blueprints = response.data.blueprints || [];
                 setAllBlueprints(blueprints);
@@ -201,7 +201,7 @@ const BlueprintTab = ({ projectId }) => {
         setTasks([optimisticTask, ...tasks]);
 
         try {
-            const response = await api.post(`/projects/${projectId}/blueprint-tasks`, newTaskReq);
+            const response = await api.post(`/projects/${projectId}/blocks/${blockId}/blueprint-tasks`, newTaskReq);
             if (response.status === 201) {
                 setTasks(prev => prev.map(t => t.id === tempId ? response.data : t));
             }
@@ -223,7 +223,7 @@ const BlueprintTab = ({ projectId }) => {
         if (!taskToDelete) return;
 
         try {
-            await api.delete(`/projects/${projectId}/blueprint-tasks/${taskToDelete}`);
+            await api.delete(`/projects/${projectId}/blocks/${blockId}/blueprint-tasks/${taskToDelete}`);
             setTasks(prev => prev.filter(t => t.id !== taskToDelete));
             showToast("Pin deleted successfully", "success");
         } catch (error) {
@@ -266,7 +266,7 @@ const BlueprintTab = ({ projectId }) => {
                 plans: [cloudinaryUrl]
             };
 
-            await api.post(`/projects/${projectId}/blueprints`, payload);
+            await api.post(`/projects/${projectId}/blocks/${blockId}/blueprints`, payload);
             await fetchBlueprintData();
             showToast("Blueprint uploaded successfully", "success");
         } catch (error) {
@@ -284,7 +284,7 @@ const BlueprintTab = ({ projectId }) => {
         if (!blueprintToDelete) return;
 
         try {
-            await api.delete(`/projects/${projectId}/blueprints/${blueprintToDelete}`);
+            await api.delete(`/projects/${projectId}/blocks/${blockId}/blueprints/${blueprintToDelete}`);
             await fetchBlueprintData();
 
             // Adjust active index if necessary
