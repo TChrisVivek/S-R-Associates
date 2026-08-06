@@ -79,7 +79,26 @@ const Dashboard = () => {
         const active = projects.filter(p => ['In Progress', 'On Track'].includes(p.status)).length;
         const delayed = projects.filter(p => p.status === 'Delayed').length;
         const completed = projects.filter(p => p.status === 'Completed').length;
-        const budgetHealth = total > 0 ? Math.round(((total - delayed) / total) * 100) : 100;
+        
+        // Calculate real budget utilization
+        let totalAllocated = 0;
+        let totalSpent = 0;
+
+        projects.forEach(p => {
+            if (p.budget && p.budget > 0) {
+                let multiplier = 1;
+                const unit = (p.budgetUnit || "Lakhs").toLowerCase();
+                if (unit === 'crores') multiplier = 10000000;
+                else if (unit === 'lakhs') multiplier = 100000;
+                else if (unit === 'thousands') multiplier = 1000;
+                
+                totalAllocated += (p.budget * multiplier);
+                totalSpent += (p.totalSpent || 0);
+            }
+        });
+
+        const budgetHealth = totalAllocated > 0 ? Math.round((totalSpent / totalAllocated) * 100) : 0;
+
         return { total, active, delayed, completed, budgetHealth };
     }, [projects]);
 
@@ -325,21 +344,6 @@ const Dashboard = () => {
 
                         {/* Alerts Column (1/3) */}
                         <div className="space-y-6">
-                            {/* Live Alerts */}
-                            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                                <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2.5">
-                                    <span className="relative flex h-2 w-2">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                                    </span>
-                                    <h3 className="text-sm font-semibold text-gray-900">Live Feed</h3>
-                                </div>
-                                <div className="divide-y divide-gray-50">
-                                    {dynamicAlerts.map((alert, i) => (
-                                        <AlertItem key={i} {...alert} />
-                                    ))}
-                                </div>
-                            </div>
 
                             {/* Quick Stats Card */}
                             <div className="bg-gradient-to-br from-[#1a1d2e] to-[#252840] rounded-2xl p-5 text-white">

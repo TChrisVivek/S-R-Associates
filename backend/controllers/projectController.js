@@ -84,6 +84,24 @@ exports.getAllProjects = async (req, res) => {
         }
 
         const projects = await Project.find(query).sort({ createdAt: -1 });
+        const projectIds = projects.map(p => p._id);
+
+        const Material = require('../models/Material'); // Ensure Material is imported if not globally available, wait it is globally imported at line 6
+        const materials = await Material.find({ project_id: { $in: projectIds } });
+
+        const spendByProject = {};
+        materials.forEach(mat => {
+            let matTotal = 0;
+            mat.logs.forEach(log => {
+                if (log.type === 'delivery' && log.totalCost) {
+                    matTotal += log.totalCost;
+                }
+            });
+            const pId = mat.project_id.toString();
+            spendByProject[pId] = (spendByProject[pId] || 0) + matTotal;
+        });
+
+        const enhancedProjects = [];
 
         for (const p of projects) {
             if (p.endDate && p.status !== 'Completed' && p.status !== 'Delayed') {
@@ -94,9 +112,12 @@ exports.getAllProjects = async (req, res) => {
                     await p.save();
                 }
             }
+            const pObj = p.toObject();
+            pObj.totalSpent = spendByProject[p._id.toString()] || 0;
+            enhancedProjects.push(pObj);
         }
 
-        res.status(200).json(projects);
+        res.status(200).json(enhancedProjects);
     } catch (error) {
         console.error("Get Projects Error:", error);
         res.status(500).json({ message: "Error fetching projects", error: error.message });
