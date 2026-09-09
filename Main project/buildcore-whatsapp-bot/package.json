@@ -1,0 +1,29 @@
+{
+  "name": "buildcore-whatsapp-bot",
+  "version": "1.0.0",
+  "description": "WhatsApp bot for BuildCore — listens to project groups, extracts updates via Ollama, queues for Admin approval",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js",
+    "discover": "DISCOVERY_MODE=true node src/index.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "construction",
+    "buildcore"
+  ],
+  "author": "S-R Associates",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.0",
+    "dotenv": "^16.4.0",
+    "form-data": "^4.0.1",
+    "node-cron": "^3.0.3",
+    "pdf-parse": "^2.4.5",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.26.1-alpha.3",
+    "winston": "^3.14.0"
+  }
+}
